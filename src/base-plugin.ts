@@ -1,9 +1,9 @@
 export interface PluginConfig {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface DimensionResult {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface DependencyOutputs {
@@ -13,7 +13,7 @@ export interface DependencyOutputs {
 export interface SectionData {
   content: string;
   metadata: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -22,15 +22,15 @@ export interface AIConfig {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class BasePlugin {
-  public config: PluginConfig;
-  public id: string;
-  public name: string;
-  public description: string;
-  public dimensions: string[];
+  public readonly config: PluginConfig;
+  public readonly id: string;
+  public readonly name: string;
+  public readonly description: string;
+  public readonly dimensions: string[];
 
   constructor(config: PluginConfig = {}) {
     this.config = config;
@@ -45,26 +45,24 @@ export class BasePlugin {
   }
 
   createDimensionPrompt(
-    section: SectionData,
-    dimension: string,
-    dependencies: DependencyOutputs = {},
+    _section: SectionData,
+    _dimension: string,
+    _dependencies: DependencyOutputs = {},
   ): string {
     throw new Error("createDimensionPrompt() must be implemented by plugin");
   }
 
-  getAIConfigForDimension(dimension: string, section: SectionData): AIConfig {
+  getAIConfigForDimension(_dimension: string, _section: SectionData): AIConfig {
     throw new Error("getAIConfigForDimension() must be implemented by plugin");
   }
 
-  getDimensionDependencyGraph(): { [dimension: string]: string[] } {
+  getDimensionDependencyGraph(): Record<string, string[]> {
     return {};
   }
 
-  processSectionResultBeforeSave(dimensionResults: {
-    [dimension: string]: DimensionResult;
-  }): {
-    [dimension: string]: DimensionResult;
-  } {
+  processSectionResultBeforeSave(
+    dimensionResults: Record<string, DimensionResult>,
+  ): Record<string, DimensionResult> {
     return dimensionResults;
   }
 
@@ -73,7 +71,7 @@ export class BasePlugin {
     name: string;
     description: string;
     dimensions: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   } {
     return {
       id: this.id,

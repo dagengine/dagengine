@@ -1,6 +1,6 @@
 export interface AIProviderConfig {
   apiKey?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AIAdapterConfig {
@@ -16,31 +16,31 @@ export interface ProcessOptions {
   maxTokens?: number;
   dimension?: string;
   sectionIndex?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AIResponse {
   text?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class AIAdapter {
-  private config: AIAdapterConfig;
-  private providers: Map<string, BaseAIProvider>;
+  private readonly config: AIAdapterConfig;
+  private readonly providers: Map<string, BaseAIProvider>;
 
   constructor(config: AIAdapterConfig = {}) {
     this.config = config;
     this.providers = new Map();
 
     // Initialize built-in providers
-    this._initializeProviders();
+    this.initializeProviders();
   }
 
   async process(
     prompt: string,
     options: ProcessOptions = {},
   ): Promise<AIResponse> {
-    const provider = this._getProvider(options.provider);
+    const provider = this.getProvider(options.provider);
 
     if (!provider) {
       throw new Error(`AI provider not available: ${options.provider}`);
@@ -49,13 +49,13 @@ export class AIAdapter {
     return provider.process(prompt, options);
   }
 
-  private _initializeProviders(): void {
+  private initializeProviders(): void {
     // OpenAI Provider
     if (this.config.openai?.apiKey) {
       this.providers.set(
         "openai",
         new OpenAIProvider({
-          apiKey: this.config.openai?.apiKey,
+          apiKey: this.config.openai.apiKey,
           ...this.config.openai,
         }),
       );
@@ -66,7 +66,7 @@ export class AIAdapter {
       this.providers.set(
         "anthropic",
         new AnthropicProvider({
-          apiKey: this.config.anthropic?.apiKey,
+          apiKey: this.config.anthropic.apiKey,
           ...this.config.anthropic,
         }),
       );
@@ -77,20 +77,20 @@ export class AIAdapter {
       this.providers.set(
         "gemini",
         new GeminiProvider({
-          apiKey: this.config.gemini?.apiKey,
+          apiKey: this.config.gemini.apiKey,
           ...this.config.gemini,
         }),
       );
     }
   }
 
-  private _getProvider(provider?: string): BaseAIProvider | undefined {
+  private getProvider(provider?: string): BaseAIProvider | undefined {
     return this.providers.get(provider || "");
   }
 }
 
 abstract class BaseAIProvider {
-  protected config: AIProviderConfig;
+  protected readonly config: AIProviderConfig;
   public name: string;
 
   constructor(config: AIProviderConfig) {
@@ -105,7 +105,7 @@ abstract class BaseAIProvider {
 }
 
 class OpenAIProvider extends BaseAIProvider {
-  private apiKey: string;
+  private readonly apiKey: string;
 
   constructor(config: AIProviderConfig) {
     super(config);
@@ -121,31 +121,36 @@ class OpenAIProvider extends BaseAIProvider {
     const temperature = options.temperature ?? 0.1;
     const maxTokens = options.maxTokens || 4000;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
+    const response = await globalThis.fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          temperature,
+          max_tokens: maxTokens,
+        }),
       },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    // @ts-ignore
+    const data = (await response.json()) as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
     const content = data.choices[0]?.message?.content || "";
 
     // Try to parse as JSON, fallback to text
     try {
-      return JSON.parse(content);
+      return JSON.parse(content) as AIResponse;
     } catch {
       return { text: content };
     }
@@ -153,7 +158,7 @@ class OpenAIProvider extends BaseAIProvider {
 }
 
 class AnthropicProvider extends BaseAIProvider {
-  private apiKey: string;
+  private readonly apiKey: string;
 
   constructor(config: AIProviderConfig) {
     super(config);
@@ -169,32 +174,37 @@ class AnthropicProvider extends BaseAIProvider {
     const temperature = options.temperature ?? 0.1;
     const maxTokens = options.maxTokens || 4000;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": this.apiKey,
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
+    const response = await globalThis.fetch(
+      "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+        headers: {
+          "x-api-key": this.apiKey,
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          messages: [{ role: "user", content: prompt }],
+        }),
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Anthropic API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    // @ts-ignore
+    const data = (await response.json()) as {
+      content: Array<{ text: string }>;
+    };
+
     const content = data.content[0]?.text || "";
 
     // Try to parse as JSON, fallback to text
     try {
-      return JSON.parse(content);
+      return JSON.parse(content) as AIResponse;
     } catch {
       return { text: content };
     }
@@ -202,7 +212,7 @@ class AnthropicProvider extends BaseAIProvider {
 }
 
 class GeminiProvider extends BaseAIProvider {
-  private apiKey: string;
+  private readonly apiKey: string;
 
   constructor(config: AIProviderConfig) {
     super(config);
@@ -217,7 +227,7 @@ class GeminiProvider extends BaseAIProvider {
     const model = options.model || "gemini-1.5-pro";
     const temperature = options.temperature ?? 0.1;
 
-    const response = await fetch(
+    const response = await globalThis.fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
       {
         method: "POST",
@@ -238,13 +248,17 @@ class GeminiProvider extends BaseAIProvider {
       throw new Error(`Gemini API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    // @ts-ignore
+    const data = (await response.json()) as {
+      candidates: Array<{
+        content: { parts: Array<{ text: string }> };
+      }>;
+    };
+
     const content = data.candidates[0]?.content?.parts[0]?.text || "";
 
     // Try to parse as JSON, fallback to text
     try {
-      return JSON.parse(content);
+      return JSON.parse(content) as AIResponse;
     } catch {
       return { text: content };
     }

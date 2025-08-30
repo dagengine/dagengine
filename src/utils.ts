@@ -2,18 +2,26 @@ import {
   BASE_DELAY_BETWEEN_RETRIES,
   MAX_DELAY_BETWEEN_RETRIES,
   MAX_RETRIES,
-} from "./const.ts";
+} from "./const";
 
 const RATE_LIMIT_KEYWORDS = ["rate", "limit", "capacity", "quota", "429"];
 
-function isRateLimitError(error: any): boolean {
+interface ErrorWithStatus {
+  status?: number;
+  statusCode?: number;
+  message?: string;
+}
+
+function isRateLimitError(error: unknown): boolean {
   if (!error) return false;
 
-  if (error.status === 429 || error.statusCode === 429) {
+  const err = error as ErrorWithStatus;
+
+  if (err.status === 429 || err.statusCode === 429) {
     return true;
   }
 
-  const message = error.message || "";
+  const message = err.message || "";
   return RATE_LIMIT_KEYWORDS.some((keyword) =>
     message.toLowerCase().includes(keyword.toLowerCase()),
   );
@@ -58,13 +66,13 @@ export async function retry<T>(
       if (isRateLimitError(error)) {
         // Rate limit backoff - longer waits
         waitTime = Math.min(baseDelay * Math.pow(3, retryCount), 60000);
-        console.log(
+        globalThis.console.log(
           `Rate limit hit, waiting ${waitTime / 1000} seconds before retry ${retryCount + 1}/${maxRetries + 1}`,
         );
       } else {
         // Standard exponential backoff
         waitTime = Math.min(baseDelay * Math.pow(2, retryCount), maxDelay);
-        console.log(
+        globalThis.console.log(
           `Error, retry ${retryCount + 1}/${maxRetries + 1}: ${(error as Error).message}. Waiting ${waitTime / 1000}s.`,
         );
       }
@@ -74,7 +82,9 @@ export async function retry<T>(
         await onRetry(retryCount, error as Error);
       }
 
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      await new Promise<void>((resolve) =>
+        globalThis.setTimeout(resolve, waitTime),
+      );
       retryCount++;
     }
   }

@@ -1,3 +1,9 @@
+node_modules/
+node_modules
+dist/
+dist
+coverage/
+coverage
 src/
 tests/
 coverage/
@@ -9,6 +15,7 @@ tsconfig*.json
 eslint.config.js
 .prettierrc
 .gitignore
+node_modules/
 dist/
 coverage/
 *.log
