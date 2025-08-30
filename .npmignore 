@@ -9,7 +9,6 @@ tsconfig*.json
 eslint.config.js
 .prettierrc
 .gitignore
-node_modules/
 dist/
 coverage/
 *.log
