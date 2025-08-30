@@ -1,0 +1,76 @@
+{
+  "name": "dag-ai",
+  "version": "1.0.0",
+  "description": "AI-powered dag engine for processing data through analysis dimensions",
+  "keywords": ["dag", "ai", "analysis", "insights", "typescript"],
+  "homepage": "https://github.com/yourusername/insight-engine-lib#readme",
+  "private": true,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/insight-engine-lib/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivan629/dag-ai.git"
+  },
+  "license": "MIT",
+  "author": "Your Name <your.email@example.com>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "build:watch": "tsup --watch",
+    "dev": "tsup --watch --onSuccess \"node dist/index.js\"",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit",
+    "validate": "npm run type-check && npm run lint && npm run test",
+    "prepublishOnly": "npm run validate && npm run build"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "eslint": "^9.34.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "jest": "^30.1.1",
+    "lint-staged": "^16.1.5",
+    "np": "^10.2.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "semantic-release": "^24.2.7",
+    "ts-jest": "^29.4.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}

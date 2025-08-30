@@ -1,0 +1,11 @@
+src/
+tests/
+coverage/
+.github/
+.husky/
+*.config.js
+*.config.ts
+tsconfig*.json
+eslint.config.js
+.prettierrc
+.gitignore
