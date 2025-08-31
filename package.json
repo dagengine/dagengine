@@ -1,5 +1,5 @@
 {
-  "name": "dag-ai",
+  "name": "@ivan629/dag-ai",
   "version": "1.0.0",
   "description": "AI-powered dag engine for processing data through analysis dimensions",
   "keywords": ["dag", "ai", "analysis", "insights", "typescript"],
