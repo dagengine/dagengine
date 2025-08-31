@@ -30,10 +30,10 @@ export interface AIConfig {
 
 export class BasePlugin {
   public config: PluginConfig;
-  public readonly id: string;
-  public readonly name: string;
-  public readonly description: string;
-  public readonly dimensions: string[];
+  public id: string;
+  public name: string;
+  public description: string;
+  public dimensions: string[];
 
   constructor(config: PluginConfig = {}) {
     this.config = config;
