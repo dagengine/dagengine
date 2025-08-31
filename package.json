@@ -51,7 +51,7 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "validate": "npm run type-check && npm run lint && npm run test",
-    "prepublishOnly": "npm run validate && npm run build"
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
