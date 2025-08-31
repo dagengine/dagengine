@@ -4,7 +4,7 @@
   "description": "AI-powered dag engine for processing data through analysis dimensions",
   "keywords": ["dag", "ai", "analysis", "insights", "typescript"],
   "homepage": "https://github.com/yourusername/insight-engine-lib#readme",
-  "private": true,
+  "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
