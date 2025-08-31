@@ -18,15 +18,18 @@ export interface SectionData {
 }
 
 export interface AIConfig {
-  provider?: string;
-  model?: string;
+  provider: string;
+  model: string;
   temperature?: number;
   maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
   [key: string]: unknown;
 }
 
 export class BasePlugin {
-  public readonly config: PluginConfig;
+  public config: PluginConfig;
   public readonly id: string;
   public readonly name: string;
   public readonly description: string;
