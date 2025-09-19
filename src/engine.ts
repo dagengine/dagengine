@@ -81,12 +81,7 @@ export class DagEngine {
   ): Promise<ProcessingResult> {
     this.validateInput(sections);
 
-    if (sections.length > 1) {
-      return this.processMultipleSections(sections, options);
-    }
-
-    //@ts-expect-error
-    return this.processSingleSection(sections[0], options);
+    return this.processMultipleSections(sections, options);
   }
 
   private validateInput(sections: SectionData[]): void {
