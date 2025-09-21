@@ -8,13 +8,13 @@ export type {
 } from "./engine";
 
 // AI Adapter
-export { AIAdapter } from "./ai-adapter";
+export { AIAdapter } from "./providers/ai-adapter";
 export type {
   AIAdapterConfig,
   AIProviderConfig,
   ProcessOptions,
   AIResponse,
-} from "./ai-adapter";
+} from "./providers/ai-adapter";
 
 // Base Plugin
 export { BasePlugin } from "./base-plugin";

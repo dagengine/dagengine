@@ -1,6 +1,6 @@
 {
   "name": "@ivan629/dag-ai",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "AI-powered dag engine for processing data through analysis dimensions",
   "keywords": ["dag", "ai", "analysis", "insights", "typescript"],
   "homepage": "https://github.com/yourusername/insight-engine-lib#readme",
