@@ -1,4 +1,4 @@
-import { AIAdapterConfig, AIAdapter } from "./ai-adapter";
+import { AIAdapterConfig, AIAdapter } from "./providers/ai-adapter";
 import {
   BasePlugin,
   SectionData,
