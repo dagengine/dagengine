@@ -88,7 +88,7 @@ export class TavilyProvider extends BaseAIProvider {
         const startTime: number = Date.now();
 
         for (let i = 0; i < queries.length; i++) {
-            const query: string = queries[i].trim();
+            const query: string = queries[i]?.trim() ?? ''
 
             try {
                 const searchData = await this.executeSearch(query, maxResults, searchDepth);
@@ -111,9 +111,6 @@ export class TavilyProvider extends BaseAIProvider {
                 });
             }
 
-            if (i < queries.length - 1) {
-                await this.delay(delay);
-            }
         }
 
         const executionTime: number = Date.now() - startTime;

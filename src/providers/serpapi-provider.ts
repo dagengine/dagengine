@@ -85,7 +85,7 @@ export class SerpApiProvider extends BaseAIProvider {
         const startTime: number = Date.now();
 
         for (let i = 0; i < queries.length; i++) {
-            const query: string = queries[i].trim();
+            const query: string = queries[i]?.trim() ?? ''
 
             try {
                 const searchData = await this.executeSearch(query, engine, num);
