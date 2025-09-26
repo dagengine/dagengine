@@ -24,8 +24,6 @@ interface BatchSearchSummary {
     executionTimeMs: number;
 }
 
-export interface TavilyResponse extends AIResponse;
-
 export class TavilyProvider extends BaseAIProvider {
     private readonly apiKey: string;
     private readonly endpoint: string;
@@ -37,7 +35,7 @@ export class TavilyProvider extends BaseAIProvider {
         this.endpoint = (config.endpoint as string) || "https://api.tavily.com/search";
     }
 
-    async process(prompt: string, options: ProcessOptions = {}): Promise<TavilyResponse> {
+    async process(prompt: string, options: ProcessOptions = {}): Promise<AIResponse> {
         let queries: string[];
 
         try {
@@ -70,7 +68,7 @@ export class TavilyProvider extends BaseAIProvider {
         );
     }
 
-    private async executeBatchSearch(queries: string[], options: ProcessOptions): Promise<TavilyResponse> {
+    private async executeBatchSearch(queries: string[], options: ProcessOptions): Promise<AIResponse> {
         const maxResults: number = (options.numResults as number) || 5;
         const searchDepth: string = (options.model as string) || "advanced";
         const delay: number = (options.searchDelay as number) || 400;
