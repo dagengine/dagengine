@@ -24,16 +24,7 @@ interface BatchSearchSummary {
     executionTimeMs: number;
 }
 
-export interface TavilyResponse extends AIResponse {
-    raw: {
-        batch_id: string;
-        queries: string[];
-        results: SearchResult[];
-        summary: BatchSearchSummary;
-    };
-    engine: string;
-    type: "batch_search";
-}
+export interface TavilyResponse extends AIResponse;
 
 export class TavilyProvider extends BaseAIProvider {
     private readonly apiKey: string;
@@ -88,7 +79,7 @@ export class TavilyProvider extends BaseAIProvider {
         const startTime: number = Date.now();
 
         for (let i = 0; i < queries.length; i++) {
-            const query: string = queries[i]?.trim() ?? ''
+            const query: string = queries[i]?.trim() ?? '';
 
             try {
                 const searchData = await this.executeSearch(query, maxResults, searchDepth);
@@ -111,6 +102,10 @@ export class TavilyProvider extends BaseAIProvider {
                 });
             }
 
+            // Add delay between requests if specified
+            if (i < queries.length - 1 && delay > 0) {
+                await this.delay(delay);
+            }
         }
 
         const executionTime: number = Date.now() - startTime;
@@ -124,16 +119,17 @@ export class TavilyProvider extends BaseAIProvider {
             executionTimeMs: executionTime
         };
 
+        // Create a structured response that can be parsed by DagEngine
+        const structuredResponse = {
+            search_results: results,
+            summary: summary,
+            queries: queries
+        };
+
+        console.log('TAVILY_response', JSON.stringify(structuredResponse))
         return {
-            text: JSON.stringify(results, null, 2),
-            raw: {
-                batch_id: `tavily_${Date.now()}`,
-                queries,
-                results,
-                summary
-            },
-            engine: "tavily",
-            type: "batch_search"
+            // Return JSON string that can be parsed back to an object by the engine
+            text: JSON.stringify(structuredResponse),
         };
     }
 
