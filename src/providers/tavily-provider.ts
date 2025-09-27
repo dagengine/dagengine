@@ -127,7 +127,7 @@ export class TavilyProvider extends BaseAIProvider {
         };
 
         return {
-            text: JSON.stringify(response)
+            response
         };
     }
 

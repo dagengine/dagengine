@@ -401,7 +401,7 @@ class DimensionProcessor {
     const err = error instanceof Error ? error : new Error(String(error));
     globalThis.console.error(`Error processing dimension ${dimension}:`, err);
 
-    const errorResult: DimensionResult = { dimension, error: err.message };
+    const errorResult: DimensionResult = { response: { error: err.message } };
     this.results.set(dimension, errorResult);
     this.options.onError?.(dimension, err);
 

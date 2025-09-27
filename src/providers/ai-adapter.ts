@@ -2,14 +2,12 @@ import { BaseAIProvider, AIProviderConfig, ProcessOptions, AIResponse } from './
 import { OpenAIProvider } from './openai-provider';
 import { AnthropicProvider } from './anthropic-provider';
 import { GeminiProvider } from './gemini-provider';
-import { SerpApiProvider } from './serpapi-provider';
 import { TavilyProvider } from './tavily-provider';
 
 export interface AIAdapterConfig {
     openai?: AIProviderConfig;
     anthropic?: AIProviderConfig;
     gemini?: AIProviderConfig;
-    serpapi?: AIProviderConfig;
     tavily?: AIProviderConfig;
 }
 
@@ -67,16 +65,6 @@ export class AIAdapter {
             );
         }
 
-        if (this.config.serpapi?.apiKey) {
-            this.providers.set(
-                "serpapi",
-                new SerpApiProvider({
-                    apiKey: this.config.serpapi.apiKey,
-                    ...this.config.serpapi,
-                }),
-            );
-        }
-
         if (this.config.tavily?.apiKey) {
             this.providers.set(
                 "tavily",
@@ -97,5 +85,4 @@ export { BaseAIProvider, AIProviderConfig, ProcessOptions, AIResponse } from './
 export { OpenAIProvider } from './openai-provider';
 export { AnthropicProvider } from './anthropic-provider';
 export { GeminiProvider } from './gemini-provider';
-export { SerpApiProvider, SerpApiResponse } from './serpapi-provider';
 export { TavilyProvider } from './tavily-provider';

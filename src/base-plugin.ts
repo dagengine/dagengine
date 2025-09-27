@@ -3,7 +3,8 @@ export interface PluginConfig {
 }
 
 export interface DimensionResult {
-  [key: string]: unknown;
+  response?: object;
+  error?: unknown;
 }
 
 export interface DependencyOutputs {

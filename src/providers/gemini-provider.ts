@@ -47,9 +47,9 @@ export class GeminiProvider extends BaseAIProvider {
 
         // Try to parse as JSON, fallback to text
         try {
-            return JSON.parse(content) as AIResponse;
+            return { response: JSON.parse(content) };
         } catch {
-            return { text: content };
+            return { error: content };
         }
     }
 }

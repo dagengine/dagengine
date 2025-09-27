@@ -47,9 +47,9 @@ export class AnthropicProvider extends BaseAIProvider {
 
         // Try to parse as JSON, fallback to text
         try {
-            return JSON.parse(content) as AIResponse;
-        } catch {
-            return { text: content };
+            return { response: JSON.parse(content) };
+        } catch (error) {
+            return { error: error };
         }
     }
 }

@@ -14,8 +14,8 @@ export interface ProcessOptions {
 }
 
 export interface AIResponse {
-    text?: string;
-    [key: string]: unknown;
+    response?: object;
+    error?: unknown;
 }
 
 export abstract class BaseAIProvider {
