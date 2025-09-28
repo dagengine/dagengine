@@ -13,43 +13,53 @@ export class AnthropicProvider extends BaseAIProvider {
         prompt: string,
         options: ProcessOptions = {},
     ): Promise<AIResponse> {
-        const model = options.model || "claude-3-5-sonnet-20240620";
-        const temperature = options.temperature ?? 0.1;
-        const maxTokens = options.maxTokens || 4000;
-
-        const response = await globalThis.fetch(
-            "https://api.anthropic.com/v1/messages",
-            {
-                method: "POST",
-                headers: {
-                    "x-api-key": this.apiKey,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01",
-                },
-                body: JSON.stringify({
-                    model,
-                    max_tokens: maxTokens,
-                    temperature,
-                    messages: [{ role: "user", content: prompt }],
-                }),
-            },
-        );
-
-        if (!response.ok) {
-            throw new Error(`Anthropic API error: ${response.status}`);
-        }
-
-        const data = (await response.json()) as {
-            content: Array<{ text: string }>;
-        };
-
-        const content = data.content[0]?.text || "";
-
-        // Try to parse as JSON, fallback to text
         try {
-            return { response: JSON.parse(content) };
+            const model = options.model || "claude-3-5-sonnet-20240620";
+            const temperature = options.temperature ?? 0.1;
+            const maxTokens = options.maxTokens || 4000;
+
+            const response = await globalThis.fetch(
+                "https://api.anthropic.com/v1/messages",
+                {
+                    method: "POST",
+                    headers: {
+                        "x-api-key": this.apiKey,
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01",
+                    },
+                    body: JSON.stringify({
+                        model,
+                        max_tokens: maxTokens,
+                        temperature,
+                        messages: [{ role: "user", content: prompt }],
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Anthropic API error: ${response.status} - ${errorText}`);
+                throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
+            }
+
+            const data = (await response.json()) as {
+                content: Array<{ text: string }>;
+            };
+
+            const content = data.content[0]?.text || "";
+
+            // Try to parse as JSON, fallback to text
+            try {
+                return { response: JSON.parse(content) };
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                //@ts-ignore
+                return { response: content }; // Return the raw text content instead of error
+            }
         } catch (error) {
-            return { error: error };
+            console.error('AnthropicProvider process error:', error);
+            //@ts-ignore
+            return { error: error instanceof Error ? error.message : String(error), response: null };
         }
     }
 }
