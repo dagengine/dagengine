@@ -17,38 +17,46 @@ export class OpenAIProvider extends BaseAIProvider {
         const temperature = options.temperature ?? 0.1;
         const maxTokens = options.maxTokens || 4000;
 
-        const response = await globalThis.fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${this.apiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [{ role: "user", content: prompt }],
-                    temperature,
-                    max_tokens: maxTokens,
-                }),
-            },
-        );
-
-        if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
-        }
-
-        const data = (await response.json()) as {
-            choices: Array<{ message: { content: string } }>;
-        };
-
-        const content = data.choices[0]?.message?.content || "";
-
-        // Try to parse as JSON, fallback to text
         try {
-            return { response: JSON.parse(content) };
-        } catch {
-            return { error: content };
+            const response = await globalThis.fetch(
+                "https://api.openai.com/v1/chat/completions",
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${this.apiKey}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages: [{ role: "user", content: prompt }],
+                        temperature,
+                        max_tokens: maxTokens,
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`OpenAI API error: ${response.status} - ${errorText}`);
+                throw new Error(`OpenAI API error: ${response.status}`);
+            }
+
+            const data = (await response.json()) as {
+                choices: Array<{ message: { content: string } }>;
+            };
+
+            const content = data.choices[0]?.message?.content || "";
+
+            // Try to parse as JSON, fallback to text
+            try {
+                return { response: JSON.parse(content) };
+            } catch (parseError) {
+                console.warn('Failed to parse OpenAI response as JSON:', parseError);
+                return { error: content };
+            }
+        } catch (error) {
+            console.error('OpenAI provider error:', error);
+            throw error;
         }
     }
 }
