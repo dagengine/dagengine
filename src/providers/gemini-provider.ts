@@ -29,6 +29,7 @@ export class GeminiProvider extends BaseAIProvider {
                         generationConfig: {
                             temperature,
                             maxOutputTokens: options.maxTokens || 4000,
+                            responseMimeType: "application/json",
                         },
                     }),
                 },
