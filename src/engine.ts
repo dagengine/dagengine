@@ -164,8 +164,10 @@ export class DagEngine {
 
         // Apply transformation if defined
         const config = this.plugin.getDimensionConfig?.(dimension);
+        const aiConfig = this.plugin.getAIConfigForDimension(dimension);
+
         if (config?.transform) {
-          const transformed = config.transform(result, this.currentSections);
+          const transformed = config.transform(result, this.currentSections, aiConfig);
           if (transformed && Array.isArray(transformed) && transformed.length > 0) {
             this.currentSections = transformed;
           } else {

@@ -5,7 +5,7 @@ export interface PluginConfig {
 export interface DimensionConfig {
   name: string;
   scope?: 'section' | 'global';
-  transform?: (result: DimensionResult, sections: SectionData[]) => SectionData[];
+  transform?: (result: DimensionResult, sections: SectionData[], aiConfig: unknown) => SectionData[];
 }
 
 export type DimensionSpec = string | DimensionConfig;
