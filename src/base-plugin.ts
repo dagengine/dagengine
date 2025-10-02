@@ -1,3 +1,5 @@
+import { ProviderAdapterConfig } from "./providers/provider-adapter";
+
 export interface PluginConfig {
   [key: string]: unknown;
 }
@@ -5,14 +7,14 @@ export interface PluginConfig {
 export interface DimensionConfig {
   name: string;
   scope?: 'section' | 'global';
-  transform?: (result: DimensionResult, sections: SectionData[], aiConfig: unknown) => SectionData[];
+  transform?: (result: DimensionResult, sections: SectionData[], providerConfig: ProviderAdapterConfig) => SectionData[];
 }
 
 export type DimensionSpec = string | DimensionConfig;
 
 export interface DimensionResult {
-  response?: object;
-  error?: unknown;
+  response?: unknown;
+  error?: string;
 }
 
 export interface DependencyOutputs {
@@ -26,23 +28,12 @@ export interface SectionData {
   };
 }
 
-export interface AIConfig {
-  provider: string;
-  model: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  [key: string]: unknown;
-}
-
-export class BasePlugin {
-  public config: PluginConfig;
-  public id: string;
-  public name: string;
-  public description: string;
-  public dimensions: DimensionSpec[];
+export abstract class BasePlugin {
+  public readonly config: PluginConfig;
+  public readonly id: string;
+  public readonly name: string;
+  public readonly description: string;
+  public readonly dimensions: DimensionSpec[];
 
   constructor(config: PluginConfig = {}) {
     this.config = config;
@@ -52,45 +43,46 @@ export class BasePlugin {
     this.dimensions = [];
   }
 
-  getDimensions(): string[] {
-    return this.dimensions.map(dimension => typeof dimension === 'string' ? dimension : dimension.name);
-  }
-
-  getDimensionConfig(name: string): DimensionConfig | undefined {
-    const dim = this.dimensions.find(dimension =>
-        (typeof dimension === 'string' ? dimension : dimension.name) === name
+  getDimensionNames(): string[] {
+    return this.dimensions.map(dimension =>
+        typeof dimension === 'string' ? dimension : dimension.name
     );
-    return typeof dim === 'object' ? dim : { name, scope: 'section' };
   }
 
-  isGlobalDimension(name: string): boolean {
-    const config = this.getDimensionConfig(name);
+  getDimensionConfig(dimensionName: string): DimensionConfig | undefined {
+    const dimension = this.dimensions.find(dim =>
+        (typeof dim === 'string' ? dim : dim.name) === dimensionName
+    );
+    return typeof dimension === 'object' ? dimension : { name: dimensionName, scope: 'section' };
+  }
+
+  isGlobalDimension(dimensionName: string): boolean {
+    const config = this.getDimensionConfig(dimensionName);
     return config?.scope === 'global';
   }
 
-  createDimensionPrompt(
-    _sections: SectionData[],
-    _dimension: string,
-    _dependencies: DependencyOutputs = {},
-  ): string {
-    throw new Error("createDimensionPrompt() must be implemented by plugin");
-  }
+  abstract createDimensionPrompt(
+      sections: SectionData[],
+      dimension: string,
+      dependencies: DependencyOutputs
+  ): string;
 
-  getAIConfigForDimension(_dimension: string, _section?: SectionData): AIConfig {
-    throw new Error("getAIConfigForDimension() must be implemented by plugin");
-  }
+  abstract getProviderConfigForDimension(
+      dimension: string,
+      section?: SectionData
+  ): ProviderAdapterConfig;
 
   getDimensionDependencyGraph(): Record<string, string[]> {
     return {};
   }
 
-  processSectionResultBeforeSave(
-    dimensionResults: Record<string, DimensionResult>,
+  processResultsBeforeSave(
+      dimensionResults: Record<string, DimensionResult>
   ): Record<string, DimensionResult> {
     return dimensionResults;
   }
 
-  getConfig(): {
+  getPluginInfo(): {
     id: string;
     name: string;
     description: string;
@@ -101,7 +93,7 @@ export class BasePlugin {
       id: this.id,
       name: this.name,
       description: this.description,
-      dimensions: this.getDimensions(),
+      dimensions: this.getDimensionNames(),
       ...this.config,
     };
   }
