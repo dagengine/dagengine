@@ -2,6 +2,14 @@ export interface PluginConfig {
   [key: string]: unknown;
 }
 
+export interface DimensionConfig {
+  name: string;
+  scope?: 'section' | 'global';
+  transform?: (result: DimensionResult, sections: SectionData[], aiConfig: unknown) => SectionData[];
+}
+
+export type DimensionSpec = string | DimensionConfig;
+
 export interface DimensionResult {
   response?: object;
   error?: unknown;
@@ -34,7 +42,7 @@ export class BasePlugin {
   public id: string;
   public name: string;
   public description: string;
-  public dimensions: string[];
+  public dimensions: DimensionSpec[];
 
   constructor(config: PluginConfig = {}) {
     this.config = config;
@@ -45,18 +53,30 @@ export class BasePlugin {
   }
 
   getDimensions(): string[] {
-    throw new Error("getDimensions() must be implemented by plugin");
+    return this.dimensions.map(dimension => typeof dimension === 'string' ? dimension : dimension.name);
+  }
+
+  getDimensionConfig(name: string): DimensionConfig | undefined {
+    const dim = this.dimensions.find(dimension =>
+        (typeof dimension === 'string' ? dimension : dimension.name) === name
+    );
+    return typeof dim === 'object' ? dim : { name, scope: 'section' };
+  }
+
+  isGlobalDimension(name: string): boolean {
+    const config = this.getDimensionConfig(name);
+    return config?.scope === 'global';
   }
 
   createDimensionPrompt(
-    _section: SectionData,
+    _sections: SectionData[],
     _dimension: string,
     _dependencies: DependencyOutputs = {},
   ): string {
     throw new Error("createDimensionPrompt() must be implemented by plugin");
   }
 
-  getAIConfigForDimension(_dimension: string, _section: SectionData): AIConfig {
+  getAIConfigForDimension(_dimension: string, _section?: SectionData): AIConfig {
     throw new Error("getAIConfigForDimension() must be implemented by plugin");
   }
 
@@ -81,7 +101,7 @@ export class BasePlugin {
       id: this.id,
       name: this.name,
       description: this.description,
-      dimensions: this.dimensions,
+      dimensions: this.getDimensions(),
       ...this.config,
     };
   }
