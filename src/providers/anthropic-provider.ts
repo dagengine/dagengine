@@ -46,11 +46,18 @@ export class AnthropicProvider extends BaseAIProvider {
                 content: Array<{ text: string }>;
             };
 
-            const content = data.content[0]?.text || "";
+            const rawContent = data.content[0]?.text || "";
+
+            const cleaned = rawContent
+                .replace(/```(json)?/g, "")
+                .replace(/,\s*}/g, "}")
+                .replace(/,\s*]/g, "]")
+                .trim();
+
 
             // Try to parse as JSON, fallback to text
             try {
-                return { response: JSON.parse(content) };
+                return { response: JSON.parse(cleaned) };
             } catch (parseError) {
                 console.error('JSON parse error:', parseError);
                 //@ts-ignore
