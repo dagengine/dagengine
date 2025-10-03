@@ -1,54 +1,11 @@
-import { BaseProvider, BaseProviderDimensionOptions, ProviderConfig, ProviderResponse } from './base-provider';
-import {DimensionConfig} from "./provider-adapter";
+import { BaseAIProvider, AIProviderConfig, ProcessOptions, AIResponse } from './base-provider';
 
-export const TAVILY_DEFAULTS = {
-    MAX_RESULTS: 5,
-    SEARCH_DEPTH: 'advanced',
-    DELAY_MS: 400,
-    BASE_URL: 'https://api.tavily.com/search',
-    INCLUDE_ANSWER: true,
-    INCLUDE_DOMAIN_INFO: true,
-    INCLUDE_RAW_CONTENT: false,
-    INCLUDE_IMAGES: false,
-} as const;
-
-export interface TavilyConfig extends ProviderConfig {
-    baseUrl?: string;
-}
-
-export interface TavilyDimensionOptions {
-    maxResults?: number;
-    searchDepth?: string;
-    delayBetweenQueries?: number;
-    includeDomains?: string[];
-    excludeDomains?: string[];
-    includeRawContent?: boolean;
-    includeImages?: boolean;
-    includeAnswer?: boolean;
-    includeDomainInfo?: boolean;
-}
-
-export type TavilySearchConfig = {
-    maxResults: number;
-    searchDepth: string;
-    delayBetweenQueries: number;
-    includeDomains: string[];
-    excludeDomains: string[];
-    includeRawContent: boolean;
-    includeImages: boolean;
-    includeAnswer: boolean;
-    includeDomainInfo: boolean;
-};
-
-export interface TavilyResult {
+interface CompleteTavilyResult {
     // Core fields
-    id: string;
     title: string;
     url: string;
     content: string;
     score: number;
-    query: string;
-    domain: string;
 
     // Extended fields (optional)
     raw_content?: string;
@@ -83,75 +40,38 @@ export interface TavilyResult {
     has_privacy_policy?: boolean;
     indexed_at?: string;
     last_modified?: string;
-
-    // Computed convenience fields
-    hasContent: boolean;
-    contentLength: number;
-    isSecure: boolean;
-    retrievedAt: string;
 }
 
-export interface TavilySearchResponse {
-    results: TavilyResult[];
-    meta: {
-        total: number;
-        queries: number;
-        errors: number;
-        duration: number;
-        timestamp: string;
-    };
-    errors?: Array<{query: string, error: string}>;
-}
-
-export class TavilyProvider extends BaseProvider {
+export class TavilyProvider extends BaseAIProvider {
     private readonly apiKey: string;
-    private readonly baseUrl: string;
+    private readonly endpoint: string;
 
-    constructor(config: TavilyConfig) {
+    constructor(config: AIProviderConfig) {
         super(config);
-        this.name = 'tavily';
-
-        if (!config.apiKey) {
-            throw new Error('Tavily API key is required');
-        }
-
-        this.apiKey = config.apiKey;
-        this.baseUrl = config.baseUrl || TAVILY_DEFAULTS.BASE_URL;
+        this.name = "tavily";
+        this.apiKey = config.apiKey || "";
+        this.endpoint = (config.endpoint as string) || "https://api.tavily.com/search";
     }
 
-    async process(
-        prompt: string,
-        options: DimensionConfig
-    ): Promise<ProviderResponse> {
-        if (!prompt?.trim()) {
-            throw new Error('Prompt cannot be empty');
-        }
-
-        const queries = this.parseSearchQueries(prompt);
-        const searchResponse = await this.executeSearchBatch(queries, options);
-
-        return {
-            success: true,
-            data: searchResponse,
-            rawContent: JSON.stringify(searchResponse),
-            provider: this.name
-        };
+    async process(prompt: string, options: ProcessOptions = {}): Promise<AIResponse> {
+        const queries = this.parseQueries(prompt);
+        return await this.executeBatchSearch(queries, options);
     }
 
-    private parseSearchQueries(prompt: string): string[] {
+    private parseQueries(prompt: string): string[] {
         try {
             const parsed: unknown = JSON.parse(prompt);
 
             if (!Array.isArray(parsed)) {
-                throw new Error('Tavily requires an array of search queries');
+                throw new Error("Tavily requires an array of search queries");
             }
 
             if (parsed.length === 0) {
-                throw new Error('Tavily requires at least one search query');
+                throw new Error("Tavily requires at least one search query");
             }
 
-            if (!this.isValidStringArray(parsed)) {
-                throw new Error('All search queries must be non-empty strings');
+            if (!this.isStringArray(parsed)) {
+                throw new Error("All search queries must be non-empty strings");
             }
 
             return parsed;
@@ -161,24 +81,25 @@ export class TavilyProvider extends BaseProvider {
         }
     }
 
-    private isValidStringArray(value: unknown[]): value is string[] {
+    private isStringArray(value: unknown[]): value is string[] {
         return value.every((item): item is string =>
             typeof item === 'string' && item.trim().length > 0
         );
     }
 
-    private async executeSearchBatch(queries: string[], options: DimensionConfig): Promise<TavilySearchResponse> {
-        const searchConfig = this.buildSearchConfig(options);
-        const results: TavilyResult[] = [];
+    private async executeBatchSearch(queries: string[], options: ProcessOptions): Promise<AIResponse> {
+        const config = this.buildSearchConfig(options);
+        const results: CompleteTavilyResult[] = [];
         const errors: Array<{query: string, error: string}> = [];
         const startTime = Date.now();
 
+        // Execute all searches
         for (let i = 0; i < queries.length; i++) {
-            const query = queries[i]?.trim() ?? '';
+            const query: string = queries[i]?.trim() ?? '';
 
             try {
-                const searchData = await this.executeSingleSearch(query, searchConfig);
-                const normalizedResults = this.normalizeSearchResults(searchData.results || [], query, i);
+                const searchData = await this.executeSearch(query, config);
+                const normalizedResults = this.normalizeResults(searchData.results || [], query, i);
                 results.push(...normalizedResults);
             } catch (error) {
                 errors.push({
@@ -187,13 +108,13 @@ export class TavilyProvider extends BaseProvider {
                 });
             }
 
-            // Rate limiting delay between requests
-            if (i < queries.length - 1 && searchConfig.delayBetweenQueries > 0) {
-                await this.delay(searchConfig.delayBetweenQueries);
+            // Rate limiting delay
+            if (i < queries.length - 1 && config.delay > 0) {
+                await this.delay(config.delay);
             }
         }
 
-        return {
+        const response = {
             results,
             meta: {
                 total: results.length,
@@ -204,33 +125,28 @@ export class TavilyProvider extends BaseProvider {
             },
             ...(errors.length > 0 && { errors })
         };
-    }
 
-    private buildSearchConfig(options: DimensionConfig): Required<TavilyDimensionOptions> {
         return {
-            // @ts-ignore
-            maxResults: options.config.maxResults ?? TAVILY_DEFAULTS.MAX_RESULTS,
-            // @ts-ignore
-            searchDepth: options.config.searchDepth ?? TAVILY_DEFAULTS.SEARCH_DEPTH,
-            // @ts-ignore
-            delayBetweenQueries: options.config.delayBetweenQueries ?? TAVILY_DEFAULTS.DELAY_MS,
-            // @ts-ignore
-            includeDomains: options.config.includeDomains ?? [],
-            // @ts-ignore
-            excludeDomains: options.config.excludeDomains ?? [],
-            // @ts-ignore
-            includeRawContent: options.config.includeRawContent ?? TAVILY_DEFAULTS.INCLUDE_RAW_CONTENT,
-            // @ts-ignore
-            includeImages: options.config.includeImages ?? TAVILY_DEFAULTS.INCLUDE_IMAGES,
-            // @ts-ignore
-            includeAnswer: options.config.includeAnswer ?? TAVILY_DEFAULTS.INCLUDE_ANSWER,
-            // @ts-ignore
-            includeDomainInfo: options.config.includeDomainInfo ?? TAVILY_DEFAULTS.INCLUDE_DOMAIN_INFO
+            response
         };
     }
 
-    private async executeSingleSearch(query: string, config: Required<TavilyDimensionOptions>): Promise<TavilyApiResponse> {
-        const requestBody = {
+    private buildSearchConfig(options: ProcessOptions) {
+        return {
+            maxResults: (options.numResults as number) || 5,
+            searchDepth: (options.model as string) || "advanced",
+            delay: (options.searchDelay as number) || 400,
+            includeDomains: (options.includeDomains as string[]) || [],
+            excludeDomains: (options.excludeDomains as string[]) || [],
+            includeRawContent: (options.includeRawContent as boolean) || false,
+            includeImages: (options.includeImages as boolean) || false,
+            includeAnswer: (options.includeAnswer as boolean) !== false, // Default true
+            includeDomainInfo: (options.includeDomainInfo as boolean) !== false // Default true
+        };
+    }
+
+    private async executeSearch(query: string, config: any): Promise<any> {
+        const body = {
             query,
             max_results: config.maxResults,
             search_depth: config.searchDepth,
@@ -242,85 +158,82 @@ export class TavilyProvider extends BaseProvider {
             ...(config.excludeDomains.length && { exclude_domains: config.excludeDomains })
         };
 
-        const response = await globalThis.fetch(this.baseUrl, {
-            method: 'POST',
+        const response = await globalThis.fetch(this.endpoint, {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${this.apiKey}`
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(body)
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Tavily API request failed (${response.status}): ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        try {
-            return await response.json() as TavilyApiResponse;
-        } catch (error) {
-            throw new Error('Failed to parse Tavily API response as JSON');
-        }
+        return await response.json();
     }
 
-    private normalizeSearchResults(results: any[], query: string, queryIndex: number): TavilyResult[] {
-        return results.map((result: any, index: number) => {
-            const url = result.url || '';
-            const domain = this.extractDomainFromUrl(url);
+    private normalizeResults(results: any[], query: string, queryIndex: number): CompleteTavilyResult[] {
+        return results.map((r: any, index: number) => {
+            const url = r.url || '';
+            const domain = this.extractDomain(url);
 
             return {
-                id: `q${queryIndex}_${index}`,
-                title: result.title || '',
+                id: `q${queryIndex}_${index}`, // Unique ID for easy reference
+                title: r.title || '',
                 url,
-                content: result.content || '',
-                score: result.score || 0,
+                content: r.content || '',
+                score: r.score || 0,
                 query,
                 domain,
 
-                // Optional Tavily fields - preserved when available
-                ...(result.raw_content && { raw_content: result.raw_content }),
-                ...(result.published_date && { published_date: result.published_date }),
-                ...(result.author && { author: result.author }),
-                ...(result.language && { language: result.language }),
-                ...(result.favicon && { favicon: result.favicon }),
-                ...(result.images?.length && { images: result.images }),
-                ...(result.videos?.length && { videos: result.videos }),
-                ...(result.snippet && { snippet: result.snippet }),
-                ...(result.highlighted?.length && { highlighted: result.highlighted }),
-                ...(result.page_rank !== undefined && { page_rank: result.page_rank }),
-                ...(result.domain_rank !== undefined && { domain_rank: result.domain_rank }),
-                ...(result.trust_score !== undefined && { trust_score: result.trust_score }),
-                ...(result.meta_description && { meta_description: result.meta_description }),
-                ...(result.keywords?.length && { keywords: result.keywords }),
-                ...(result.h1 && { h1: result.h1 }),
-                ...(result.h2?.length && { h2: result.h2 }),
-                ...(result.canonical_url && { canonical_url: result.canonical_url }),
-                ...(result.word_count !== undefined && { word_count: result.word_count }),
-                ...(result.reading_time !== undefined && { reading_time: result.reading_time }),
-                ...(result.sentiment && { sentiment: result.sentiment }),
-                ...(result.topics?.length && { topics: result.topics }),
-                ...(result.entities?.length && { entities: result.entities }),
-                ...(result.categories?.length && { categories: result.categories }),
-                ...(result.shares !== undefined && { shares: result.shares }),
-                ...(result.likes !== undefined && { likes: result.likes }),
-                ...(result.comments !== undefined && { comments: result.comments }),
-                ...(result.retweets !== undefined && { retweets: result.retweets }),
-                ...(result.domain_age !== undefined && { domain_age: result.domain_age }),
-                ...(result.has_contact !== undefined && { has_contact: result.has_contact }),
-                ...(result.has_privacy_policy !== undefined && { has_privacy_policy: result.has_privacy_policy }),
-                ...(result.indexed_at && { indexed_at: result.indexed_at }),
-                ...(result.last_modified && { last_modified: result.last_modified }),
+                // ALL OPTIONAL TAVILY FIELDS - Preserved when available
+                ...(r.raw_content && { raw_content: r.raw_content }),
+                ...(r.published_date && { published_date: r.published_date }),
+                ...(r.author && { author: r.author }),
+                ...(r.language && { language: r.language }),
+                ...(r.favicon && { favicon: r.favicon }),
+                ...(r.images?.length && { images: r.images }),
+                ...(r.videos?.length && { videos: r.videos }),
+                ...(r.snippet && { snippet: r.snippet }),
+                ...(r.highlighted?.length && { highlighted: r.highlighted }),
+                ...(r.page_rank !== undefined && { page_rank: r.page_rank }),
+                ...(r.domain_rank !== undefined && { domain_rank: r.domain_rank }),
+                ...(r.trust_score !== undefined && { trust_score: r.trust_score }),
+                ...(r.meta_description && { meta_description: r.meta_description }),
+                ...(r.keywords?.length && { keywords: r.keywords }),
+                ...(r.h1 && { h1: r.h1 }),
+                ...(r.h2?.length && { h2: r.h2 }),
+                ...(r.canonical_url && { canonical_url: r.canonical_url }),
+                ...(r.word_count !== undefined && { word_count: r.word_count }),
+                ...(r.reading_time !== undefined && { reading_time: r.reading_time }),
+                ...(r.sentiment && { sentiment: r.sentiment }),
+                ...(r.topics?.length && { topics: r.topics }),
+                ...(r.entities?.length && { entities: r.entities }),
+                ...(r.categories?.length && { categories: r.categories }),
+                ...(r.shares !== undefined && { shares: r.shares }),
+                ...(r.likes !== undefined && { likes: r.likes }),
+                ...(r.comments !== undefined && { comments: r.comments }),
+                ...(r.retweets !== undefined && { retweets: r.retweets }),
+                ...(r.domain_age !== undefined && { domain_age: r.domain_age }),
+                ...(r.has_contact !== undefined && { has_contact: r.has_contact }),
+                ...(r.has_privacy_policy !== undefined && { has_privacy_policy: r.has_privacy_policy }),
+                ...(r.indexed_at && { indexed_at: r.indexed_at }),
+                ...(r.last_modified && { last_modified: r.last_modified }),
 
-                // Computed convenience fields
-                hasContent: !!(result.content && result.content.trim()),
-                contentLength: (result.content || '').length,
+                // COMPUTED CONVENIENCE FIELDS
+                hasContent: !!(r.content && r.content.trim()),
+                contentLength: (r.content || '').length,
                 isSecure: url.startsWith('https://'),
+
+                // TIMESTAMP
                 retrievedAt: new Date().toISOString()
             };
         });
     }
 
-    private extractDomainFromUrl(url: string): string {
+    private extractDomain(url: string): string {
         try {
             return new URL(url).hostname.replace('www.', '');
         } catch {
@@ -331,8 +244,4 @@ export class TavilyProvider extends BaseProvider {
     private delay(ms: number): Promise<void> {
         return new Promise<void>(resolve => setTimeout(resolve, ms));
     }
-}
-
-interface TavilyApiResponse {
-    results: any[];
 }

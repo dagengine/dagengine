@@ -1,32 +1,34 @@
-export interface ProviderConfig {
-    apiKey: string;
+export interface AIProviderConfig {
+    apiKey?: string;
     [key: string]: unknown;
 }
 
-export interface BaseProviderDimensionOptions {
-    provider: string;
+export interface ProcessOptions {
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    dimension?: string;
+    sectionIndex?: number;
     [key: string]: unknown;
 }
 
-export interface ProviderResponse {
-    success: boolean;
-    data: unknown;
-    rawContent: string;
-    provider: string;
-    error?: string;
+export interface AIResponse {
+    response?: object;
+    error?: unknown;
 }
 
-export abstract class BaseProvider {
-    protected readonly config: ProviderConfig;
+export abstract class BaseAIProvider {
+    protected readonly config: AIProviderConfig;
     public name: string;
 
-    constructor(config: ProviderConfig) {
+    constructor(config: AIProviderConfig) {
         this.config = config;
-        this.name = 'base';
+        this.name = "base";
     }
 
     abstract process(
         prompt: string,
-        options: BaseProviderDimensionOptions
-    ): Promise<ProviderResponse>;
+        options: ProcessOptions,
+    ): Promise<AIResponse>;
 }
