@@ -5,8 +5,10 @@ import {
     BaseProviderDimensionOptions
 } from './base-provider';
 
+import {DimensionConfig, ProviderAdapterConfig} from './provider-adapter';
+
 export const GEMINI_DEFAULTS = {
-    MODEL: 'gemini-1.5-pro',
+    MODEL: 'fallback',
     TEMPERATURE: 0.1,
     MAX_OUTPUT_TOKENS: 4000,
     BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
@@ -41,7 +43,7 @@ export class GeminiProvider extends BaseProvider {
 
     async process(
         prompt: string,
-        options: GeminiDimensionOptions
+        options: DimensionConfig
     ): Promise<ProviderResponse> {
         if (!prompt?.trim()) {
             throw new Error('Prompt cannot be empty');
@@ -60,11 +62,14 @@ export class GeminiProvider extends BaseProvider {
         }
     }
 
-    private buildRequestConfig(options: GeminiDimensionOptions) {
+    private buildRequestConfig(options: DimensionConfig) {
         return {
-            model: options.model || GEMINI_DEFAULTS.MODEL,
-            temperature: options.temperature ?? GEMINI_DEFAULTS.TEMPERATURE,
-            maxOutputTokens: options.maxTokens || GEMINI_DEFAULTS.MAX_OUTPUT_TOKENS,
+            // @ts-ignore
+            model: options.config.model || GEMINI_DEFAULTS.MODEL,
+            // @ts-ignore
+            temperature: options.config.temperature ?? GEMINI_DEFAULTS.TEMPERATURE,
+            // @ts-ignore
+            maxOutputTokens: options.config.maxTokens || GEMINI_DEFAULTS.MAX_OUTPUT_TOKENS,
         };
     }
 

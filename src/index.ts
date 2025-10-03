@@ -54,7 +54,7 @@ export {
 export { BasePlugin } from "./base-plugin";
 export type {
   PluginConfig,
-  DimensionConfig,
+  DimensionSpecConfig,
   DimensionSpec,
   SectionData,
   DimensionResult,

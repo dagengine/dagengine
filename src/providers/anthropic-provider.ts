@@ -4,9 +4,10 @@ import {
     ProviderResponse,
     BaseProviderDimensionOptions
 } from './base-provider';
+import {DimensionConfig} from "./provider-adapter";
 
 export const ANTHROPIC_DEFAULTS = {
-    MODEL: 'claude-3-5-sonnet-20240620',
+    MODEL: 'fallback-model',
     TEMPERATURE: 0.1,
     MAX_TOKENS: 4000,
     API_VERSION: '2023-06-01',
@@ -44,7 +45,7 @@ export class AnthropicProvider extends BaseProvider {
 
     async process(
         prompt: string,
-        options: AnthropicDimensionOptions
+        options: DimensionConfig
     ): Promise<ProviderResponse> {
         if (!prompt?.trim()) {
             throw new Error('Prompt cannot be empty');
@@ -63,11 +64,14 @@ export class AnthropicProvider extends BaseProvider {
         }
     }
 
-    private buildRequestConfig(options: AnthropicDimensionOptions) {
+    private buildRequestConfig(options: DimensionConfig) {
         return {
-            model: options?.model || ANTHROPIC_DEFAULTS.MODEL,
-            temperature: options?.temperature ?? ANTHROPIC_DEFAULTS.TEMPERATURE,
-            maxTokens: options?.maxTokens || ANTHROPIC_DEFAULTS.MAX_TOKENS,
+            // @ts-ignore
+            model: options.config.model || ANTHROPIC_DEFAULTS.MODEL,
+            // @ts-ignore
+            temperature: options.config.temperature ?? ANTHROPIC_DEFAULTS.TEMPERATURE,
+            // @ts-ignore
+            maxTokens: options.config.maxTokens || ANTHROPIC_DEFAULTS.MAX_TOKENS,
         };
     }
 

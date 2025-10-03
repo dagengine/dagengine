@@ -1,4 +1,5 @@
 import { BaseProvider, BaseProviderDimensionOptions, ProviderConfig, ProviderResponse } from './base-provider';
+import {DimensionConfig} from "./provider-adapter";
 
 export const TAVILY_DEFAULTS = {
     MAX_RESULTS: 5,
@@ -15,7 +16,7 @@ export interface TavilyConfig extends ProviderConfig {
     baseUrl?: string;
 }
 
-export interface TavilyDimensionOptions  extends BaseProviderDimensionOptions {
+export interface TavilyDimensionOptions {
     maxResults?: number;
     searchDepth?: string;
     delayBetweenQueries?: number;
@@ -120,7 +121,7 @@ export class TavilyProvider extends BaseProvider {
 
     async process(
         prompt: string,
-        options: TavilyDimensionOptions
+        options: DimensionConfig
     ): Promise<ProviderResponse> {
         if (!prompt?.trim()) {
             throw new Error('Prompt cannot be empty');
@@ -166,7 +167,7 @@ export class TavilyProvider extends BaseProvider {
         );
     }
 
-    private async executeSearchBatch(queries: string[], options: TavilyDimensionOptions): Promise<TavilySearchResponse> {
+    private async executeSearchBatch(queries: string[], options: DimensionConfig): Promise<TavilySearchResponse> {
         const searchConfig = this.buildSearchConfig(options);
         const results: TavilyResult[] = [];
         const errors: Array<{query: string, error: string}> = [];
@@ -205,21 +206,30 @@ export class TavilyProvider extends BaseProvider {
         };
     }
 
-    private buildSearchConfig(options: TavilyDimensionOptions): Required<TavilySearchConfig> {
+    private buildSearchConfig(options: DimensionConfig): Required<TavilyDimensionOptions> {
         return {
-            maxResults: options.maxResults ?? TAVILY_DEFAULTS.MAX_RESULTS,
-            searchDepth: options.searchDepth ?? TAVILY_DEFAULTS.SEARCH_DEPTH,
-            delayBetweenQueries: options.delayBetweenQueries ?? TAVILY_DEFAULTS.DELAY_MS,
-            includeDomains: options.includeDomains ?? [],
-            excludeDomains: options.excludeDomains ?? [],
-            includeRawContent: options.includeRawContent ?? TAVILY_DEFAULTS.INCLUDE_RAW_CONTENT,
-            includeImages: options.includeImages ?? TAVILY_DEFAULTS.INCLUDE_IMAGES,
-            includeAnswer: options.includeAnswer ?? TAVILY_DEFAULTS.INCLUDE_ANSWER,
-            includeDomainInfo: options.includeDomainInfo ?? TAVILY_DEFAULTS.INCLUDE_DOMAIN_INFO
+            // @ts-ignore
+            maxResults: options.config.maxResults ?? TAVILY_DEFAULTS.MAX_RESULTS,
+            // @ts-ignore
+            searchDepth: options.config.searchDepth ?? TAVILY_DEFAULTS.SEARCH_DEPTH,
+            // @ts-ignore
+            delayBetweenQueries: options.config.delayBetweenQueries ?? TAVILY_DEFAULTS.DELAY_MS,
+            // @ts-ignore
+            includeDomains: options.config.includeDomains ?? [],
+            // @ts-ignore
+            excludeDomains: options.config.excludeDomains ?? [],
+            // @ts-ignore
+            includeRawContent: options.config.includeRawContent ?? TAVILY_DEFAULTS.INCLUDE_RAW_CONTENT,
+            // @ts-ignore
+            includeImages: options.config.includeImages ?? TAVILY_DEFAULTS.INCLUDE_IMAGES,
+            // @ts-ignore
+            includeAnswer: options.config.includeAnswer ?? TAVILY_DEFAULTS.INCLUDE_ANSWER,
+            // @ts-ignore
+            includeDomainInfo: options.config.includeDomainInfo ?? TAVILY_DEFAULTS.INCLUDE_DOMAIN_INFO
         };
     }
 
-    private async executeSingleSearch(query: string, config: Required<TavilySearchConfig>): Promise<TavilyApiResponse> {
+    private async executeSingleSearch(query: string, config: Required<TavilyDimensionOptions>): Promise<TavilyApiResponse> {
         const requestBody = {
             query,
             max_results: config.maxResults,

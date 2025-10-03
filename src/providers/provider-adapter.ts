@@ -1,8 +1,8 @@
 import { BaseProvider, BaseProviderDimensionOptions, ProviderResponse } from './base-provider';
-import { OpenAIProvider, OpenAIConfig } from './openai-provider';
-import { AnthropicProvider, AnthropicConfig } from './anthropic-provider';
-import { GeminiProvider, GeminiConfig } from './gemini-provider';
-import { TavilyProvider, TavilyConfig } from './tavily-provider';
+import { OpenAIProvider, OpenAIConfig, OpenAIDimensionOptions } from './openai-provider';
+import { AnthropicProvider, AnthropicConfig, AnthropicDimensionOptions } from './anthropic-provider';
+import { GeminiProvider, GeminiConfig, GeminiDimensionOptions } from './gemini-provider';
+import { TavilyProvider, TavilyConfig, TavilyDimensionOptions } from './tavily-provider';
 
 export type ProviderName = 'openai' | 'anthropic' | 'gemini' | 'tavily';
 
@@ -14,12 +14,20 @@ export type ProviderConfigurations = {
     tavily?: TavilyConfig;
 };
 
+
 // Discriminated union for single provider operations
 export type ProviderAdapterConfig =
     | { provider: 'openai'; config: OpenAIConfig }
     | { provider: 'anthropic'; config: AnthropicConfig }
     | { provider: 'gemini'; config: GeminiConfig }
     | { provider: 'tavily'; config: TavilyConfig };
+
+
+export type DimensionConfig =
+    | { provider: 'openai'; config: OpenAIDimensionOptions }
+    | { provider: 'anthropic'; config: AnthropicDimensionOptions }
+    | { provider: 'gemini'; config: GeminiDimensionOptions }
+    | { provider: 'tavily'; config: TavilyDimensionOptions };
 
 export class ProviderAdapter {
     private readonly providers: Map<ProviderName, BaseProvider>;
@@ -31,7 +39,7 @@ export class ProviderAdapter {
 
     async processPrompt(
         prompt: string,
-        providerConfig: ProviderAdapterConfig
+        providerConfig: DimensionConfig
     ): Promise<ProviderResponse> {
         if (!this.isValidProviderName(providerConfig.provider)) {
             throw new Error(`Invalid provider '${providerConfig.provider}'. Valid providers are: ${this.getValidProviderNames().join(', ')}`);

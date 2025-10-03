@@ -4,6 +4,7 @@ import {
     ProviderResponse,
     BaseProviderDimensionOptions
 } from './base-provider';
+import {DimensionConfig} from "./provider-adapter";
 
 // OpenAI Provider Constants
 export const OPENAI_DEFAULTS = {
@@ -44,7 +45,7 @@ export class OpenAIProvider extends BaseProvider {
 
     async process(
         prompt: string,
-        options: OpenAIDimensionOptions
+        options: DimensionConfig
     ): Promise<ProviderResponse> {
         if (!prompt?.trim()) {
             throw new Error('Prompt cannot be empty');
@@ -63,11 +64,14 @@ export class OpenAIProvider extends BaseProvider {
         }
     }
 
-    private buildRequestConfig(options: OpenAIDimensionOptions) {
+    private buildRequestConfig(options: DimensionConfig) {
         return {
-            model: options.model || OPENAI_DEFAULTS.MODEL,
-            temperature: options.temperature ?? OPENAI_DEFAULTS.TEMPERATURE,
-            maxTokens: options.maxTokens || OPENAI_DEFAULTS.MAX_TOKENS,
+            // @ts-ignore
+            model: options.config.model || OPENAI_DEFAULTS.MODEL,
+            // @ts-ignore
+            temperature: options.config.temperature ?? OPENAI_DEFAULTS.TEMPERATURE,
+            // @ts-ignore
+            maxTokens: options.config.maxTokens || OPENAI_DEFAULTS.MAX_TOKENS,
         };
     }
 

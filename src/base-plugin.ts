@@ -1,16 +1,16 @@
-import { ProviderAdapterConfig } from "./providers/provider-adapter";
+import { ProviderAdapterConfig, DimensionConfig } from "./providers/provider-adapter";
 
 export interface PluginConfig {
   [key: string]: unknown;
 }
 
-export interface DimensionConfig {
+export interface DimensionSpecConfig {
   name: string;
   scope?: 'section' | 'global';
-  transform?: (result: DimensionResult, sections: SectionData[], providerConfig: ProviderAdapterConfig) => SectionData[];
+  transform?: (result: DimensionResult, sections: SectionData[], providerConfig: DimensionConfig) => SectionData[];
 }
 
-export type DimensionSpec = string | DimensionConfig;
+export type DimensionSpec = string | DimensionSpecConfig;
 
 export interface DimensionResult {
   response?: unknown;
@@ -49,7 +49,7 @@ export abstract class BasePlugin {
     );
   }
 
-  getDimensionConfig(dimensionName: string): DimensionConfig | undefined {
+  getDimensionConfig(dimensionName: string): DimensionSpecConfig | undefined {
     const dimension = this.dimensions.find(dim =>
         (typeof dim === 'string' ? dim : dim.name) === dimensionName
     );
@@ -70,7 +70,7 @@ export abstract class BasePlugin {
   abstract getProviderConfigForDimension(
       dimension: string,
       section?: SectionData
-  ): ProviderAdapterConfig;
+  ): DimensionConfig;
 
   getDimensionDependencyGraph(): Record<string, string[]> {
     return {};
