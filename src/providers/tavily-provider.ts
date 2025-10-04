@@ -89,35 +89,70 @@ export class TavilyProvider extends BaseAIProvider {
 
     private async executeBatchSearch(queries: string[], options: ProcessOptions): Promise<AIResponse> {
         const config = this.buildSearchConfig(options);
-        const results: CompleteTavilyResult[] = [];
-        const errors: Array<{query: string, error: string}> = [];
         const startTime = Date.now();
 
-        // Execute all searches
-        for (let i = 0; i < queries.length; i++) {
-            const query: string = queries[i]?.trim() ?? '';
+        const concurrency = config.concurrency || 5;
+        const allResults: CompleteTavilyResult[] = [];
+        const errors: Array<{query: string, error: string}> = [];
 
-            try {
-                const searchData = await this.executeSearch(query, config);
-                const normalizedResults = this.normalizeResults(searchData.results || [], query, i);
-                results.push(...normalizedResults);
-            } catch (error) {
-                errors.push({
-                    query,
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                });
-            }
+        for (let i = 0; i < queries.length; i += concurrency) {
+            const batch = queries.slice(i, i + concurrency);
 
-            // Rate limiting delay
-            if (i < queries.length - 1 && config.delay > 0) {
+            const batchPromises = batch.map(async (query, batchIndex) => {
+                const queryIndex = i + batchIndex;
+                const maxRetries = 3;
+
+                for (let attempt = 0; attempt < maxRetries; attempt++) {
+                    try {
+                        const searchData = await this.executeSearch(query.trim(), config);
+                        return {
+                            success: true,
+                            results: this.normalizeResults(searchData.results || [], query, queryIndex),
+                            query
+                        };
+                    } catch (error) {
+                        if (error instanceof Error && error.message.includes('429')) {
+                            await this.delay(1000 * (attempt + 1));
+                            continue;
+                        }
+
+                        return {
+                            success: false,
+                            error: error instanceof Error ? error.message : 'Unknown error',
+                            query
+                        };
+                    }
+                }
+
+                return {
+                    success: false,
+                    error: 'Max retries exceeded',
+                    query
+                };
+            });
+
+            const batchResults = await Promise.all(batchPromises);
+
+            batchResults.forEach(result => {
+                if (result.success) {
+                    allResults.push(...(result as any).results);
+                } else {
+                    errors.push({
+                        query: result.query,
+                        error: (result as any).error
+                    });
+                }
+            });
+
+            if (i + concurrency < queries.length) {
                 await this.delay(config.delay);
             }
         }
 
         const response = {
-            results,
+            results: allResults,  // ✅ Fixed
             meta: {
-                total: results.length,
+                total: allResults.length,  // ✅ Fixed
                 queries: queries.length,
                 errors: errors.length,
                 duration: Date.now() - startTime,
@@ -126,11 +161,8 @@ export class TavilyProvider extends BaseAIProvider {
             ...(errors.length > 0 && { errors })
         };
 
-        return {
-            response
-        };
+        return { response };
     }
-
     private buildSearchConfig(options: ProcessOptions) {
         return {
             maxResults: (options.numResults as number) || 5,
@@ -141,7 +173,8 @@ export class TavilyProvider extends BaseAIProvider {
             includeRawContent: (options.includeRawContent as boolean) || false,
             includeImages: (options.includeImages as boolean) || false,
             includeAnswer: (options.includeAnswer as boolean) !== false, // Default true
-            includeDomainInfo: (options.includeDomainInfo as boolean) !== false // Default true
+            includeDomainInfo: (options.includeDomainInfo as boolean) !== false, // Default true
+            concurrency: (options.concurrency as number) || 5, // Add this
         };
     }
 

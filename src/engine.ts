@@ -94,8 +94,6 @@ export class DagEngine {
 
     return {
       ...sectionResults,
-      globalResults: Object.fromEntries(this.globalResults),
-      finalSections: this.currentSections
     };
   }
 

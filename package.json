@@ -1,8 +1,14 @@
 {
   "name": "@ivan629/dag-ai",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "AI-powered dag engine for processing data through analysis dimensions",
-  "keywords": ["dag", "ai", "analysis", "insights", "typescript"],
+  "keywords": [
+    "dag",
+    "ai",
+    "analysis",
+    "insights",
+    "typescript"
+  ],
   "homepage": "https://github.com/yourusername/insight-engine-lib#readme",
   "private": false,
   "publishConfig": {
@@ -72,5 +78,8 @@
     "ts-jest": "^29.4.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "jsonrepair": "^3.13.1"
   }
 }

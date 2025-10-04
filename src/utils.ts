@@ -1,3 +1,5 @@
+import { jsonrepair } from 'jsonrepair';
+
 import {
   BASE_DELAY_BETWEEN_RETRIES,
   MAX_DELAY_BETWEEN_RETRIES,
@@ -90,4 +92,38 @@ export async function retry<T>(
   }
 
   throw lastError;
+}
+
+export function parseAIJSON(rawContent: string): any {
+  // Basic cleaning
+  let cleaned = rawContent.trim()
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '');
+
+  // Extract JSON boundaries
+  const start = Math.min(
+      cleaned.indexOf('{') !== -1 ? cleaned.indexOf('{') : Infinity,
+      cleaned.indexOf('[') !== -1 ? cleaned.indexOf('[') : Infinity
+  );
+
+  if (start !== Infinity) {
+    cleaned = cleaned.substring(start);
+    const end = Math.max(
+        cleaned.lastIndexOf('}'),
+        cleaned.lastIndexOf(']')
+    );
+    if (end !== -1) {
+      cleaned = cleaned.substring(0, end + 1);
+    }
+  }
+
+  // Try standard parse first (fastest)
+  try {
+    const repaired = jsonrepair(rawContent);
+    return JSON.parse(repaired);
+  } catch {
+    // Repair and parse
+    const repaired = jsonrepair(rawContent);
+    return JSON.parse(repaired);
+  }
 }

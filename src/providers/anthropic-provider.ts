@@ -1,4 +1,5 @@
 import { BaseAIProvider, AIProviderConfig, ProcessOptions, AIResponse } from './base-provider';
+import { parseAIJSON } from '../utils';
 
 export class AnthropicProvider extends BaseAIProvider {
     private readonly apiKey: string;
@@ -47,21 +48,15 @@ export class AnthropicProvider extends BaseAIProvider {
             };
 
             const rawContent = data.content[0]?.text || "";
-
-            const cleaned = rawContent
-                .replace(/```(json)?/g, "")
-                .replace(/,\s*}/g, "}")
-                .replace(/,\s*]/g, "]")
-                .trim();
-
+            const cleaned = parseAIJSON(rawContent)
 
             // Try to parse as JSON, fallback to text
             try {
-                return { response: JSON.parse(cleaned) };
+                return { response: cleaned };
             } catch (parseError) {
                 console.error('JSON parse error:', parseError);
                 //@ts-ignore
-                return { response: content }; // Return the raw text content instead of error
+                return { response: rawContent }; // Return the raw text content instead of error
             }
         } catch (error) {
             console.error('AnthropicProvider process error:', error);
