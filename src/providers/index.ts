@@ -11,3 +11,4 @@ export { OpenAIProvider } from './openai-provider';
 export { AnthropicProvider } from './anthropic-provider';
 export { GeminiProvider } from './gemini-provider';
 export { TavilyProvider } from './tavily-provider';
+export { WhoisXMLProvider } from './whosXML-provider';

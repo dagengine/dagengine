@@ -3,12 +3,14 @@ import { OpenAIProvider } from './openai-provider';
 import { AnthropicProvider } from './anthropic-provider';
 import { GeminiProvider } from './gemini-provider';
 import { TavilyProvider } from './tavily-provider';
+import { WhoisXMLProvider, WhoisXMLProviderConfig } from './whosXML-provider';
 
 export interface AIAdapterConfig {
     openai?: AIProviderConfig;
     anthropic?: AIProviderConfig;
     gemini?: AIProviderConfig;
     tavily?: AIProviderConfig;
+    whoisxml?: WhoisXMLProviderConfig;
 }
 
 export class AIAdapter {
@@ -74,6 +76,16 @@ export class AIAdapter {
                 }),
             );
         }
+
+        if (this.config.whoisxml?.apiKey) {
+            this.providers.set(
+                "whoisxml",
+                // @ts-ignore
+                new WhoisXMLProvider({
+                    ...this.config.whoisxml,
+                }),
+            );
+        }
     }
 
     private getProvider(provider?: string): BaseAIProvider | undefined {
@@ -86,3 +98,4 @@ export { OpenAIProvider } from './openai-provider';
 export { AnthropicProvider } from './anthropic-provider';
 export { GeminiProvider } from './gemini-provider';
 export { TavilyProvider } from './tavily-provider';
+export { WhoisXMLProvider } from './whosXML-provider';

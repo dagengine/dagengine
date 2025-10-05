@@ -1,6 +1,6 @@
 {
   "name": "@ivan629/dag-ai",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "AI-powered dag engine for processing data through analysis dimensions",
   "keywords": [
     "dag",
