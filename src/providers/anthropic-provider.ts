@@ -15,9 +15,27 @@ export class AnthropicProvider extends BaseAIProvider {
         options: ProcessOptions = {},
     ): Promise<AIResponse> {
         try {
-            const model = options.model || "claude-3-5-sonnet-20240620";
-            const temperature = options.temperature ?? 0.1;
-            const maxTokens = options.maxTokens || 4000;
+            const model = options.model || "claude-sonnet-4-5-20250929";
+            const max_tokens = options.max_tokens || 4096;
+
+            const requestBody: Record<string, any> = {
+                model,
+                max_tokens,
+            };
+
+            if (typeof prompt === 'string') {
+                requestBody.messages = [{ role: "user", content: prompt }];
+            } else {
+                // if (prompt.system) requestBody.system = prompt.system;
+                // if (prompt.messages) requestBody.messages = prompt.messages;
+            }
+
+            if (options.temperature !== undefined) requestBody.temperature = options.temperature;
+            if (options.top_p !== undefined) requestBody.top_p = options.top_p;
+            if (options.top_k !== undefined) requestBody.top_k = options.top_k;
+            // if (options.stop_sequences?.length) requestBody.stop_sequences = options.stop_sequences;
+            if (options.stream !== undefined) requestBody.stream = options.stream;
+            if (options.metadata) requestBody.metadata = options.metadata;
 
             const response = await globalThis.fetch(
                 "https://api.anthropic.com/v1/messages",
@@ -28,12 +46,7 @@ export class AnthropicProvider extends BaseAIProvider {
                         "Content-Type": "application/json",
                         "anthropic-version": "2023-06-01",
                     },
-                    body: JSON.stringify({
-                        model,
-                        max_tokens: maxTokens,
-                        temperature,
-                        messages: [{ role: "user", content: prompt }],
-                    }),
+                    body: JSON.stringify(requestBody),
                 },
             );
 
