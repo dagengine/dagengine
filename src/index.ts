@@ -11,22 +11,14 @@
 // ============================================================================
 
 export { DagEngine } from './engine';
-export type {
-  EngineConfig,
-  ProcessOptions,
-  ProcessResult
-} from './engine';
+export type { EngineConfig, ProcessOptions, ProcessResult } from './engine';
 
 // ============================================================================
 // PLUGIN SYSTEM
 // ============================================================================
 
 export { Plugin } from './plugin';
-export type {
-  PluginConfig,
-  PromptContext,
-  ProviderSelection
-} from './plugin';
+export type { PluginConfig, PromptContext, ProviderSelection } from './plugin';
 
 // ============================================================================
 // CORE TYPES
@@ -58,11 +50,7 @@ export { ProviderRegistry } from './providers/registry';
 // ============================================================================
 
 export { BaseProvider } from './providers/types';
-export type {
-  ProviderConfig,
-  ProviderRequest,
-  ProviderResponse
-} from './providers/types';
+export type { ProviderConfig, ProviderRequest, ProviderResponse } from './providers/types';
 
 // ============================================================================
 // AI PROVIDERS

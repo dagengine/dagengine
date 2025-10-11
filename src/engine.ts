@@ -15,11 +15,11 @@ export interface EngineConfig {
   retryDelay?: number;
 
   // NEW: Error handling
-  continueOnError?: boolean;  // Continue processing when dimension fails (default: true)
+  continueOnError?: boolean; // Continue processing when dimension fails (default: true)
 
   // NEW: Timeout handling
-  timeout?: number;  // Global timeout in ms (default: 60000)
-  dimensionTimeouts?: Record<string, number>;  // Per-dimension timeouts
+  timeout?: number; // Global timeout in ms (default: 60000)
+  dimensionTimeouts?: Record<string, number>; // Per-dimension timeouts
 }
 
 export interface ProcessOptions {
@@ -50,13 +50,17 @@ export class DagEngine {
   private readonly dimensionTimeouts: Record<string, number>;
 
   constructor(config: EngineConfig) {
+    if (!config.plugin) {
+      throw new Error('DagEngine requires a plugin');
+    }
+
     this.plugin = config.plugin;
-    this.concurrency = config.concurrency || 5;
-    this.maxRetries = config.maxRetries || 3;
-    this.retryDelay = config.retryDelay || 1000;
-    this.continueOnError = config.continueOnError ?? true;  // Default: continue
-    this.timeout = config.timeout || 60000;  // Default: 60 seconds
-    this.dimensionTimeouts = config.dimensionTimeouts || {};
+    this.concurrency = config.concurrency ?? 5;
+    this.maxRetries = config.maxRetries ?? 3;
+    this.retryDelay = config.retryDelay ?? 1000;
+    this.continueOnError = config.continueOnError ?? true; // Default: continue
+    this.timeout = config.timeout ?? 60000; // Default: 60 seconds
+    this.dimensionTimeouts = config.dimensionTimeouts ?? {};
 
     // Initialize provider adapter
     if (config.providers) {
@@ -68,7 +72,7 @@ export class DagEngine {
     } else if (config.registry) {
       this.adapter = new ProviderAdapter({});
       const registryProviders = config.registry.list();
-      registryProviders.forEach(name => {
+      registryProviders.forEach((name) => {
         const provider = config.registry!.get(name);
         this.adapter.registerProvider(provider);
       });
@@ -99,7 +103,7 @@ export class DagEngine {
     });
 
     // NEW: Separate global dimensions into independent groups
-    const globalDimensions = sortedDimensions.filter(d => this.plugin.isGlobalDimension(d));
+    const globalDimensions = sortedDimensions.filter((d) => this.plugin.isGlobalDimension(d));
     const globalGroups = this.groupIndependentGlobals(globalDimensions);
 
     // Process dimensions in order
@@ -108,18 +112,48 @@ export class DagEngine {
 
       if (isGlobal) {
         // Check if this global is part of a parallel group
-        const group = globalGroups.find(g => g.includes(dimension));
+        const group = globalGroups.find((g) => g.includes(dimension));
         const isFirstInGroup = group && group[0] === dimension;
 
         if (isFirstInGroup && group.length > 1) {
           // NEW: Process entire group in parallel
           await this.processGlobalGroup(
-              group,
-              currentSections,
-              globalResults,
-              sectionResultsMap,
-              options
+            group,
+            currentSections,
+            globalResults,
+            sectionResultsMap,
+            options
           );
+
+          // Apply transformations for all dimensions in the group
+          for (const groupDim of group) {
+            const config = this.plugin.getDimensionConfig(groupDim);
+            const result = globalResults[groupDim];
+            if (config.transform && result?.data) {
+              try {
+                const transformed = config.transform(result, currentSections);
+                if (Array.isArray(transformed) && transformed.length > 0) {
+                  // Update sectionResultsMap to match new section count
+                  const newMap = new Map<number, Record<string, DimensionResult>>();
+                  transformed.forEach((_, idx) => {
+                    newMap.set(idx, {});
+                  });
+
+                  sectionResultsMap.clear();
+                  newMap.forEach((value, key) => {
+                    sectionResultsMap.set(key, value);
+                  });
+
+                  currentSections = transformed;
+                }
+              } catch (error) {
+                // Handle transformation errors gracefully
+                const err = error instanceof Error ? error : new Error(String(error));
+                options.onError?.(`transform-${groupDim}`, err);
+                // Continue with original sections on transform error
+              }
+            }
+          }
 
           // Skip other dimensions in this group (already processed)
           continue;
@@ -129,42 +163,49 @@ export class DagEngine {
         } else {
           // Single global dimension
           await this.processGlobalDimension(
-              dimension,
-              currentSections,
-              globalResults,
-              sectionResultsMap,
-              options
-          );
-        }
-
-        // Apply transformation
-        const config = this.plugin.getDimensionConfig(dimension);
-        const result = globalResults[dimension];
-
-        if (config.transform && result?.data) {
-          const transformed = config.transform(result, currentSections);
-          if (Array.isArray(transformed) && transformed.length > 0) {
-            const newMap = new Map<number, Record<string, DimensionResult>>();
-            transformed.forEach((_, idx) => {
-              newMap.set(idx, {});
-            });
-
-            sectionResultsMap.clear();
-            newMap.forEach((value, key) => {
-              sectionResultsMap.set(key, value);
-            });
-
-            currentSections = transformed;
-          }
-        }
-      } else {
-        // Section dimension
-        await this.processSectionDimension(
             dimension,
             currentSections,
             globalResults,
             sectionResultsMap,
             options
+          );
+        }
+
+        // Apply transformation for single global dimension
+        const config = this.plugin.getDimensionConfig(dimension);
+        const result = globalResults[dimension];
+
+        if (config.transform && result?.data) {
+          try {
+            const transformed = config.transform(result, currentSections);
+            if (Array.isArray(transformed) && transformed.length > 0) {
+              const newMap = new Map<number, Record<string, DimensionResult>>();
+              transformed.forEach((_, idx) => {
+                newMap.set(idx, {});
+              });
+
+              sectionResultsMap.clear();
+              newMap.forEach((value, key) => {
+                sectionResultsMap.set(key, value);
+              });
+
+              currentSections = transformed;
+            }
+          } catch (error) {
+            // Handle transformation errors gracefully
+            const err = error instanceof Error ? error : new Error(String(error));
+            options.onError?.(`transform-${dimension}`, err);
+            // Continue with original sections on transform error
+          }
+        }
+      } else {
+        // Section dimension
+        await this.processSectionDimension(
+          dimension,
+          currentSections,
+          globalResults,
+          sectionResultsMap,
+          options
         );
       }
     }
@@ -174,7 +215,7 @@ export class DagEngine {
       const processedResults = this.plugin.processResults(results);
       return {
         section,
-        results: processedResults
+        results: processedResults,
       };
     });
 
@@ -185,9 +226,6 @@ export class DagEngine {
     };
   }
 
-  /**
-   * NEW: Group independent global dimensions for parallel processing
-   */
   private groupIndependentGlobals(globalDimensions: string[]): string[][] {
     const graph = this.plugin.getDependencies();
     const groups: string[][] = [];
@@ -197,7 +235,7 @@ export class DagEngine {
       if (processed.has(dim)) continue;
 
       const deps = graph[dim] || [];
-      const hasDeps = deps.some(d => globalDimensions.includes(d));
+      const hasDeps = deps.length > 0; // 👈 Changed: check if ANY dependencies exist
 
       if (hasDeps) {
         // Has dependencies, process alone
@@ -213,7 +251,7 @@ export class DagEngine {
           if (processed.has(other)) continue;
 
           const otherDeps = graph[other] || [];
-          const hasOtherDeps = otherDeps.some(d => globalDimensions.includes(d));
+          const hasOtherDeps = otherDeps.length > 0; // 👈 Changed: check if ANY dependencies exist
 
           if (!hasOtherDeps) {
             group.push(other);
@@ -232,52 +270,46 @@ export class DagEngine {
    * NEW: Process multiple independent global dimensions in parallel
    */
   private async processGlobalGroup(
-      dimensions: string[],
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
+    dimensions: string[],
+    sections: SectionData[],
+    globalResults: Record<string, DimensionResult>,
+    sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+    options: ProcessOptions
   ): Promise<void> {
     await Promise.all(
-        dimensions.map(dimension =>
-            this.processGlobalDimension(
-                dimension,
-                sections,
-                globalResults,
-                sectionResultsMap,
-                options
-            )
-        )
+      dimensions.map((dimension) =>
+        this.processGlobalDimension(dimension, sections, globalResults, sectionResultsMap, options)
+      )
     );
   }
 
   private async processGlobalDimension(
-      dimension: string,
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
+    dimension: string,
+    sections: SectionData[],
+    globalResults: Record<string, DimensionResult>,
+    sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+    options: ProcessOptions
   ): Promise<void> {
     try {
       options.onDimensionStart?.(dimension);
 
       const dependencies = this.resolveGlobalDependencies(
-          dimension,
-          globalResults,
-          sectionResultsMap,
-          sections.length
+        dimension,
+        globalResults,
+        sectionResultsMap,
+        sections.length
       );
 
       // NEW: Check if dependencies have errors
-      const hasFailedDeps = Object.values(dependencies).some(dep => dep.error);
+      const hasFailedDeps = Object.values(dependencies).some((dep) => dep.error);
       if (hasFailedDeps && !this.continueOnError) {
         throw new Error(`Dependencies failed for dimension "${dimension}"`);
       }
 
       // NEW: Apply timeout
       const result = await this.executeWithTimeout(
-          () => this.executeDimension(dimension, sections, dependencies, true),
-          dimension
+        () => this.executeDimension(dimension, sections, dependencies, true),
+        dimension
       );
 
       globalResults[dimension] = result;
@@ -290,93 +322,93 @@ export class DagEngine {
   }
 
   private async processSectionDimension(
-      dimension: string,
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
+    dimension: string,
+    sections: SectionData[],
+    globalResults: Record<string, DimensionResult>,
+    sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+    options: ProcessOptions
   ): Promise<void> {
+    options.onDimensionStart?.(dimension);
+
     for (let i = 0; i < sections.length; i += this.concurrency) {
       const batch = sections.slice(i, i + this.concurrency);
 
       await Promise.all(
-          batch.map(async (section, batchIdx) => {
-            const sectionIdx = i + batchIdx;
+        batch.map(async (section, batchIdx) => {
+          const sectionIdx = i + batchIdx;
 
-            try {
-              if (batchIdx === 0) {
-                options.onSectionStart?.(sectionIdx, sections.length);
-              }
-
-              const sectionResults = sectionResultsMap.get(sectionIdx) || {};
-
-              // NEW: Check if should skip this dimension for this section
-              if (this.shouldSkipDimension(dimension, section, sectionResults, globalResults)) {
-                sectionResults[dimension] = {
-                  data: { skipped: true, reason: 'Skipped by plugin logic' }
-                };
-                sectionResultsMap.set(sectionIdx, sectionResults);
-                return;
-              }
-
-              const dependencies = this.resolveDependencies(
-                  dimension,
-                  sectionResults,
-                  globalResults
-              );
-
-              // NEW: Check if dependencies have errors
-              const hasFailedDeps = Object.values(dependencies).some(dep => dep.error);
-              if (hasFailedDeps && !this.continueOnError) {
-                throw new Error(`Dependencies failed for dimension "${dimension}"`);
-              }
-
-              // NEW: Apply timeout
-              const result = await this.executeWithTimeout(
-                  () => this.executeDimension(dimension, [section], dependencies, false),
-                  dimension
-              );
-
-              sectionResults[dimension] = result;
-              sectionResultsMap.set(sectionIdx, sectionResults);
-
-              if (batchIdx === 0) {
-                options.onSectionComplete?.(sectionIdx, sections.length);
-              }
-            } catch (error) {
-              const err = error instanceof Error ? error : new Error(String(error));
-              options.onError?.(`section-${sectionIdx}-${dimension}`, err);
-
-              const sectionResults = sectionResultsMap.get(sectionIdx) || {};
-              sectionResults[dimension] = { error: err.message };
-              sectionResultsMap.set(sectionIdx, sectionResults);
-
-              // NEW: Don't throw, continue to next section if continueOnError is true
-              if (!this.continueOnError) {
-                throw error;
-              }
+          try {
+            if (batchIdx === 0) {
+              options.onSectionStart?.(sectionIdx, sections.length);
             }
-          })
+
+            const sectionResults = sectionResultsMap.get(sectionIdx) || {};
+
+            // NEW: Check if should skip this dimension for this section
+            if (this.shouldSkipDimension(dimension, section, sectionResults, globalResults)) {
+              sectionResults[dimension] = {
+                data: { skipped: true, reason: 'Skipped by plugin logic' },
+              };
+              sectionResultsMap.set(sectionIdx, sectionResults);
+              return;
+            }
+
+            const dependencies = this.resolveDependencies(dimension, sectionResults, globalResults);
+
+            // NEW: Check if dependencies have errors
+            const hasFailedDeps = Object.values(dependencies).some((dep) => dep.error);
+            if (hasFailedDeps && !this.continueOnError) {
+              throw new Error(`Dependencies failed for dimension "${dimension}"`);
+            }
+
+            // NEW: Apply timeout
+            const result = await this.executeWithTimeout(
+              () => this.executeDimension(dimension, [section], dependencies, false),
+              dimension
+            );
+
+            sectionResults[dimension] = result;
+            sectionResultsMap.set(sectionIdx, sectionResults);
+
+            if (batchIdx === 0) {
+              options.onSectionComplete?.(sectionIdx, sections.length);
+            }
+          } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            options.onError?.(`section-${sectionIdx}-${dimension}`, err);
+
+            const sectionResults = sectionResultsMap.get(sectionIdx) || {};
+            sectionResults[dimension] = { error: err.message };
+            sectionResultsMap.set(sectionIdx, sectionResults);
+
+            // NEW: Don't throw, continue to next section if continueOnError is true
+            if (!this.continueOnError) {
+              throw error;
+            }
+          }
+        })
       );
     }
+
+    options.onDimensionComplete?.(dimension, { data: 'Section dimension complete' });
   }
 
   /**
    * NEW: Check if dimension should be skipped for this section
    */
   private shouldSkipDimension(
-      dimension: string,
-      section: SectionData,
-      sectionResults: Record<string, DimensionResult>,
-      globalResults: Record<string, DimensionResult>
+    dimension: string,
+    section: SectionData,
+    sectionResults: Record<string, DimensionResult>,
+    globalResults: Record<string, DimensionResult>
   ): boolean {
     // Check if plugin implements shouldSkipDimension
     if ('shouldSkipDimension' in this.plugin) {
       return (this.plugin as any).shouldSkipDimension(
-          dimension,
-          section,
-          sectionResults,
-          globalResults
+        dimension,
+        section,
+        sectionResults,
+        globalResults
       );
     }
     return false;
@@ -385,36 +417,42 @@ export class DagEngine {
   /**
    * NEW: Execute function with timeout
    */
-  private async executeWithTimeout<T>(
-      fn: () => Promise<T>,
-      dimension: string
-  ): Promise<T> {
+  private async executeWithTimeout<T>(fn: () => Promise<T>, dimension: string): Promise<T> {
     const timeoutMs = this.dimensionTimeouts[dimension] || this.timeout;
 
     return Promise.race([
       fn(),
       new Promise<T>((_, reject) =>
-          setTimeout(
-              () => reject(new Error(`Timeout after ${timeoutMs}ms for dimension "${dimension}"`)),
-              timeoutMs
-          )
-      )
+        setTimeout(
+          () => reject(new Error(`Timeout after ${timeoutMs}ms for dimension "${dimension}"`)),
+          timeoutMs
+        )
+      ),
     ]);
   }
 
   private resolveGlobalDependencies(
-      dimension: string,
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      totalSections: number
+    dimension: string,
+    globalResults: Record<string, DimensionResult>,
+    sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+    totalSections: number
   ): DimensionDependencies {
     const graph = this.plugin.getDependencies();
     const deps: DimensionDependencies = {};
+    const allDimensions = this.plugin.getDimensionNames();
 
     for (const depName of graph[dimension] || []) {
+      // Check if dependency exists in plugin dimensions
+      if (!allDimensions.includes(depName)) {
+        deps[depName] = {
+          error: `Dependency "${depName}" not found in plugin dimensions`,
+        };
+        continue;
+      }
+
       if (this.plugin.isGlobalDimension(depName)) {
         deps[depName] = globalResults[depName] || {
-          error: `Global dependency "${depName}" not found`
+          error: `Global dependency "${depName}" not found`,
         };
       } else {
         const sectionDeps: DimensionResult[] = [];
@@ -431,12 +469,12 @@ export class DagEngine {
             data: {
               sections: sectionDeps,
               aggregated: true,
-              totalSections
-            }
+              totalSections,
+            },
           };
         } else {
           deps[depName] = {
-            error: `Section dependency "${depName}" not yet processed`
+            error: `Section dependency "${depName}" not yet processed`,
           };
         }
       }
@@ -446,21 +484,30 @@ export class DagEngine {
   }
 
   private resolveDependencies(
-      dimension: string,
-      sectionResults: Record<string, DimensionResult>,
-      globalResults: Record<string, DimensionResult>
+    dimension: string,
+    sectionResults: Record<string, DimensionResult>,
+    globalResults: Record<string, DimensionResult>
   ): DimensionDependencies {
     const graph = this.plugin.getDependencies();
     const deps: DimensionDependencies = {};
+    const allDimensions = this.plugin.getDimensionNames();
 
     for (const depName of graph[dimension] || []) {
+      // Check if dependency exists in plugin dimensions
+      if (!allDimensions.includes(depName)) {
+        deps[depName] = {
+          error: `Dependency "${depName}" not found in plugin dimensions`,
+        };
+        continue;
+      }
+
       if (this.plugin.isGlobalDimension(depName)) {
         deps[depName] = globalResults[depName] || {
-          error: `Global dependency "${depName}" not found`
+          error: `Global dependency "${depName}" not found`,
         };
       } else {
         deps[depName] = sectionResults[depName] || {
-          error: `Section dependency "${depName}" not found`
+          error: `Section dependency "${depName}" not found`,
         };
       }
     }
@@ -469,10 +516,10 @@ export class DagEngine {
   }
 
   private async executeDimension(
-      dimension: string,
-      sections: SectionData[],
-      dependencies: DimensionDependencies,
-      isGlobal: boolean
+    dimension: string,
+    sections: SectionData[],
+    dependencies: DimensionDependencies,
+    isGlobal: boolean
   ): Promise<DimensionResult> {
     const prompt = this.plugin.createPrompt({
       sections,
@@ -485,15 +532,15 @@ export class DagEngine {
 
     if (!this.adapter.hasProvider(providerConfig.provider)) {
       throw new Error(
-          `Provider "${providerConfig.provider}" not found. Available: ${this.adapter.listProviders().join(', ')}`
+        `Provider "${providerConfig.provider}" not found. Available: ${this.adapter.listProviders().join(', ')}`
       );
     }
 
     const response = await this.retry(() =>
-        this.adapter.execute(providerConfig.provider, {
-          input: prompt,
-          options: providerConfig.options,
-        })
+      this.adapter.execute(providerConfig.provider, {
+        input: prompt,
+        options: providerConfig.options,
+      })
     );
 
     if (response.error) {
@@ -514,7 +561,7 @@ export class DagEngine {
 
         if (attempt < this.maxRetries) {
           const delay = this.retryDelay * Math.pow(2, attempt);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -536,7 +583,7 @@ export class DagEngine {
 
       visiting.add(dim);
       const deps = graph[dim] || [];
-      deps.forEach(dep => {
+      deps.forEach((dep) => {
         if (dimensions.includes(dep)) visit(dep);
       });
       visiting.delete(dim);
@@ -544,7 +591,7 @@ export class DagEngine {
       result.push(dim);
     };
 
-    dimensions.forEach(dim => {
+    dimensions.forEach((dim) => {
       if (!visited.has(dim)) visit(dim);
     });
 
