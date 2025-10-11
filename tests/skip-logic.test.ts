@@ -104,7 +104,7 @@ describe('DagEngine - Dynamic Skipping', () => {
 });
 
 // ============================================================================
-// tests/callbacks.test.ts - Callback Tests
+// tests/callbacks.manual-test.ts - Callback Tests
 // ============================================================================
 
 describe('DagEngine - Callbacks', () => {

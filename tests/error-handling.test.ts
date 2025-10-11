@@ -30,25 +30,25 @@ describe('DagEngine - Error Handling', () => {
             }
         }
 
-        mockProvider.setMockResponse('failing', null);
-        mockProvider.setMockResponse('succeeding', { result: 'ok' });
-        mockProvider.shouldFail = true;
+        mockProvider.execute = async (request) => {
+            if (request.input === 'failing') {
+                return { error: 'Failing dimension error' };
+            }
+            return { data: { result: 'ok' } };
+        };
 
         const engine = new DagEngine({
             plugin: new ErrorPlugin(),
             registry,
-            continueOnError: true
+            continueOnError: true,
+            maxRetries: 0
         });
 
         const result = await engine.process([createMockSection('Test')]);
 
-        // Should have error for failing dimension
         expect(result?.sections?.[0]?.results?.failing?.error).toBeDefined();
-
-        // But succeeding should still work (if no deps on failing)
-        mockProvider.shouldFail = false;
-        mockProvider.setMockResponse('succeeding', { result: 'ok' });
-    });
+        expect(result?.sections?.[0]?.results?.succeeding?.data).toBeDefined();
+    }, 15000);
 
     test('should call onError callback', async () => {
         const errors: Array<{ context: string; error: Error }> = [];
@@ -56,11 +56,11 @@ describe('DagEngine - Error Handling', () => {
         class ErrorPlugin extends Plugin {
             constructor() {
                 super('error', 'Error', 'Test');
-                this.dimensions = ['failing'];
+                this.dimensions = ['failing', 'succeeding'];  // ✅ ADD: Add a succeeding dimension
             }
 
-            createPrompt(): string {
-                return 'test';
+            createPrompt(context: any): string {
+                return context.dimension;  // ✅ CHANGE: Return dimension name
             }
 
             selectProvider(): any {
@@ -68,12 +68,19 @@ describe('DagEngine - Error Handling', () => {
             }
         }
 
-        mockProvider.shouldFail = true;
+        // ✅ FIX: Mock execute directly with per-dimension behavior
+        mockProvider.execute = async (request) => {
+            if (request.input === 'failing') {
+                return { error: 'Intentional failure' };  // ✅ Return error (like real API)
+            }
+            return { data: { result: 'ok' } };
+        };
 
         const engine = new DagEngine({
             plugin: new ErrorPlugin(),
             registry,
-            continueOnError: true
+            continueOnError: true,
+            maxRetries: 0  // ✅ ADD: Disable retries so error happens immediately
         });
 
         await engine.process([createMockSection('Test')], {
@@ -84,7 +91,7 @@ describe('DagEngine - Error Handling', () => {
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors?.[0]?.context).toContain('failing');
-    });
+    }, 15000);
 
     test('should handle missing provider error', async () => {
         class MissingProviderPlugin extends Plugin {

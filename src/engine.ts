@@ -78,6 +78,7 @@ export class DagEngine {
   private readonly timeout: number;
   private readonly dimensionTimeouts: Record<string, number>;
   private dependencyGraph?: Graph; // Cache for analytics
+  private readonly concurrency: number;
 
   constructor(config: EngineConfig) {
     if (!config.plugin) {
@@ -90,6 +91,11 @@ export class DagEngine {
     this.continueOnError = config.continueOnError ?? true;
     this.timeout = config.timeout ?? 60000;
     this.dimensionTimeouts = config.dimensionTimeouts ?? {};
+    this.concurrency = config.concurrency ?? 5;
+
+    if (this.concurrency < 1) {
+      throw new Error('Concurrency must be at least 1');
+    }
 
     // Initialize p-queue for concurrency control
     this.queue = new PQueue({

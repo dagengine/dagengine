@@ -40,7 +40,7 @@ describe('ProviderRegistry', () => {
 });
 
 // ============================================================================
-// tests/plugin.test.ts - Plugin Tests
+// tests/plugin.manual-test.ts - Plugin Tests
 // ============================================================================
 
 describe('Plugin', () => {

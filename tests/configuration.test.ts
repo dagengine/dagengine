@@ -243,17 +243,30 @@ describe('DagEngine - Configuration Validation', () => {
         }).toThrow('at least one provider');
     });
 
-    test('should accept zero concurrency', () => {
+    test('should reject zero concurrency with clear error', () => {
         const registry = new ProviderRegistry();
         registry.register(new MockAIProvider());
 
-        const engine = new DagEngine({
-            plugin: new TestPlugin(),
-            registry,
-            concurrency: 0
-        });
+        expect(() => {
+            new DagEngine({
+                plugin: new TestPlugin(),
+                registry,
+                concurrency: 0
+            });
+        }).toThrow('Concurrency must be at least 1');
+    });
 
-        expect((engine as any).concurrency).toBe(0);
+    test('should reject negative concurrency', () => {
+        const registry = new ProviderRegistry();
+        registry.register(new MockAIProvider());
+
+        expect(() => {
+            new DagEngine({
+                plugin: new TestPlugin(),
+                registry,
+                concurrency: -5
+            });
+        }).toThrow('Concurrency must be at least 1');
     });
 
     test('should accept zero retries', () => {
