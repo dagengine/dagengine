@@ -1,7 +1,3 @@
-// ============================================================================
-// tests/setup.ts - Test Setup & Mocks
-// ============================================================================
-
 import { BaseProvider, ProviderConfig, ProviderRequest, ProviderResponse } from '../src/providers/types';
 
 // Mock AI Provider
@@ -13,7 +9,7 @@ export class MockAIProvider extends BaseProvider {
     public delay = 0;
 
     constructor(config: ProviderConfig = {}) {
-        super('mock-ai', 'ai', config);
+        super('mock-ai', config);
     }
 
     setMockResponse(input: string, response: any): void {

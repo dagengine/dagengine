@@ -1,29 +1,27 @@
 export interface ProviderConfig {
-    apiKey?: string;
-    [key: string]: unknown;
+  apiKey?: string;
+  [key: string]: unknown;
 }
 
 export interface ProviderRequest {
-    input: string | string[];
-    options?: Record<string, unknown>;
+  input: string | string[];
+  options?: Record<string, unknown>;
 }
 
 export interface ProviderResponse<T = unknown> {
-    data?: T;
-    error?: string;
-    metadata?: Record<string, unknown>;
+  data?: T;
+  error?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export abstract class BaseProvider {
-    protected readonly config: ProviderConfig;
-    public readonly name: string;
-    public readonly type: 'ai' | 'search' | 'data';
+  protected readonly config: ProviderConfig;
+  public readonly name: string;
 
-    constructor(name: string, type: 'ai' | 'search' | 'data', config: ProviderConfig) {
-        this.name = name;
-        this.type = type;
-        this.config = config;
-    }
+  constructor(name: string, config: ProviderConfig) {
+    this.name = name;
+    this.config = config;
+  }
 
-    abstract execute(request: ProviderRequest): Promise<ProviderResponse>;
+  abstract execute(request: ProviderRequest): Promise<ProviderResponse>;
 }

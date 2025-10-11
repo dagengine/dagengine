@@ -6,7 +6,7 @@ export class GeminiProvider extends BaseProvider {
   private readonly baseUrl: string;
 
   constructor(config: ProviderConfig) {
-    super('gemini', 'ai', config);
+    super('gemini', config);
 
     if (!config.apiKey) {
       throw new Error('Gemini API key is required');
@@ -19,7 +19,9 @@ export class GeminiProvider extends BaseProvider {
   async execute(request: ProviderRequest): Promise<ProviderResponse> {
     try {
       if (Array.isArray(request.input)) {
-        throw new Error('Gemini provider does not support batch inputs. Process queries one at a time.');
+        throw new Error(
+          'Gemini provider does not support batch inputs. Process queries one at a time.'
+        );
       }
 
       const model = (request.options?.model as string) || 'gemini-1.5-pro';
@@ -44,12 +46,12 @@ export class GeminiProvider extends BaseProvider {
           {
             parts: [
               {
-                text: request.input
-              }
-            ]
-          }
+                text: request.input,
+              },
+            ],
+          },
         ],
-        generationConfig
+        generationConfig,
       };
 
       // Make API request
@@ -68,7 +70,7 @@ export class GeminiProvider extends BaseProvider {
         throw new Error(`Gemini API error (${response.status}): ${error}`);
       }
 
-      const data = await response.json() as GeminiResponse;
+      const data = (await response.json()) as GeminiResponse;
 
       // Handle safety ratings (content blocked)
       if (!data.candidates || data.candidates.length === 0) {
@@ -110,13 +112,12 @@ export class GeminiProvider extends BaseProvider {
           maxTokens,
           finishReason: candidate?.finishReason,
           safetyRatings: candidate?.safetyRatings,
-          tokenCount: this.estimateTokenCount(content)
-        }
+          tokenCount: this.estimateTokenCount(content),
+        },
       };
-
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
