@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { OpenAIProvider } from '../../src/providers/ai/openai.ts';
 
 const originalFetch = global.fetch;
@@ -181,23 +181,40 @@ describe('OpenAIProvider', () => {
     });
 
     test('should include metadata in response', async () => {
-        const mockResponse = {
-            choices: [{ message: { content: '{"result": "ok"}' } }]
-        };
+        const provider = new OpenAIProvider({
+            apiKey: 'test-key',
+        });
 
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => mockResponse
+            json: async () => ({
+                choices: [
+                    {
+                        message: {
+                            content: '{"result": "test"}',
+                        },
+                    },
+                ],
+                model: 'gpt-4o',
+                usage: {
+                    prompt_tokens: 150,
+                    completion_tokens: 250,
+                    total_tokens: 400,
+                },
+            }),
         } as Response);
 
-        const provider = new OpenAIProvider({ apiKey: 'test-key' });
         const result = await provider.execute({
             input: 'test',
-            options: { model: 'gpt-4o', maxTokens: 1024 }
+            options: { model: 'gpt-4o' },
         });
 
         expect(result.metadata).toBeDefined();
         expect(result.metadata?.model).toBe('gpt-4o');
-        expect(result.metadata?.tokens).toBe(1024);
+        expect(result.metadata?.provider).toBe('openai');
+        expect(result.metadata?.tokens).toBeDefined();
+        expect(result.metadata?.tokens?.inputTokens).toBe(150);
+        expect(result.metadata?.tokens?.outputTokens).toBe(250);
+        expect(result.metadata?.tokens?.totalTokens).toBe(400);
     });
 });

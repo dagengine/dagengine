@@ -40,12 +40,30 @@ export class AnthropicProvider extends BaseProvider {
         throw new Error(`Anthropic API error (${response.status}): ${error}`);
       }
 
-      const data = (await response.json()) as { content: Array<{ text: string }> };
+      const data = (await response.json()) as {
+        content: Array<{ text: string }>;
+        usage?: {
+          input_tokens: number;
+          output_tokens: number;
+        };
+        model?: string;
+      };
+
       const content = data.content[0]?.text || '';
 
       return {
         data: parseJSON(content),
-        metadata: { model, tokens: maxTokens },
+        metadata: {
+          model: data.model || model,
+          provider: 'anthropic',
+          ...(data.usage && {
+            tokens: {
+              inputTokens: data.usage.input_tokens,
+              outputTokens: data.usage.output_tokens,
+              totalTokens: data.usage.input_tokens + data.usage.output_tokens,
+            }
+          }),
+        },
       };
     } catch (error) {
       return {

@@ -79,3 +79,12 @@ export type { WhoisData } from './providers/data/whoisxml';
 // ============================================================================
 
 export { parseJSON } from './utils';
+
+export type {
+  TokenUsage,
+  ProviderMetadata,
+  ModelPricing,
+  PricingConfig,
+  DimensionCost,
+  CostSummary,
+} from './types';
