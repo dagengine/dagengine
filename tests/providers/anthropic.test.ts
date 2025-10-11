@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { AnthropicProvider } from '../../src/providers/ai/anthropic.ts';
 
 // Mock fetch globally
@@ -220,24 +220,34 @@ describe('AnthropicProvider', () => {
     });
 
     test('should include metadata in response', async () => {
-        const mockResponse = {
-            content: [{ text: '{"result": "ok"}' }]
-        };
+        const provider = new AnthropicProvider({
+            apiKey: 'test-key',
+        });
 
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => mockResponse
+            json: async () => ({
+                content: [{ text: '{"result": "test"}' }],
+                model: 'custom-model',
+                usage: {
+                    input_tokens: 100,
+                    output_tokens: 200,
+                },
+            }),
         } as Response);
 
-        const provider = new AnthropicProvider({ apiKey: 'test-key' });
         const result = await provider.execute({
             input: 'test',
-            options: { model: 'custom-model', maxTokens: 2048 }
+            options: { model: 'custom-model' },
         });
 
         expect(result.metadata).toBeDefined();
         expect(result.metadata?.model).toBe('custom-model');
-        expect(result.metadata?.tokens).toBe(2048);
+        expect(result.metadata?.provider).toBe('anthropic');
+        expect(result.metadata?.tokens).toBeDefined();
+        expect(result.metadata?.tokens?.inputTokens).toBe(100);
+        expect(result.metadata?.tokens?.outputTokens).toBe(200);
+        expect(result.metadata?.tokens?.totalTokens).toBe(300);
     });
 
     test('should handle response with no content array', async () => {

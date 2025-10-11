@@ -1,8 +1,7 @@
 import { Plugin } from './plugin';
 import { ProviderAdapter, ProviderAdapterConfig } from './providers/adapter';
 import { ProviderRegistry } from './providers/registry';
-import { SectionData, DimensionResult, DimensionDependencies } from './types';
-import PQueue from 'p-queue';
+import { SectionData, DimensionResult, DimensionDependencies, PricingConfig, CostSummary, DimensionCost, TokenUsage } from './types';import PQueue from 'p-queue';
 import pRetry from 'p-retry';
 import { Graph, alg } from '@dagrejs/graphlib';
 
@@ -19,6 +18,7 @@ export interface EngineConfig {
   continueOnError?: boolean;
   timeout?: number;
   dimensionTimeouts?: Record<string, number>;
+  pricing?: PricingConfig;
 }
 
 export interface ProcessOptions {
@@ -36,6 +36,7 @@ export interface ProcessResult {
   }>;
   globalResults: Record<string, DimensionResult>;
   transformedSections: SectionData[];
+  costs?: CostSummary;
 }
 
 /**
@@ -79,6 +80,7 @@ export class DagEngine {
   private readonly dimensionTimeouts: Record<string, number>;
   private dependencyGraph?: Graph; // Cache for analytics
   private readonly concurrency: number;
+  private readonly pricing: PricingConfig | undefined;
 
   constructor(config: EngineConfig) {
     if (!config.plugin) {
@@ -92,6 +94,7 @@ export class DagEngine {
     this.timeout = config.timeout ?? 60000;
     this.dimensionTimeouts = config.dimensionTimeouts ?? {};
     this.concurrency = config.concurrency ?? 5;
+    this.pricing = config.pricing;
 
     if (this.concurrency < 1) {
       throw new Error('Concurrency must be at least 1');
@@ -217,10 +220,15 @@ export class DagEngine {
       };
     });
 
+    const costs = this.pricing
+        ? this.calculateCosts(finalSectionResults, globalResults)
+        : undefined;
+
     return {
       sections: finalSectionResults,
       globalResults,
       transformedSections: currentSections,
+      ...(costs && { costs })
     };
   }
 
@@ -578,7 +586,6 @@ export class DagEngine {
 
     let lastError: Error | null = null;
 
-    // ✅ NEW: Try each provider in order
     for (let i = 0; i < providersToTry.length; i++) {
       const currentProvider = providersToTry[i]!;
 
@@ -624,7 +631,10 @@ export class DagEngine {
             }
         );
 
-        return { data: response.data };
+        return {
+          data: response.data,
+          ...(response.metadata && { metadata: response.metadata })
+        };
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -676,6 +686,105 @@ export class DagEngine {
 
     // Return topologically sorted dimensions
     return alg.topsort(graph);
+  }
+
+  /**
+   * Calculate costs from metadata
+   * @private
+   */
+  private calculateCosts(
+      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
+      globalResults: Record<string, DimensionResult>
+  ): CostSummary {
+    if (!this.pricing) {
+      throw new Error('Pricing config not provided');
+    }
+
+    const byDimension: Record<string, DimensionCost> = {};
+    const byProvider: Record<string, { cost: number; tokens: TokenUsage; models: string[] }> = {};
+
+    let totalCost = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    const processResult = (dimension: string, result: DimensionResult): void => {
+      const metadata = result.metadata;
+
+      if (!metadata?.tokens || !metadata?.model) {
+        return; // Skip if no token data
+      }
+
+      const { tokens, model, provider = 'unknown' } = metadata;
+
+      const modelPricing = this.pricing!.models[model];
+
+      if (!modelPricing) {
+        console.warn(`No pricing data for model "${model}". Skipping cost calculation for this dimension.`);
+        return;
+      }
+
+      // Calculate cost
+      const cost = (
+          (tokens.inputTokens * modelPricing.inputPer1M +
+              tokens.outputTokens * modelPricing.outputPer1M) / 1_000_000
+      );
+
+      // Update totals
+      totalCost += cost;
+      totalInputTokens += tokens.inputTokens;
+      totalOutputTokens += tokens.outputTokens;
+
+      // Update by dimension
+      if (!byDimension[dimension]) {
+        byDimension[dimension] = {
+          cost: 0,
+          tokens: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          model,
+          provider,
+        };
+      }
+      byDimension[dimension].cost += cost;
+      byDimension[dimension].tokens.inputTokens += tokens.inputTokens;
+      byDimension[dimension].tokens.outputTokens += tokens.outputTokens;
+      byDimension[dimension].tokens.totalTokens += tokens.totalTokens;
+
+      // Update by provider
+      if (!byProvider[provider]) {
+        byProvider[provider] = {
+          cost: 0,
+          tokens: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          models: [],
+        };
+      }
+      byProvider[provider].cost += cost;
+      byProvider[provider].tokens.inputTokens += tokens.inputTokens;
+      byProvider[provider].tokens.outputTokens += tokens.outputTokens;
+      byProvider[provider].tokens.totalTokens += tokens.totalTokens;
+
+      if (!byProvider[provider].models.includes(model)) {
+        byProvider[provider].models.push(model);
+      }
+    };
+
+    // Process section results
+    for (const { results } of sectionResults) {
+      for (const [dimension, result] of Object.entries(results)) {
+        processResult(dimension, result);
+      }
+    }
+
+    // Process global results
+    for (const [dimension, result] of Object.entries(globalResults)) {
+      processResult(dimension, result);
+    }
+
+    return {
+      totalCost,
+      totalTokens: totalInputTokens + totalOutputTokens,
+      byDimension,
+      byProvider,
+      currency: 'USD',
+    };
   }
 
   /**

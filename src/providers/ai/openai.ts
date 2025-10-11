@@ -41,13 +41,29 @@ export class OpenAIProvider extends BaseProvider {
 
       const data = (await response.json()) as {
         choices: Array<{ message: { content: string } }>;
+        usage?: {
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+        };
+        model?: string;
       };
 
       const content = data.choices[0]?.message?.content || '';
 
       return {
         data: parseJSON(content),
-        metadata: { model, tokens: maxTokens },
+        metadata: {
+          model: data.model || model,
+          provider: 'openai',
+          ...(data.usage && {
+            tokens: {
+              inputTokens: data.usage.prompt_tokens,
+              outputTokens: data.usage.completion_tokens,
+              totalTokens: data.usage.total_tokens,
+            }
+          }),
+        },
       };
     } catch (error) {
       return {

@@ -8,10 +8,23 @@ export interface ProviderRequest {
   options?: Record<string, unknown>;
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface ProviderMetadata {
+  model?: string;
+  tokens?: TokenUsage;
+  provider?: string;
+  [key: string]: unknown;
+}
+
 export interface ProviderResponse<T = unknown> {
   data?: T;
   error?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: ProviderMetadata;
 }
 
 export abstract class BaseProvider {

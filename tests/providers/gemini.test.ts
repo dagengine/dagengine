@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { GeminiProvider } from '../../src/providers/ai/gemini.ts';
 
 const originalFetch = global.fetch;
@@ -107,7 +107,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation();
+        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -126,27 +126,40 @@ describe('GeminiProvider', () => {
         consoleWarnSpy.mockRestore();
     });
 
-    test('should estimate token count', async () => {
-        const mockResponse = {
-            candidates: [{
-                content: { parts: [{ text: '{"result": "ok"}' }], role: 'model' },
-                finishReason: 'STOP'
-            }]
-        };
+    test('should return token usage from API', async () => {
+        const provider = new GeminiProvider({
+            apiKey: 'test-key',
+        });
 
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => mockResponse
+            json: async () => ({
+                candidates: [
+                    {
+                        content: {
+                            parts: [{ text: '{"result": "test"}' }],
+                        },
+                        finishReason: 'STOP',
+                    },
+                ],
+                usageMetadata: {
+                    promptTokenCount: 120,
+                    candidatesTokenCount: 280,
+                    totalTokenCount: 400,
+                },
+            }),
         } as Response);
 
-        const provider = new GeminiProvider({ apiKey: 'test-key' });
         const result = await provider.execute({
             input: 'test',
-            options: {}
         });
 
-        expect(result.metadata?.tokenCount).toBeDefined();
-        expect(typeof result.metadata?.tokenCount).toBe('number');
+        expect(result.metadata).toBeDefined();
+        expect(result.metadata?.provider).toBe('gemini');
+        expect(result.metadata?.tokens).toBeDefined();
+        expect(result.metadata?.tokens?.inputTokens).toBe(120);
+        expect(result.metadata?.tokens?.outputTokens).toBe(280);
+        expect(result.metadata?.tokens?.totalTokens).toBe(400);
     });
 
     test('should handle custom baseUrl', async () => {
@@ -299,7 +312,7 @@ describe('GeminiProvider', () => {
     });
 
     test('should handle MAX_TOKENS finish reason warning', async () => {
-        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
         const mockResponse = {
             candidates: [{

@@ -109,10 +109,16 @@ export class GeminiProvider extends BaseProvider {
         data: parsedData,
         metadata: {
           model,
-          maxTokens,
+          provider: 'gemini',
+          ...(data.usageMetadata && {
+            tokens: {
+              inputTokens: data.usageMetadata.promptTokenCount,
+              outputTokens: data.usageMetadata.candidatesTokenCount,
+              totalTokens: data.usageMetadata.totalTokenCount,
+            }
+          }),
           finishReason: candidate?.finishReason,
           safetyRatings: candidate?.safetyRatings,
-          tokenCount: this.estimateTokenCount(content),
         },
       };
     } catch (error) {
