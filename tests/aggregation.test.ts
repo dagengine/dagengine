@@ -278,19 +278,29 @@ describe('DagEngine - Section Aggregation', () => {
             }
         }
 
-        let callCount = 0;
+        const sectionCallCounts = new Map<number, number>();
+
         mockProvider.execute = async (request) => {
-            callCount++;
-            if (request.input === 'section_dim' && callCount === 2) {
-                return { error: 'Section 2 failed' };
+            // The input is 'section_dim' for all section calls
+            if (request.input === 'section_dim') {
+                // We need to track this differently - let's use a counter
+                const currentCount = (sectionCallCounts.get(0) || 0) + 1;
+                sectionCallCounts.set(0, currentCount);
+
+                // Make the 2nd section call fail
+                if (currentCount === 2) {
+                    return { error: 'Section 2 failed' };
+                }
             }
-            return { data: { result: `ok-${callCount}` } };
+
+            return { data: { result: `ok` } };
         };
 
         const engine = new DagEngine({
             plugin: new MixedPlugin(),
             registry,
-            continueOnError: true
+            continueOnError: true,
+            maxRetries: 0
         });
 
         const sections = [
@@ -301,7 +311,6 @@ describe('DagEngine - Section Aggregation', () => {
 
         await engine.process(sections);
 
-        // Should aggregate all results, including errors
         expect(aggregatedResults).toHaveLength(3);
 
         const errorResults = aggregatedResults.filter(r => r.error);

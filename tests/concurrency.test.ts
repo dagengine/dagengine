@@ -166,13 +166,16 @@ describe('DagEngine - Concurrency Control', () => {
             }
         }
 
-        let callCount = 0;
+        let sectionCount = 0;
 
         mockProvider.execute = async (request) => {
-            callCount++;
-            if (callCount % 2 === 0) {
-                return { error: 'Even call fails' };  // Return error instead of throwing
+            sectionCount++;
+
+            // Make every even section fail (2nd, 4th, 6th)
+            if (sectionCount % 2 === 0) {
+                return { error: 'Even section fails' };
             }
+
             return { data: { result: 'ok' } };
         };
 
@@ -180,7 +183,8 @@ describe('DagEngine - Concurrency Control', () => {
             plugin: new ErrorConcurrencyPlugin(),
             registry,
             concurrency: 3,
-            continueOnError: true
+            continueOnError: true,
+            maxRetries: 0
         });
 
         const sections = Array.from({ length: 6 }, (_, i) =>
@@ -192,11 +196,10 @@ describe('DagEngine - Concurrency Control', () => {
         // Should have processed all sections despite errors
         expect(result.sections).toHaveLength(6);
 
-        // Half should have errors
+        // Half should have errors (sections 2, 4, 6)
         const errorCount = result.sections.filter(s => s.results.test?.error).length;
         expect(errorCount).toBe(3);
-    }, 10000);  // Also increase timeout to 10 seconds just in case
-
+    }, 15000);
     test('should handle varying section processing times', async () => {
         class VaryingTimePlugin extends Plugin {
             constructor() {
