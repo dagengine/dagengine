@@ -20,6 +20,11 @@ export interface PromptContext {
 export interface ProviderSelection {
   provider: string;
   options: Record<string, unknown>;
+  fallbacks?: Array<{
+    provider: string;
+    options: Record<string, unknown>;
+    retryAfter?: number;
+  }>;
 }
 
 export abstract class Plugin {
@@ -68,13 +73,13 @@ export abstract class Plugin {
   }
 
   /**
-   * NEW: Optional method to skip dimensions dynamically per section
+   * Optional method to skip dimensions dynamically per section
    * Return true to skip this dimension for this specific section
    */
   shouldSkipDimension?(
-    dimension: string,
-    section: SectionData,
-    sectionResults: Record<string, DimensionResult>,
-    globalResults: Record<string, DimensionResult>
+      dimension: string,
+      section: SectionData,
+      sectionResults: Record<string, DimensionResult>,
+      globalResults: Record<string, DimensionResult>
   ): boolean;
 }
