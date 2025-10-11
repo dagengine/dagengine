@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { ProviderAdapter, createProviderAdapter } from '../src/providers/adapter';
 import { ProviderRegistry } from '../src/providers/registry';
 import { BaseProvider, ProviderConfig, ProviderRequest, ProviderResponse } from '../src/providers/types';
@@ -33,7 +33,7 @@ describe('ProviderAdapter', () => {
     });
 
     test('should handle provider initialization failures gracefully', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         const adapter = new ProviderAdapter({
             // @ts-expect-error - test
@@ -143,7 +143,7 @@ describe('createProviderAdapter', () => {
 
 describe('ProviderAdapter - Warning Messages', () => {
     test('should warn when Anthropic config provided without API key', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         new ProviderAdapter({
             anthropic: {} as any
@@ -154,7 +154,7 @@ describe('ProviderAdapter - Warning Messages', () => {
     });
 
     test('should warn when OpenAI config provided without API key', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         new ProviderAdapter({
             openai: {} as any
@@ -165,7 +165,7 @@ describe('ProviderAdapter - Warning Messages', () => {
     });
 
     test('should warn when Gemini config provided without API key', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         new ProviderAdapter({
             gemini: {} as any
@@ -176,7 +176,7 @@ describe('ProviderAdapter - Warning Messages', () => {
     });
 
     test('should warn when Tavily config provided without API key', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         new ProviderAdapter({
             tavily: {} as any
@@ -187,7 +187,7 @@ describe('ProviderAdapter - Warning Messages', () => {
     });
 
     test('should warn when WhoisXML config provided without API key', () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         new ProviderAdapter({
             whoisxml: {} as any

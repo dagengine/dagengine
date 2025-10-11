@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { AnthropicProvider } from '../../src/providers/ai/anthropic.ts';
 
 // Mock fetch globally
@@ -26,7 +26,7 @@ describe('AnthropicProvider', () => {
             content: [{ text: '{"result": "success"}' }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -42,7 +42,7 @@ describe('AnthropicProvider', () => {
     });
 
     test('should handle API errors', async () => {
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 401,
             text: async () => 'Unauthorized'
@@ -64,7 +64,7 @@ describe('AnthropicProvider', () => {
             content: [{ text: '```json\n{"parsed": true}\n```' }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -81,7 +81,7 @@ describe('AnthropicProvider', () => {
     test('should handle custom model', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -101,7 +101,7 @@ describe('AnthropicProvider', () => {
     test('should handle custom maxTokens', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -121,7 +121,7 @@ describe('AnthropicProvider', () => {
     test('should handle custom temperature', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -141,7 +141,7 @@ describe('AnthropicProvider', () => {
     test('should use default model when not specified', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -163,7 +163,7 @@ describe('AnthropicProvider', () => {
             content: [{ text: 'This is not JSON at all, just plain text' }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -184,7 +184,7 @@ describe('AnthropicProvider', () => {
             content: [{ text: '{invalid json' }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -205,7 +205,7 @@ describe('AnthropicProvider', () => {
             content: []
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -224,7 +224,7 @@ describe('AnthropicProvider', () => {
             content: [{ text: '{"result": "ok"}' }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -245,7 +245,7 @@ describe('AnthropicProvider', () => {
             content: []
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);

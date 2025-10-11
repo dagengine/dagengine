@@ -1,4 +1,4 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect } from 'vitest';
 import { parseJSON } from '../src/utils';
 
 describe('Utils - parseJSON Extended', () => {

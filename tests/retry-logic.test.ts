@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { DagEngine } from '../src/engine';
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';

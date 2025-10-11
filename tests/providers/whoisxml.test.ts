@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, beforeEach } from '@jest/globals';
+import { describe, test, expect, afterEach, beforeEach } from 'vitest';
 import { WhoisXMLProvider } from '../../src/providers/data/whoisxml.ts';
 
 const originalFetch = global.fetch;
@@ -31,7 +31,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -59,7 +59,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -82,7 +82,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -113,7 +113,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -149,7 +149,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -175,7 +175,7 @@ describe('WhoisXMLProvider', () => {
     });
 
     test('should handle API errors', async () => {
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 401,
             text: async () => 'Unauthorized'
@@ -194,7 +194,7 @@ describe('WhoisXMLProvider', () => {
     test('should handle missing domain records', async () => {
         const mockResponse = {};
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -218,7 +218,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -252,7 +252,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -274,7 +274,7 @@ describe('WhoisXMLProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);

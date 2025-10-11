@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from '@jest/globals';
+import { describe, test, expect, afterEach } from 'vitest';
 import { GeminiProvider } from '../../src/providers/ai/gemini.ts';
 
 const originalFetch = global.fetch;
@@ -28,7 +28,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -54,7 +54,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -75,7 +75,7 @@ describe('GeminiProvider', () => {
             }
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -107,9 +107,9 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation();
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -134,7 +134,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -159,7 +159,7 @@ describe('GeminiProvider', () => {
 
         let capturedUrl: string = '';
 
-        global.fetch = jest.fn().mockImplementation(async (url) => {
+        global.fetch = vi.fn().mockImplementation(async (url) => {
             capturedUrl = url as string;
             return {
                 ok: true,
@@ -190,7 +190,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -218,7 +218,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockImplementation(async (url) => {
+        global.fetch = vi.fn().mockImplementation(async (url) => {
             capturedUrl = url as string;
             return {
                 ok: true,
@@ -240,7 +240,7 @@ describe('GeminiProvider', () => {
             candidates: []
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -255,7 +255,7 @@ describe('GeminiProvider', () => {
     });
 
     test('should handle API errors', async () => {
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 400,
             text: async () => 'Bad Request'
@@ -281,7 +281,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -299,7 +299,7 @@ describe('GeminiProvider', () => {
     });
 
     test('should handle MAX_TOKENS finish reason warning', async () => {
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
         const mockResponse = {
             candidates: [{
@@ -308,7 +308,7 @@ describe('GeminiProvider', () => {
             }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
