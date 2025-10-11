@@ -549,9 +549,6 @@ export class DagEngine {
     return deps;
   }
 
-  /**
-   * Execute dimension with p-retry for automatic retries
-   */
   private async executeDimension(
       dimension: string,
       sections: SectionData[],
@@ -567,39 +564,81 @@ export class DagEngine {
 
     const providerConfig = this.plugin.selectProvider(dimension, sections[0]);
 
-    if (!this.adapter.hasProvider(providerConfig.provider)) {
-      throw new Error(
-          `Provider "${providerConfig.provider}" not found. Available: ${this.adapter.listProviders().join(', ')}`
-      );
+    const providersToTry: Array<{
+      provider: string;
+      options: Record<string, unknown>;
+      retryAfter?: number;
+    }> = [
+      {
+        provider: providerConfig.provider,
+        options: providerConfig.options,
+      },
+      ...(providerConfig.fallbacks || []),
+    ];
+
+    let lastError: Error | null = null;
+
+    // ✅ NEW: Try each provider in order
+    for (let i = 0; i < providersToTry.length; i++) {
+      const currentProvider = providersToTry[i]!;
+
+      // Check if provider exists
+      if (!this.adapter.hasProvider(currentProvider.provider)) {
+        const availableProviders = this.adapter.listProviders().join(', ');
+        lastError = new Error(
+            `Provider "${currentProvider.provider}" not found. Available: ${availableProviders}`
+        );
+        continue;
+      }
+
+      try {
+        // Optional delay before fallback
+        if (i > 0 && currentProvider.retryAfter) {
+          await new Promise(resolve => setTimeout(resolve, currentProvider.retryAfter));
+        }
+
+        // Try executing with this provider
+        const response = await pRetry(
+            async () => {
+              const result = await this.adapter.execute(currentProvider.provider, {
+                input: prompt,
+                options: currentProvider.options,
+              });
+
+              if (result.error) {
+                throw new Error(result.error);
+              }
+
+              return result;
+            },
+            {
+              retries: this.maxRetries,
+              factor: 2,
+              minTimeout: this.retryDelay,
+              maxTimeout: this.retryDelay * Math.pow(2, this.maxRetries),
+              onFailedAttempt: (error) => {
+                console.warn(
+                    `Attempt ${error.attemptNumber} failed for dimension "${dimension}" with provider "${currentProvider.provider}". ${error.retriesLeft} retries left.`
+                );
+              },
+            }
+        );
+
+        return { data: response.data };
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Log fallback attempt
+        if (i < providersToTry.length - 1) {
+          console.warn(
+              `Provider "${currentProvider.provider}" failed for dimension "${dimension}". Trying fallback provider "${providersToTry[i + 1]!.provider}"...`
+          );
+        }
+      }
     }
 
-    const response = await pRetry(
-        async () => {
-          const result = await this.adapter.execute(providerConfig.provider, {
-            input: prompt,
-            options: providerConfig.options,
-          });
-
-          if (result.error) {
-            throw new Error(result.error);
-          }
-
-          return result;
-        },
-        {
-          retries: this.maxRetries,
-          factor: 2,
-          minTimeout: this.retryDelay,
-          maxTimeout: this.retryDelay * Math.pow(2, this.maxRetries),
-          onFailedAttempt: (error) => {
-            console.warn(
-                `Attempt ${error.attemptNumber} failed for dimension "${dimension}". ${error.retriesLeft} retries left.`
-            );
-          },
-        }
-    );
-
-    return { data: response.data };
+    throw lastError || new Error(`All providers failed for dimension "${dimension}"`);
   }
 
   /**
