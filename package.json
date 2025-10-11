@@ -1,21 +1,24 @@
 {
   "name": "@ivan629/dag-ai",
-  "version": "2.0.15",
-  "description": "AI-powered dag engine for processing data through analysis dimensions",
+  "version": "2.1.0",
+  "description": "AI-powered DAG engine with advanced graph analytics and workflow visualization",
   "keywords": [
     "dag",
     "ai",
+    "workflow",
     "analysis",
-    "insights",
+    "graph",
+    "analytics",
+    "visualization",
     "typescript"
   ],
-  "homepage": "https://github.com/yourusername/insight-engine-lib#readme",
+  "homepage": "https://github.com/ivan629/dag-ai#readme",
   "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/insight-engine-lib/issues"
+    "url": "https://github.com/ivan629/dag-ai/issues"
   },
   "repository": {
     "type": "git",
@@ -48,10 +51,9 @@
     "build": "rimraf dist && tsup",
     "build:watch": "tsup --watch",
     "dev": "tsup --watch --onSuccess \"node dist/index.js\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -61,27 +63,29 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@jest/globals": "^30.2.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.41.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
-    "jest": "^30.2.0",
     "lint-staged": "^16.1.5",
     "np": "^10.2.0",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "semantic-release": "^24.2.7",
-    "ts-jest": "^29.4.5",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
-    "jsonrepair": "^3.13.1"
+    "@dagrejs/graphlib": "^2.2.4",
+    "jsonrepair": "^3.13.1",
+    "p-queue": "^9.0.0",
+    "p-retry": "^7.1.0"
   }
 }

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { DagEngine } from '../src/engine';
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';
@@ -120,10 +120,10 @@ describe('DagEngine - Callbacks', () => {
 
     test('should call all callbacks', async () => {
         const callbacks = {
-            onDimensionStart: jest.fn(),
-            onDimensionComplete: jest.fn(),
-            onSectionStart: jest.fn(),
-            onSectionComplete: jest.fn()
+            onDimensionStart: vi.fn(),
+            onDimensionComplete: vi.fn(),
+            onSectionStart: vi.fn(),
+            onSectionComplete: vi.fn()
         };
 
         class CallbackPlugin extends Plugin {

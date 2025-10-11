@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from '@jest/globals';
+import { describe, test, expect, afterEach } from 'vitest';
 import { OpenAIProvider } from '../../src/providers/ai/openai.ts';
 
 const originalFetch = global.fetch;
@@ -25,7 +25,7 @@ describe('OpenAIProvider', () => {
             choices: [{ message: { content: '{"result": "success"}' } }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -41,7 +41,7 @@ describe('OpenAIProvider', () => {
     });
 
     test('should handle API errors', async () => {
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 401,
             text: async () => 'Invalid API key'
@@ -61,7 +61,7 @@ describe('OpenAIProvider', () => {
     test('should use default model gpt-4o', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -81,7 +81,7 @@ describe('OpenAIProvider', () => {
     test('should handle custom model', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -101,7 +101,7 @@ describe('OpenAIProvider', () => {
     test('should handle custom parameters', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -127,7 +127,7 @@ describe('OpenAIProvider', () => {
             choices: [{ message: { content: '```json\n{"parsed": true}\n```' } }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -144,7 +144,7 @@ describe('OpenAIProvider', () => {
     test('should use default temperature 0.1', async () => {
         let capturedBody: any;
 
-        global.fetch = jest.fn().mockImplementation(async (url, options) => {
+        global.fetch = vi.fn().mockImplementation(async (url, options) => {
             capturedBody = JSON.parse(options?.body as string);
             return {
                 ok: true,
@@ -166,7 +166,7 @@ describe('OpenAIProvider', () => {
             choices: []
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);
@@ -185,7 +185,7 @@ describe('OpenAIProvider', () => {
             choices: [{ message: { content: '{"result": "ok"}' } }]
         };
 
-        global.fetch = jest.fn().mockResolvedValue({
+        global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => mockResponse
         } as Response);

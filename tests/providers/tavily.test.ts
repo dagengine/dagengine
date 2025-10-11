@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from '@jest/globals';
+import { describe, test, expect, afterEach } from 'vitest';
 import { TavilyProvider } from '../../src/providers/search/tavily.ts';
 
 const originalFetch = global.fetch;
@@ -28,7 +28,7 @@ describe('TavilyProvider', () => {
       ]
     };
 
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse
     } as Response);
@@ -51,7 +51,7 @@ describe('TavilyProvider', () => {
       ]
     };
 
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse
     } as Response);
@@ -71,7 +71,7 @@ describe('TavilyProvider', () => {
 
     const mockResponse = { results: [] };
 
-    global.fetch = jest.fn().mockImplementation(async (url, options) => {
+    global.fetch = vi.fn().mockImplementation(async (url, options) => {
       capturedBody = JSON.parse(options?.body as string);
       return {
         ok: true,
@@ -93,7 +93,7 @@ describe('TavilyProvider', () => {
 
     const mockResponse = { results: [] };
 
-    global.fetch = jest.fn().mockImplementation(async (url, options) => {
+    global.fetch = vi.fn().mockImplementation(async (url, options) => {
       capturedBody = JSON.parse(options?.body as string);
       return {
         ok: true,
@@ -115,7 +115,7 @@ describe('TavilyProvider', () => {
 
     const mockResponse = { results: [] };
 
-    global.fetch = jest.fn().mockImplementation(async (url, options) => {
+    global.fetch = vi.fn().mockImplementation(async (url, options) => {
       capturedBody = JSON.parse(options?.body as string);
       return {
         ok: true,
@@ -133,7 +133,7 @@ describe('TavilyProvider', () => {
   });
 
   test('should handle API errors', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
       text: async () => 'Unauthorized'
@@ -157,7 +157,7 @@ describe('TavilyProvider', () => {
       ]
     };
 
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse
     } as Response);
@@ -178,7 +178,7 @@ describe('TavilyProvider', () => {
       results: []
     };
 
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse
     } as Response);
@@ -198,7 +198,7 @@ describe('TavilyProvider', () => {
 
     const mockResponse = { results: [] };
 
-    global.fetch = jest.fn().mockImplementation(async (url) => {
+    global.fetch = vi.fn().mockImplementation(async (url) => {
       capturedUrl = url as string;
       return {
         ok: true,
@@ -227,7 +227,7 @@ describe('TavilyProvider', () => {
       results: [{ title: 'R2', url: 'https://ex.com/2', content: 'C2', score: 0.8 }]
     };
 
-    global.fetch = jest.fn()
+    global.fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => mockResponse1 } as Response)
       .mockResolvedValueOnce({ ok: true, json: async () => mockResponse2 } as Response);
 
