@@ -25,7 +25,7 @@ describe('DagEngine - Async Performance', () => {
             async createPrompt(context: PromptContext): Promise<string> {
                 // Very fast async operation (10ms)
                 await new Promise(resolve => setTimeout(resolve, 10));
-                return context.sections[0]?.content;
+                return context.sections[0]?.content || '';
             }
 
             selectProvider(): ProviderSelection {

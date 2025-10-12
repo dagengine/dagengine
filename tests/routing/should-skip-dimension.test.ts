@@ -2,10 +2,9 @@ import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DagEngine } from '../../src/engine';
 import { Plugin } from '../../src/plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
-import type { SectionData } from '../../src/types';
+import type { SectionData, SectionDimensionContext } from '../../src/types';
 
 // Mock provider that tracks calls
-// Mock provider that now receives dimension directly
 class MockProvider {
     name = 'mock';
     callLog: Array<{ dimension: string; content: string }> = [];
@@ -112,8 +111,9 @@ describe('shouldSkipDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string): boolean {
-                return dimension === 'dim2'; // Skip only dim2
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                return context.dimension === 'dim2'; // Skip only dim2
             }
         }
 
@@ -155,7 +155,9 @@ describe('shouldSkipDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension } = context;
                 // Skip dim2 and dim4
                 return dimension === 'dim2' || dimension === 'dim4';
             }
@@ -193,7 +195,8 @@ describe('shouldSkipDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
                 return false; // Never skip
             }
         }
@@ -237,7 +240,9 @@ describe('shouldSkipDimension - Content-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 const content = section.content.toLowerCase();
 
                 if (dimension === 'extract_code') {
@@ -297,7 +302,10 @@ describe('shouldSkipDimension - Content-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
+
                 if (dimension === 'deep_analysis') {
                     // Only do deep analysis for content > 100 chars
                     return section.content.length < 100;
@@ -349,7 +357,9 @@ describe('shouldSkipDimension - Content-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 const content = section.content;
 
                 if (dimension === 'extract_emails') {
@@ -421,7 +431,10 @@ describe('shouldSkipDimension - Metadata-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
+
                 if (dimension === 'expensive_analysis') {
                     // Only run if explicitly enabled
                     return section.metadata.runExpensiveAnalysis !== true;
@@ -469,7 +482,9 @@ describe('shouldSkipDimension - Metadata-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 const fileType = section.metadata.fileType as string | undefined;
 
                 if (dimension === 'extract_code') {
@@ -526,7 +541,9 @@ describe('shouldSkipDimension - Metadata-Based Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 const priority = section.metadata.priority as string | undefined;
 
                 if (dimension === 'premium_analysis') {
@@ -593,10 +610,11 @@ describe('shouldSkipDimension - Async Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipDimension(dimension: string): Promise<boolean> {
+            // ✅ FIXED: Use correct signature
+            async shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
                 // Simulate async operation
                 await new Promise(resolve => setTimeout(resolve, 10));
-                return dimension === 'dim2';
+                return context.dimension === 'dim2';
             }
         }
 
@@ -637,7 +655,9 @@ describe('shouldSkipDimension - Async Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipDimension(dimension: string, section: SectionData): Promise<boolean> {
+            // ✅ FIXED: Use correct signature
+            async shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
+                const { dimension, section } = context;
                 // Simulate async cache check
                 await new Promise(resolve => setTimeout(resolve, 5));
                 const cacheKey = `${dimension}:${section.metadata.id}`;
@@ -690,7 +710,9 @@ describe('shouldSkipDimension - Async Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipDimension(dimension: string, section: SectionData): Promise<boolean> {
+            // ✅ FIXED: Use correct signature
+            async shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
+                const { section } = context;
                 const shouldProcess = await externalAPI.shouldProcess(section.metadata.id as string);
                 return !shouldProcess;
             }
@@ -731,7 +753,10 @@ describe('shouldSkipDimension - Async Routing', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipDimension(dimension: string, section: SectionData): Promise<boolean> {
+            // ✅ FIXED: Use correct signature
+            async shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
+                const { dimension, section } = context;
+
                 // Quick sync check first
                 if (section.content.length < 10) {
                     return true; // Skip short content immediately
@@ -795,7 +820,9 @@ describe('shouldSkipDimension - Multiple Sections', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { section } = context;
                 // Skip sections with "skip" in content
                 return section.content.includes('skip');
             }
@@ -836,7 +863,9 @@ describe('shouldSkipDimension - Multiple Sections', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 const isShort = section.content.length < 50;
                 const hasCode = /```|function/.test(section.content);
 
@@ -896,7 +925,9 @@ describe('shouldSkipDimension - Multiple Sections', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { section } = context;
                 // Skip every other section
                 return (section.metadata.index as number) % 2 === 1;
             }
@@ -953,8 +984,9 @@ describe('shouldSkipDimension - Error Handling', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string): boolean {
-                if (dimension === 'dim2') {
+            // ✅ FIXED: Use correct signature (but still throws error)
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                if (context.dimension === 'dim2') {
                     throw new Error('shouldSkipDimension threw an error');
                 }
                 return false;
@@ -996,10 +1028,11 @@ describe('shouldSkipDimension - Error Handling', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipDimension(dimension: string): Promise<boolean> {
+            // ✅ FIXED: Use correct signature
+            async shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
                 await new Promise(resolve => setTimeout(resolve, 5));
 
-                if (dimension === 'dim2') {
+                if (context.dimension === 'dim2') {
                     throw new Error('Async error in shouldSkipDimension');
                 }
 
@@ -1040,7 +1073,8 @@ describe('shouldSkipDimension - Error Handling', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(): Promise<boolean> {
+            // ✅ FIXED: Still returns rejected promise but signature is correct
+            shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
                 return Promise.reject(new Error('Promise rejected'));
             }
         }
@@ -1078,7 +1112,8 @@ describe('shouldSkipDimension - Error Handling', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(): any {
+            // ✅ FIXED: Signature correct, return value is null
+            shouldSkipDimension(context: SectionDimensionContext): any {
                 return null; // Invalid return type
             }
         }
@@ -1115,7 +1150,7 @@ describe('shouldSkipDimension - Integration with Other Features', () => {
                 this.dimensions = ['extract', 'analyze', 'summarize'];
             }
 
-            getDependencies() {
+            defineDependencies() {
                 return {
                     analyze: ['extract'],
                     summarize: ['analyze'],
@@ -1130,7 +1165,9 @@ describe('shouldSkipDimension - Integration with Other Features', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip extract for some sections
                 if (dimension === 'extract') {
                     return section.content.includes('no-extract');
@@ -1175,7 +1212,9 @@ describe('shouldSkipDimension - Integration with Other Features', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip expensive for most sections
                 return dimension === 'expensive' && section.metadata.allowExpensive !== true;
             }
@@ -1269,7 +1308,9 @@ describe('shouldSkipDimension - Integration with Other Features', () => {
                 };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { section } = context;
                 return section.metadata.skip === true;
             }
         }

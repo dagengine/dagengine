@@ -236,7 +236,7 @@ describe('DagEngine - Edge Cases', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 const deps: Record<string, string[]> = {};
                 for (let i = 1; i < 15; i++) {
                     deps[`level${i}`] = [`level${i - 1}`];

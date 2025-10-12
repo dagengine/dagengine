@@ -84,16 +84,16 @@ describe('DagEngine - Async Error Handling', () => {
         expect(errors.some(e => e.includes('selectProvider'))).toBe(true);
     });
 
-    test('should handle async getDependencies errors', async () => {
+    test('should handle async defineDependencies errors', async () => {
         class ErrorDependenciesPlugin extends Plugin {
             constructor() {
                 super('error-deps', 'Error Deps', 'Test');
                 this.dimensions = ['test'];
             }
 
-            async getDependencies(): Promise<Record<string, string[]>> {
+            async defineDependencies(): Promise<Record<string, string[]>> {
                 await new Promise(resolve => setTimeout(resolve, 10));
-                throw new Error('Async getDependencies failed');
+                throw new Error('Async defineDependencies failed');
             }
 
             createPrompt(): string {
@@ -113,7 +113,9 @@ describe('DagEngine - Async Error Handling', () => {
         await expect(engine.process([createMockSection('Test')])).rejects.toThrow();
     });
 
-    test('should handle async processResults errors', async () => {
+    test('should handle async finalizeResults errors', async () => {
+        const errors: string[] = [];
+
         class ErrorProcessPlugin extends Plugin {
             constructor() {
                 super('error-process', 'Error Process', 'Test');
@@ -128,9 +130,9 @@ describe('DagEngine - Async Error Handling', () => {
                 return { provider: 'mock-ai', options: {} };
             }
 
-            async processResults(): Promise<Record<string, DimensionResult>> {
+            async finalizeResults(): Promise<Record<string, DimensionResult>> {
                 await new Promise(resolve => setTimeout(resolve, 10));
-                throw new Error('Async processResults failed');
+                throw new Error('Async finalizeResults failed');
             }
         }
 
@@ -139,7 +141,14 @@ describe('DagEngine - Async Error Handling', () => {
             registry
         });
 
-        await expect(engine.process([createMockSection('Test')])).rejects.toThrow();
+        const result = await engine.process([createMockSection('Test')], {
+            onError: (context, error) => {
+                errors.push(error.message);
+            }
+        });
+
+        expect(result).toBeDefined();
+        expect(errors).toContain('Async finalizeResults failed');
     });
 
     test('should handle async transform errors', async () => {

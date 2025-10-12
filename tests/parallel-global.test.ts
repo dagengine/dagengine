@@ -89,7 +89,7 @@ describe('DagEngine - Parallel Global Execution', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     g3: ['g1'],  // g3 depends on g1
                     g4: ['g2']   // g4 depends on g2
@@ -140,7 +140,7 @@ describe('DagEngine - Parallel Global Execution', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     g2: ['g1'],
                     g3: ['g2']
@@ -264,7 +264,7 @@ describe('DagEngine - Parallel Global Execution', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     g3: ['g1', 'g2']  // g3 depends on both g1 and g2
                 };
@@ -377,7 +377,7 @@ describe('DagEngine - Parallel Global Execution', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     g3: ['g1'],  // Group 1: g1 -> g3
                     g5: ['g2', 'g4']  // Group 2: g2, g4 -> g5

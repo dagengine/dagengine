@@ -4,6 +4,26 @@ import {
   DimensionDependencies,
   Dimension,
   DimensionConfig,
+  ProcessContext,
+  ProcessStartResult,
+  ProcessResultContext,
+  ProcessFailureContext,
+  ProcessResult,
+  DimensionContext,
+  SectionDimensionContext,
+  ProviderContext,
+  DimensionResultContext,
+  ProviderResultContext,
+  TransformSectionsContext,
+  FinalizeContext,
+  RetryContext,
+  RetryResponse,
+  FallbackContext,
+  FallbackResponse,
+  FailureContext,
+  ProviderRequest,
+  ProviderResponse,
+  SkipWithResult,
 } from './types';
 
 export interface PluginConfig {
@@ -42,6 +62,8 @@ export abstract class Plugin {
     this.dimensions = [];
   }
 
+  // ===== HELPER METHODS
+
   getDimensionNames(): string[] {
     return this.dimensions.map((d) => (typeof d === 'string' ? d : d.name));
   }
@@ -60,53 +82,207 @@ export abstract class Plugin {
     return this.getDimensionConfig(name).scope === 'global';
   }
 
+  // ===== TIER 1: ESSENTIAL (3 required - kept as abstract for legacy) =====
+
+  /**
+   * Build prompt for each dimension (REQUIRED)
+   *
+   * @param context - Prompt context with sections, dimension, dependencies
+   * @returns Prompt string to send to provider
+   */
   abstract createPrompt(context: PromptContext): string | Promise<string>;
 
+  /**
+   * Select provider for each dimension (REQUIRED)
+   *
+   * @param dimension - Dimension name
+   * @param section - Optional section data
+   * @returns Provider selection with options and fallbacks
+   */
   abstract selectProvider(
       dimension: string,
       section?: SectionData
   ): ProviderSelection | Promise<ProviderSelection>;
 
-  getDependencies(): Record<string, string[]> | Promise<Record<string, string[]>> {
-    return {};
-  }
-
-  processResults(
-      results: Record<string, DimensionResult>
-  ): Record<string, DimensionResult> | Promise<Record<string, DimensionResult>> {
-    return results;
-  }
+  // ===== TIER 2: CONTROL FLOW (3 optional) =====
 
   /**
-   * Optionally skip a section dimension for a specific section.
-   * Called after all dependencies have been computed.
+   * Define dimension dependencies (optional)
+   * Called once at process start
    *
-   * @param dimension - The dimension name
-   * @param section - The section being processed
-   * @param context - Dependencies and global results
+   * @param context - Process context with sections and options
+   * @returns Dependency graph mapping dimensions to their dependencies
+   */
+  defineDependencies?(
+      context: ProcessContext
+  ): Record<string, string[]> | Promise<Record<string, string[]>>;
+
+  /**
+   * Decide if section dimension should skip (optional)
+   * Can return boolean or cached result
+   *
+   * @param context - Section dimension context with all data
+   * @returns true to skip, false to execute, or {skip: true, result: cached}
    */
   shouldSkipDimension?(
-      dimension: string,
-      section: SectionData,
-      context?: {
-        dependencies: DimensionDependencies;
-        globalResults: Record<string, DimensionResult>;
-      }
-  ): boolean | Promise<boolean>;
+      context: SectionDimensionContext
+  ): boolean | SkipWithResult | Promise<boolean | SkipWithResult>;
 
   /**
-   * Optionally skip a global dimension based on all sections.
-   * Called after all dependencies have been computed.
+   * Decide if global dimension should skip (optional)
+   * Can return boolean or cached result
    *
-   * @param dimension - The dimension name
-   * @param sections - All sections being processed
-   * @param context - Dependencies (including aggregated section results)
+   * @param context - Dimension context with all data
+   * @returns true to skip, false to execute, or {skip: true, result: cached}
    */
   shouldSkipGlobalDimension?(
-      dimension: string,
-      sections: SectionData[],
-      context?: {
-        dependencies: DimensionDependencies;
-      }
-  ): boolean | Promise<boolean>;
+      context: DimensionContext
+  ): boolean | SkipWithResult | Promise<boolean | SkipWithResult>;
+
+  // ===== TIER 3: DATA TRANSFORMATION (3 optional) =====
+
+  /**
+   * Transform dependencies before use (optional)
+   * Called after dependencies are resolved, before prompt creation
+   *
+   * @param context - Dimension context with dependencies
+   * @returns Modified dependencies
+   */
+  transformDependencies?(
+      context: DimensionContext
+  ): DimensionDependencies | Promise<DimensionDependencies>;
+
+  /**
+   * Transform sections after global dimension (optional)
+   * Can split, merge, filter, or add sections
+   *
+   * @param context - Context with result and current sections
+   * @returns Modified sections array
+   */
+  transformSections?(
+      context: TransformSectionsContext
+  ): SectionData[] | Promise<SectionData[]>;
+
+  /**
+   * Finalize all results before return (optional)
+   * Last chance to modify results before returning to user
+   *
+   * @param context - Context with all results
+   * @returns Modified results
+   */
+  finalizeResults?(
+      context: FinalizeContext
+  ): Record<string, DimensionResult> | Promise<Record<string, DimensionResult>>;
+
+  // ===== TIER 4: LIFECYCLE (7 optional) =====
+
+  /**
+   * Called before process starts (optional)
+   * Setup phase for entire workflow
+   *
+   * @param context - Process context
+   * @returns Modified sections and/or metadata
+   */
+  beforeProcessStart?(
+      context: ProcessContext
+  ): ProcessStartResult | Promise<ProcessStartResult>;
+
+  /**
+   * Called after process completes (optional)
+   * Cleanup and finalization phase
+   *
+   * @param context - Process result context
+   * @returns Modified result
+   */
+  afterProcessComplete?(
+      context: ProcessResultContext
+  ): ProcessResult | Promise<ProcessResult>;
+
+  /**
+   * Handle process-level failure (optional)
+   * Called when entire process fails
+   *
+   * @param context - Failure context with error and partial results
+   * @returns Partial result or void to throw
+   */
+  handleProcessFailure?(
+      context: ProcessFailureContext
+  ): ProcessResult | void | Promise<ProcessResult | void>;
+
+  /**
+   * Called before dimension executes (optional)
+   * Setup phase for specific dimension
+   *
+   * @param context - Dimension context
+   */
+  beforeDimensionExecute?(
+      context: DimensionContext
+  ): void | Promise<void>;
+
+  /**
+   * Called after dimension executes (optional)
+   * Cleanup phase for specific dimension
+   *
+   * @param context - Dimension result context
+   */
+  afterDimensionExecute?(
+      context: DimensionResultContext
+  ): void | Promise<void>;
+
+  /**
+   * Called before provider executes (optional)
+   * Last chance to modify request before API call
+   *
+   * @param context - Provider context with request
+   * @returns Modified request
+   */
+  beforeProviderExecute?(
+      context: ProviderContext
+  ): ProviderRequest | Promise<ProviderRequest>;
+
+  /**
+   * Called after provider executes (optional)
+   * Validate and transform raw provider response
+   *
+   * @param context - Provider result context
+   * @returns Modified response
+   */
+  afterProviderExecute?(
+      context: ProviderResultContext
+  ): ProviderResponse | Promise<ProviderResponse>;
+
+  // ===== TIER 5: ERROR RECOVERY (3 optional) =====
+
+  /**
+   * Handle retry attempts (optional)
+   * Called when dimension execution fails and will retry
+   *
+   * @param context - Retry context with error and attempt info
+   * @returns Retry configuration
+   */
+  handleRetry?(
+      context: RetryContext
+  ): RetryResponse | Promise<RetryResponse>;
+
+  /**
+   * Handle provider fallback (optional)
+   * Called when switching to fallback provider
+   *
+   * @param context - Fallback context
+   * @returns Fallback configuration
+   */
+  handleProviderFallback?(
+      context: FallbackContext
+  ): FallbackResponse | Promise<FallbackResponse>;
+
+  /**
+   * Handle dimension failure (optional)
+   * Called when all retries and fallbacks exhausted
+   *
+   * @param context - Failure context
+   * @returns Fallback result or void to throw
+   */
+  handleDimensionFailure?(
+      context: FailureContext
+  ): DimensionResult | void | Promise<DimensionResult | void>;
 }

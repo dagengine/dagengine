@@ -152,11 +152,11 @@
 ### 17. **Plugin Methods**
 - ✅ `createPrompt()` - Generate AI prompts
 - ✅ `selectProvider()` - Choose provider per dimension
-- ✅ `getDependencies()` - Define dependency graph
+- ✅ `defineDependencies()` - Define dependency graph
 - ✅ `getDimensionNames()` - List all dimensions
 - ✅ `getDimensionConfig()` - Get dimension configuration
 - ✅ `isGlobalDimension()` - Check dimension scope
-- ✅ `processResults()` - Post-process results
+- ✅ `finalizeResults()` - Post-process results
 - ✅ **NEW: `shouldSkipDimension()`** - Dynamic skipping logic
 
 ### 18. **Dimension Configuration**

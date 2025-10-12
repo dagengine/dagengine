@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { DagEngine } from '../../src/engine';
 import { Plugin } from '../../src/plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
-import type { SectionData } from '../../src/types';
+import type { SectionData, SectionDimensionContext } from '../../src/types';
 
 describe('Routing - Real-World Document Processing', () => {
     class DocumentProcessingPlugin extends Plugin {
@@ -30,7 +30,8 @@ describe('Routing - Real-World Document Processing', () => {
             return { provider: 'mock', options: {} };
         }
 
-        shouldSkipDimension(dimension: string, section: SectionData): boolean {
+        shouldSkipDimension(context: SectionDimensionContext): boolean {
+            const { dimension, section } = context;
             const content = section.content.toLowerCase();
             const metadata = section.metadata;
 

@@ -25,7 +25,7 @@ describe('Integration Tests', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     topics: ['sentiment'],
                     global_summary: ['sentiment', 'topics']

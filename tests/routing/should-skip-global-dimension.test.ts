@@ -2,8 +2,7 @@ import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DagEngine } from '../../src/engine';
 import { Plugin } from '../../src/plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
-import { createMockSection } from '../setup';
-import type { SectionData } from '../../src/types';
+import type { SectionDimensionContext } from '../../src/types';
 
 class MockProvider {
     name = 'mock';
@@ -90,7 +89,9 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension } = context;
+
                 // Skip global_analysis
                 return dimension === 'global_analysis';
             }
@@ -132,7 +133,9 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension, sections } = context;
+
                 if (dimension === 'overall_summary') {
                     // Skip if ALL sections are too short
                     return sections.every(s => s.content.length < 50);
@@ -176,7 +179,8 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension, sections } = context;
                 if (dimension === 'cross_reference') {
                     // Need at least 3 sections to cross-reference
                     return sections.length < 3;
@@ -221,7 +225,9 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension, sections } = context;
+
                 if (dimension === 'expensive_global') {
                     // Skip if any section has skipExpensive flag
                     return sections.some(s => s.metadata.skipExpensive === true);
@@ -262,7 +268,9 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            async shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): Promise<boolean> {
+            async shouldSkipGlobalDimension(context: SectionDimensionContext): Promise<boolean> {
+                const { sections } = context;
+
                 // Simulate async check (e.g., database query)
                 await new Promise(resolve => setTimeout(resolve, 10));
                 return sections.length < 2;
@@ -295,11 +303,14 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { section } = context;
                 return section.content.length < 10;
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections } = context;
+
                 return sections.length < 2;
             }
         }
@@ -337,8 +348,8 @@ describe('shouldSkipGlobalDimension - Basic Functionality', () => {
             selectProvider() {
                 return { provider: 'mock', options: {} };
             }
-
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension } = context;
                 // Skip global_A and global_C
                 return dimension === 'global_A' || dimension === 'global_C';
             }
@@ -390,7 +401,9 @@ describe('shouldSkipGlobalDimension - Advanced Scenarios', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections, dimension } = context;
+
                 if (dimension === 'statistical_analysis') {
                     // Skip if average section length < 100
                     const avgLength = sections.reduce((sum, s) => sum + s.content.length, 0) / sections.length;
@@ -435,7 +448,9 @@ describe('shouldSkipGlobalDimension - Advanced Scenarios', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections, dimension } = context;
+
                 if (dimension === 'code_summary') {
                     // Skip if less than 50% of sections contain code
                     const codeCount = sections.filter(s => /function|class/.test(s.content)).length;
@@ -579,7 +594,9 @@ describe('shouldSkipGlobalDimension - Integration', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections, dimension } = context;
+
                 if (dimension === 'expensive_global') {
                     // Skip if any section has skip flag
                     return sections.some(s => s.metadata.skipExpensive === true);
@@ -622,7 +639,7 @@ describe('shouldSkipGlobalDimension - Integration', () => {
                 ];
             }
 
-            getDependencies() {
+            defineDependencies() {
                 return {
                     global_B: ['global_A'],
                 };
@@ -636,7 +653,9 @@ describe('shouldSkipGlobalDimension - Integration', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension } = context;
+
                 // Skip global_A
                 return dimension === 'global_A';
             }

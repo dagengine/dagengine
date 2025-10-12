@@ -18,7 +18,7 @@ class TestPlugin extends Plugin {
         return { provider: 'mock-ai' };
     }
 
-    getDependencies(): Record<string, string[]> {
+    defineDependencies(): Record<string, string[]> {
         return { summary: ['sentiment'] };
     }
 }

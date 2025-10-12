@@ -25,10 +25,10 @@ describe('DagEngine - Full Async Integration', () => {
                 this.dimensions = ['fetch', 'process', 'store'];
             }
 
-            async getDependencies(): Promise<Record<string, string[]>> {
-                executionLog.push('getDependencies-start');
+            async defineDependencies(): Promise<Record<string, string[]>> {
+                executionLog.push('defineDependencies-start');
                 await new Promise(resolve => setTimeout(resolve, 20));
-                executionLog.push('getDependencies-end');
+                executionLog.push('defineDependencies-end');
                 return {
                     process: ['fetch'],
                     store: ['process']
@@ -47,10 +47,10 @@ describe('DagEngine - Full Async Integration', () => {
                 return { provider: 'mock-ai', options: {} };
             }
 
-            async processResults(
+            async finalizeResults(
                 results: Record<string, DimensionResult>
             ): Promise<Record<string, DimensionResult>> {
-                executionLog.push('processResults');
+                executionLog.push('finalizeResults');
                 await new Promise(resolve => setTimeout(resolve, 10));
                 return results;
             }
@@ -63,12 +63,12 @@ describe('DagEngine - Full Async Integration', () => {
 
         await engine.process([createMockSection('Test')]);
 
-        expect(executionLog).toContain('getDependencies-start');
-        expect(executionLog).toContain('getDependencies-end');
+        expect(executionLog).toContain('defineDependencies-start');
+        expect(executionLog).toContain('defineDependencies-end');
         expect(executionLog).toContain('createPrompt-fetch');
         expect(executionLog).toContain('createPrompt-process');
         expect(executionLog).toContain('createPrompt-store');
-        expect(executionLog).toContain('processResults');
+        expect(executionLog).toContain('finalizeResults');
     });
 
     test('should handle mixed sync and async methods', async () => {
@@ -84,7 +84,7 @@ describe('DagEngine - Full Async Integration', () => {
             }
 
             // Async
-            async getDependencies(): Promise<Record<string, string[]>> {
+            async defineDependencies(): Promise<Record<string, string[]>> {
                 await new Promise(resolve => setTimeout(resolve, 10));
                 return { async_dim: ['sync_dim'] };
             }
@@ -155,7 +155,7 @@ describe('DagEngine - Full Async Integration', () => {
                 this.dimensions = ['step1', 'step2', 'step3'];
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     step2: ['step1'],
                     step3: ['step2']

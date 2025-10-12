@@ -3,6 +3,7 @@ import { DagEngine } from '../src/engine';
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';
 import { MockAIProvider, createMockSection } from './setup';
+import type { SectionDimensionContext } from '../src/types';
 
 describe('DagEngine - Dynamic Skipping', () => {
     let mockProvider: MockAIProvider;
@@ -31,25 +32,20 @@ describe('DagEngine - Dynamic Skipping', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     analysis: ['check']  // analysis depends on check
                 };
             }
 
-            // ✅ UPDATED: Access dependencies, not raw sectionResults
-            shouldSkipDimension(
-                dimension: string,
-                _section: any,
-                context?: {
-                    dependencies?: Record<string, any>;
-                    globalResults?: Record<string, any>;
-                }
-            ): boolean {
+            // ✅ FIXED: Use correct signature with SectionDimensionContext
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, dependencies } = context;
+
                 if (dimension === 'analysis') {
                     // ✅ Access 'check' through dependencies
                     // 'check' is available because it's declared as a dependency
-                    return context?.dependencies?.check?.data?.quality === 'good';
+                    return dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
@@ -87,23 +83,19 @@ describe('DagEngine - Dynamic Skipping', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     analysis: ['check']
                 };
             }
 
-            shouldSkipDimension(
-                dimension: string,
-                _section: any,
-                context?: {
-                    dependencies?: Record<string, any>;
-                    globalResults?: Record<string, any>;
-                }
-            ): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, dependencies } = context;
+
                 if (dimension === 'analysis') {
                     // ✅ Access through dependencies
-                    return context?.dependencies?.check?.data?.quality === 'good';
+                    return dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
@@ -141,8 +133,9 @@ describe('DagEngine - Dynamic Skipping', () => {
                 return { provider: 'mock-ai' };
             }
 
-            // ✅ Simple skip without using dependencies
-            shouldSkipDimension(dimension: string, section: any): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { section } = context;
                 // Skip if content is too short
                 return section.content.length < 10;
             }
@@ -182,6 +175,7 @@ describe('Dependency-Based Skipping', () => {
         registry = new ProviderRegistry();
         registry.register(mockProvider);
     });
+
     test('should skip dimensions based on dependency results', async () => {
         class SkipPlugin extends Plugin {
             constructor() {
@@ -197,17 +191,16 @@ describe('Dependency-Based Skipping', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { analysis: ['check'] };
             }
 
-            shouldSkipDimension(
-                dimension: string,
-                _section: any,
-                context?: { dependencies?: Record<string, any> }
-            ): boolean {
+            // ✅ FIXED: Use correct signature
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, dependencies } = context;
+
                 if (dimension === 'analysis') {
-                    return context?.dependencies?.check?.data?.quality === 'good';
+                    return dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
@@ -245,17 +238,15 @@ describe('Dependency-Based Skipping', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { analysis: ['check'] };
             }
 
-            shouldSkipDimension(
-                dimension: string,
-                _section: any,
-                context?: { dependencies?: Record<string, any> }
-            ): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, dependencies } = context;
+
                 if (dimension === 'analysis') {
-                    return context?.dependencies?.check?.data?.quality === 'good';
+                    return dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
@@ -274,5 +265,3 @@ describe('Dependency-Based Skipping', () => {
         expect(result.sections[0]?.results?.analysis?.data).toEqual({ result: 'deep' });
     });
 });
-
-
