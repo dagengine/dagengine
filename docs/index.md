@@ -8,13 +8,13 @@ hero:
   actions:
     - theme: brand
       text: Get Started →
-      link: /guide/quick-start
+      link: /guide/introduction
     - theme: alt
       text: View on GitHub
       link: https://github.com/ivan629/dag-ai
     - theme: alt
-      text: Examples
-      link: /examples/
+      text: Recipes
+      link: /recipes/
 
 features:
   - icon: 🎯
@@ -50,13 +50,14 @@ features:
     details: Dynamically merge, split, or reorder document sections mid-pipeline based on AI analysis results.
 
   - icon: 🪝
-    title: 16 Lifecycle Hooks
+    title: 19 Lifecycle Hooks
     details: Fine-grained control at every stage - from process start to provider execution. Transform data at any point in the pipeline.
 ---
 
 ## Why dag-ai?
 
 ### 🚫 Before dag-ai
+
 ```typescript
 // Manual orchestration nightmare 😫
 const sentiment = await anthropic.analyze(text);
@@ -86,6 +87,7 @@ if (sentiment.score > 0.5) {
 ---
 
 ### ✅ With dag-ai
+
 ```typescript
 // Clean, declarative, automatic ✨
 class ContentAnalysis extends Plugin {
@@ -125,6 +127,7 @@ const result = await engine.process(sections);
 ---
 
 ## 🚀 Quick Example
+
 ```typescript
 import { DagEngine, Plugin } from '@ivan629/dag-ai';
 
@@ -170,6 +173,7 @@ console.log(result.sections[0].results.sentiment.data);
 ## 💡 Key Features
 
 ### 1. Smart Dependencies
+
 ```typescript
 defineDependencies() {
   return {
@@ -182,6 +186,7 @@ defineDependencies() {
 ```
 
 **Automatic execution order:**
+
 ```
 ┌─────────────┐  ┌─────────────┐
 │  sentiment  │  │   topics    │  ← Run in parallel
@@ -200,6 +205,7 @@ defineDependencies() {
 ---
 
 ### 2. Cost Optimization
+
 ```typescript
 shouldSkipDimension(context) {
   if (context.dimension === 'expensive_analysis') {
@@ -211,6 +217,7 @@ shouldSkipDimension(context) {
 ```
 
 **Result:**
+
 ```
 1000 documents processed:
 - Without routing: $2.50 (5000 API calls)
@@ -221,6 +228,7 @@ shouldSkipDimension(context) {
 ---
 
 ### 3. Provider Fallback
+
 ```typescript
 selectProvider() {
   return {
@@ -235,6 +243,7 @@ selectProvider() {
 ```
 
 **Automatic failover:**
+
 ```
 Try Anthropic → Fails? → Try OpenAI → Fails? → Try Gemini
 ```
@@ -242,6 +251,7 @@ Try Anthropic → Fails? → Try OpenAI → Fails? → Try Gemini
 ---
 
 ### 4. Built-in Cost Tracking
+
 ```typescript
 const result = await engine.process(sections);
 
@@ -249,18 +259,27 @@ console.log(result.costs);
 ```
 
 **Output:**
+
 ```json
 {
   "totalCost": 0.75,
   "totalTokens": 15000,
   "currency": "USD",
   "byDimension": {
-    "sentiment": { "cost": 0.25, "tokens": {...}, "model": "claude-sonnet-4-5-20250929" },
+    "sentiment": { 
+      "cost": 0.25, 
+      "tokens": {...}, 
+      "model": "claude-sonnet-4-5-20250929" 
+    },
     "topics": { "cost": 0.30, "tokens": {...} },
     "summary": { "cost": 0.20, "tokens": {...} }
   },
   "byProvider": {
-    "anthropic": { "cost": 0.65, "tokens": {...}, "models": ["claude-sonnet-4-5-20250929"] },
+    "anthropic": { 
+      "cost": 0.65, 
+      "tokens": {...}, 
+      "models": ["claude-sonnet-4-5-20250929"] 
+    },
     "openai": { "cost": 0.10, "tokens": {...} }
   }
 }
@@ -269,6 +288,7 @@ console.log(result.costs);
 ---
 
 ### 5. Graph Analytics
+
 ```typescript
 const analytics = await engine.getGraphAnalytics();
 
@@ -276,6 +296,7 @@ console.log(analytics);
 ```
 
 **Output:**
+
 ```json
 {
   "totalDimensions": 5,
@@ -289,6 +310,7 @@ console.log(analytics);
 ```
 
 **Export to DOT:**
+
 ```typescript
 const dot = await engine.exportGraphDOT();
 // Visualize in Graphviz!
@@ -300,34 +322,37 @@ const dot = await engine.exportGraphDOT();
 
 | Feature | Manual | Other Libraries | dag-ai |
 |---------|--------|----------------|--------|
-| **Setup Time** | Days | Hours | Minutes |
-| **Error Handling** | Manual | Basic | Advanced (16 hooks) |
-| **Provider Fallback** | Manual | ❌ | ✅ Automatic |
-| **Cost Tracking** | Manual | ❌ | ✅ Built-in |
-| **Dependencies** | Manual | Basic | ✅ DAG-based |
-| **Dynamic Routing** | Manual | ❌ | ✅ shouldSkip |
-| **Section Transform** | Impossible | ❌ | ✅ Unique |
-| **Parallel Processing** | Manual | Basic | ✅ Optimized |
-| **Type Safety** | JSDoc | Partial | ✅ Full TypeScript |
+| **Setup Time** | Days | Hours | **Minutes** |
+| **Error Handling** | Manual | Basic | **Advanced (19 hooks)** |
+| **Provider Fallback** | Manual | ❌ | **✅ Automatic** |
+| **Cost Tracking** | Manual | ❌ | **✅ Built-in** |
+| **Dependencies** | Manual | Basic | **✅ DAG-based** |
+| **Dynamic Routing** | Manual | ❌ | **✅ shouldSkip** |
+| **Section Transform** | Impossible | ❌ | **✅ Unique** |
+| **Parallel Processing** | Manual | Basic | **✅ Optimized** |
+| **Type Safety** | JSDoc | Partial | **✅ Full TypeScript** |
 
 ---
 
 ## 🎓 Learn by Doing
 
 ### 🟢 Beginner (5 minutes)
-1. [Quick Start](/guide/quick-start) - Your first pipeline
-2. [Understanding Sections](/guide/sections) - What are sections?
-3. [Working with Dimensions](/guide/dimensions) - Add analysis tasks
+
+1. [Introduction](/guide/introduction) - What is dag-ai?
+2. [Quick Start](/guide/quick-start) - Your first pipeline
+3. [Core Concepts](/guide/core-concepts) - Understand the basics
 
 ### 🟡 Intermediate (30 minutes)
+
 1. [Dependencies Guide](/guide/dependencies) - Chain dimensions
 2. [Cost Optimization](/guide/cost-optimization) - Save money
 3. [Error Handling](/guide/error-handling) - Handle failures
 
 ### 🔴 Advanced (1 hour)
-1. [Section Transformations](/guide/transformations) - Restructure docs
-2. [Lifecycle Hooks](/guide/hooks) - Fine-grained control
-3. [Custom Providers](/guide/custom-providers) - Build your own
+
+1. [Section Transformations](/advanced/section-transforms) - Restructure docs
+2. [Lifecycle Hooks](/guide/hooks) - Fine-grained control (19 hooks)
+3. [Custom Providers](/advanced/custom-providers) - Build your own
 
 ---
 
@@ -344,30 +369,37 @@ const dot = await engine.exportGraphDOT();
 
 ---
 
+## 📦 Installation
+
+::: code-group
+
+```bash [npm]
+npm install @ivan629/dag-ai
+```
+
+```bash [yarn]
+yarn add @ivan629/dag-ai
+```
+
+```bash [pnpm]
+pnpm add @ivan629/dag-ai
+```
+
+:::
+
+---
+
 ## 🚀 Ready to Start?
 
 ::: info Quick Links
-- 📖 [Read the Guide](/guide/quick-start)
+- 📖 [Read the Guide](/guide/introduction)
 - 🍳 [Browse Recipes](/recipes/)
-- 💻 [View Examples](/examples/)
 - 📚 [API Reference](/api/dag-engine)
 - 💬 [GitHub Discussions](https://github.com/ivan629/dag-ai/discussions)
 - 🐛 [Report Issues](https://github.com/ivan629/dag-ai/issues)
   :::
 
-## 📦 Installation
-
-::: code-group
-```bash [npm]
-npm install @ivan629/dag-ai
-```
-```bash [yarn]
-yarn add @ivan629/dag-ai
-```
-```bash [pnpm]
-pnpm add @ivan629/dag-ai
-```
-:::
+---
 
 ## 🌟 Community
 

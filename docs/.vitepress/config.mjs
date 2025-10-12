@@ -1,22 +1,34 @@
+// docs/.vitepress/config.mjs
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
     title: 'dag-ai',
-    description: 'AI workflow orchestration with intelligent dependency management',
-
-    // Clean URLs (no .html)
+    description: 'Production-ready AI workflow orchestration with intelligent dependency management',
     cleanUrls: true,
 
-    // Theme
     themeConfig: {
-        // Logo
-        logo: '/logo.svg', // Optional: add logo to docs/public/logo.svg
+        logo: '/logo.svg',
+        siteTitle: 'dag-ai',
 
-        // Navigation
+        // ==========================================
+        // NAVIGATION
+        // ==========================================
         nav: [
-            { text: 'Guide', link: '/guide/what-is-dag-ai' },
-            { text: 'Examples', link: '/guide/examples' },
-            { text: 'API', link: '/api/' },
+            {
+                text: 'Guide',
+                link: '/guide/introduction',
+                activeMatch: '/guide/'
+            },
+            {
+                text: 'API',
+                link: '/api/engine',
+                activeMatch: '/api/'
+            },
+            {
+                text: 'Recipes',
+                link: '/recipes/',
+                activeMatch: '/recipes/'
+            },
             {
                 text: 'v1.0.0',
                 items: [
@@ -26,71 +38,118 @@ export default defineConfig({
             }
         ],
 
-        // Sidebar
+        // ==========================================
+        // ✅ UNIFIED SIDEBAR (Same for all pages)
+        // ==========================================
         sidebar: [
             {
-                text: 'Introduction',
+                text: 'Getting Started',
                 collapsed: false,
                 items: [
-                    { text: 'What is dag-ai?', link: '/guide/what-is-dag-ai' },
-                    { text: 'Why dag-ai?', link: '/guide/why-dag-ai' },
+                    { text: 'Introduction', link: '/guide/introduction' },
                     { text: 'Quick Start', link: '/guide/quick-start' },
-                    { text: 'Installation', link: '/guide/installation' }
+                    { text: 'Installation', link: '/guide/installation' },
+                    { text: 'Core Concepts', link: '/guide/core-concepts' },
+                    { text: 'Examples', link: '/guide/examples' }
                 ]
             },
             {
-                text: 'Essentials',
+                text: 'Lifecycle',
                 collapsed: false,
                 items: [
-                    { text: 'Core Concepts', link: '/guide/core-concepts' },
-                    { text: 'Examples', link: '/guide/examples' }
+                    { text: 'Workflow', link: '/lifecycle/workflow' },
+                    { text: 'Dimension', link: '/lifecycle/dimension' },
+                    { text: 'Hooks', link: '/lifecycle/hooks' }
                 ]
             },
             {
                 text: 'API Reference',
                 collapsed: false,
                 items: [
-                    { text: 'DagEngine', link: '/api/dag-engine' },
+                    { text: 'DagEngine', link: '/api/engine' },
                     { text: 'Plugin', link: '/api/plugin' },
-                    { text: 'Providers', link: '/api/providers' }
+                    { text: 'Providers', link: '/api/providwrs' }
+                ]
+            },
+            {
+                text: 'Recipes',
+                collapsed: false,
+                items: [
+                    { text: 'Overview', link: '/recipes/' },
+                    { text: 'Functionality', link: '/recipes/functionality' }
                 ]
             }
         ],
 
-        // Social links
+        // ==========================================
+        // SOCIAL LINKS
+        // ==========================================
         socialLinks: [
             { icon: 'github', link: 'https://github.com/ivan629/dag-ai' },
             { icon: 'npm', link: 'https://www.npmjs.com/package/@ivan629/dag-ai' }
         ],
 
-        // Footer
+        // ==========================================
+        // SEARCH
+        // ==========================================
+        search: {
+            provider: 'local',
+            options: {
+                detailedView: true
+            }
+        },
+
+        // ==========================================
+        // FOOTER
+        // ==========================================
         footer: {
             message: 'Released under the MIT License.',
-            copyright: 'Copyright © 2025 Ivan Holovach'
+            copyright: 'Copyright © 2025-present Ivan Holovach'
         },
 
-        // Search
-        search: {
-            provider: 'local'
-        },
-
-        // Edit link
+        // ==========================================
+        // EDIT LINK
+        // ==========================================
         editLink: {
             pattern: 'https://github.com/ivan629/dag-ai/edit/main/docs/:path',
             text: 'Edit this page on GitHub'
         },
 
-        // Last updated
+        // ==========================================
+        // LAST UPDATED
+        // ==========================================
         lastUpdated: {
-            text: 'Updated at',
+            text: 'Last updated',
             formatOptions: {
-                dateStyle: 'short',
+                dateStyle: 'medium',
                 timeStyle: 'short'
             }
-        }
+        },
+
+        // ==========================================
+        // TABLE OF CONTENTS
+        // ==========================================
+        outline: {
+            level: [2, 3],
+            label: 'On this page'
+        },
+
+        // ==========================================
+        // UI TEXT
+        // ==========================================
+        docFooter: {
+            prev: 'Previous',
+            next: 'Next'
+        },
+
+        returnToTopLabel: 'Back to top',
+        sidebarMenuLabel: 'Menu',
+        darkModeSwitchLabel: 'Theme'
     },
 
-    // Markdown config
+    // ==========================================
+    // MARKDOWN CONFIGURATION
+    // ==========================================
     markdown: {
         theme: {
             light: 'github-light',
@@ -99,14 +158,29 @@ export default defineConfig({
         lineNumbers: true
     },
 
-    // Head tags (SEO)
+    // ==========================================
+    // HEAD TAGS
+    // ==========================================
     head: [
         ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
         ['meta', { name: 'theme-color', content: '#0D9373' }],
-        ['meta', { name: 'og:type', content: 'website' }],
-        ['meta', { name: 'og:locale', content: 'en' }],
-        ['meta', { name: 'og:site_name', content: 'dag-ai' }],
-        ['meta', { name: 'og:title', content: 'dag-ai | AI Workflow Orchestration' }],
-        ['meta', { name: 'og:description', content: 'Build production-ready AI pipelines with intelligent dependency management, cost optimization, and zero complexity' }]
-    ]
+        ['meta', { property: 'og:type', content: 'website' }],
+        ['meta', { property: 'og:locale', content: 'en' }],
+        ['meta', { property: 'og:site_name', content: 'dag-ai' }],
+        ['meta', { property: 'og:title', content: 'dag-ai | AI Workflow Orchestration' }],
+        ['meta', { property: 'og:description', content: 'Production-ready AI pipelines with intelligent dependency management' }]
+    ],
+
+    // ==========================================
+    // SITEMAP
+    // ==========================================
+    sitemap: {
+        hostname: 'https://dag-ai.dev'
+    },
+
+    // ==========================================
+    // OTHER OPTIONS
+    // ==========================================
+    lastUpdated: true,
+    appearance: 'dark'
 })
