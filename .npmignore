@@ -9,10 +9,10 @@ tests/
 coverage/
 .github/
 .husky/
-*.config.js
+*.config.mjs
 *.config.ts
 tsconfig*.json
-eslint.config.js
+eslint.config.mjs
 .prettierrc
 .gitignore
 node_modules/
