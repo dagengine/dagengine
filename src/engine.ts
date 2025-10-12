@@ -1,7 +1,8 @@
 import { Plugin } from './plugin';
 import { ProviderAdapter, ProviderAdapterConfig } from './providers/adapter';
 import { ProviderRegistry } from './providers/registry';
-import { SectionData, DimensionResult, DimensionDependencies, PricingConfig, CostSummary, DimensionCost, TokenUsage } from './types';import PQueue from 'p-queue';
+import { SectionData, DimensionResult, DimensionDependencies, PricingConfig, CostSummary, DimensionCost, TokenUsage } from './types';
+import PQueue from 'p-queue';
 import pRetry from 'p-retry';
 import { Graph, alg } from '@dagrejs/graphlib';
 
@@ -54,20 +55,6 @@ export interface GraphAnalytics {
 
 /**
  * DagEngine - AI-powered workflow orchestration with advanced graph analytics
- *
- * @example
- * ```typescript
- * const engine = new DagEngine({
- *   plugin: new MyPlugin(),
- *   providers: {
- *     anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
- *   },
- *   concurrency: 5
- * });
- *
- * const result = await engine.process(sections);
- * const analytics = engine.getGraphAnalytics();
- * ```
  */
 export class DagEngine {
   private readonly plugin: Plugin;
@@ -78,7 +65,7 @@ export class DagEngine {
   private readonly continueOnError: boolean;
   private readonly timeout: number;
   private readonly dimensionTimeouts: Record<string, number>;
-  private dependencyGraph?: Graph; // Cache for analytics
+  private dependencyGraph?: Graph;
   private readonly concurrency: number;
   private readonly pricing: PricingConfig | undefined;
 
@@ -100,12 +87,10 @@ export class DagEngine {
       throw new Error('Concurrency must be at least 1');
     }
 
-    // Initialize p-queue for concurrency control
     this.queue = new PQueue({
       concurrency: config.concurrency ?? 5,
     });
 
-    // Initialize provider adapter
     if (config.providers) {
       if (config.providers instanceof ProviderAdapter) {
         this.adapter = config.providers;
@@ -134,8 +119,8 @@ export class DagEngine {
       throw new Error('DagEngine.process() requires at least one section');
     }
 
-    const allDimensions = this.plugin.getDimensionNames();
-    const sortedDimensions = this.topologicalSort(allDimensions);
+    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const sortedDimensions = await this.topologicalSort(allDimensions);
 
     const globalResults: Record<string, DimensionResult> = {};
     const sectionResultsMap = new Map<number, Record<string, DimensionResult>>();
@@ -145,11 +130,9 @@ export class DagEngine {
       sectionResultsMap.set(idx, {});
     });
 
-    // Separate global dimensions into independent groups
     const globalDimensions = sortedDimensions.filter((d) => this.plugin.isGlobalDimension(d));
-    const globalGroups = this.groupIndependentGlobals(globalDimensions);
+    const globalGroups = await this.groupIndependentGlobals(globalDimensions);
 
-    // Process dimensions in order
     for (const dimension of sortedDimensions) {
       const isGlobal = this.plugin.isGlobalDimension(dimension);
 
@@ -158,7 +141,6 @@ export class DagEngine {
         const isFirstInGroup = group && group[0] === dimension;
 
         if (isFirstInGroup && group.length > 1) {
-          // Process entire group in parallel
           await this.processGlobalGroup(
               group,
               currentSections,
@@ -167,7 +149,6 @@ export class DagEngine {
               options
           );
 
-          // Apply transformations for all dimensions in the group
           for (const groupDim of group) {
             currentSections = await this.applyTransformation(
                 groupDim,
@@ -179,9 +160,8 @@ export class DagEngine {
           }
           continue;
         } else if (group && group[0] !== dimension) {
-          continue; // Already processed in group
+          continue;
         } else {
-          // Single global dimension
           await this.processGlobalDimension(
               dimension,
               currentSections,
@@ -191,7 +171,6 @@ export class DagEngine {
           );
         }
 
-        // Apply transformation for single global dimension
         currentSections = await this.applyTransformation(
             dimension,
             globalResults[dimension],
@@ -200,7 +179,6 @@ export class DagEngine {
             options
         );
       } else {
-        // Section dimension - use p-queue for concurrency
         await this.processSectionDimension(
             dimension,
             currentSections,
@@ -211,14 +189,20 @@ export class DagEngine {
       }
     }
 
-    const finalSectionResults = currentSections.map((section, idx) => {
-      const results = sectionResultsMap.get(idx) || {};
-      const processedResults = this.plugin.processResults(results);
-      return {
-        section,
-        results: processedResults,
-      };
-    });
+    // ✅ UPDATED: Process results with async support
+    const finalSectionResults = await Promise.all(
+        currentSections.map(async (section, idx) => {
+          const results = sectionResultsMap.get(idx) || {};
+          // ✅ Await processResults (can be async now)
+          const processedResults = await Promise.resolve(
+              this.plugin.processResults(results)
+          );
+          return {
+            section,
+            results: processedResults,
+          };
+        })
+    );
 
     const costs = this.pricing
         ? this.calculateCosts(finalSectionResults, globalResults)
@@ -255,7 +239,6 @@ export class DagEngine {
       }
     }
 
-    // Process remaining dimensions in parallel
     if (dimensionsToProcess.length > 0) {
       await Promise.all(
           dimensionsToProcess.map((dimension) =>
@@ -272,7 +255,7 @@ export class DagEngine {
   }
 
   /**
-   * Apply transformation if dimension has transform function
+   * ✅ UPDATED: Apply transformation (can be async now)
    */
   private async applyTransformation(
       dimension: string,
@@ -285,9 +268,12 @@ export class DagEngine {
 
     if (config.transform && result?.data) {
       try {
-        const transformed = config.transform(result, currentSections);
+        // ✅ Await transform (can be async now)
+        const transformed = await Promise.resolve(
+            config.transform(result, currentSections)
+        );
+
         if (Array.isArray(transformed) && transformed.length > 0) {
-          // Update sectionResultsMap to match new section count
           const newMap = new Map<number, Record<string, DimensionResult>>();
           transformed.forEach((_, idx) => {
             newMap.set(idx, {});
@@ -309,12 +295,8 @@ export class DagEngine {
     return currentSections;
   }
 
-  /**
-   * Group independent global dimensions for parallel execution
-   * Uses graphlib to analyze dependency graph
-   */
-  private groupIndependentGlobals(globalDimensions: string[]): string[][] {
-    const graph = this.plugin.getDependencies();
+  private async groupIndependentGlobals(globalDimensions: string[]): Promise<string[][]> {
+    const graph = await Promise.resolve(this.plugin.getDependencies());
     const groups: string[][] = [];
     const processed = new Set<string>();
 
@@ -371,7 +353,7 @@ export class DagEngine {
         return;
       }
 
-      const dependencies = this.resolveGlobalDependencies(
+      const dependencies = await this.resolveGlobalDependencies(
           dimension,
           globalResults,
           sectionResultsMap,
@@ -397,9 +379,6 @@ export class DagEngine {
     }
   }
 
-  /**
-   * Process section dimension using p-queue for concurrency
-   */
   private async processSectionDimension(
       dimension: string,
       sections: SectionData[],
@@ -432,7 +411,7 @@ export class DagEngine {
           return;
         }
 
-        const dependencies = this.resolveDependencies(dimension, sectionResults, globalResults);
+        const dependencies = await this.resolveDependencies(dimension, sectionResults, globalResults);
 
         const hasFailedDeps = Object.values(dependencies).some((dep) => dep.error);
         if (hasFailedDeps && !this.continueOnError) {
@@ -469,35 +448,23 @@ export class DagEngine {
     options.onDimensionComplete?.(dimension, { data: 'Section dimension complete' });
   }
 
-  /**
-   * Check if dimension should be skipped for this section
-   * Provides access to completed dependencies and global results
-   *
-   * @param dimension - The dimension name
-   * @param section - The section being processed
-   * @param sectionResults - All section results computed so far
-   * @param globalResults - All global dimension results
-   * @returns Promise<boolean> - true to skip, false to process
-   */
   private async shouldSkipDimension(
       dimension: string,
       section: SectionData,
       sectionResults: Record<string, DimensionResult>,
       globalResults: Record<string, DimensionResult>
   ): Promise<boolean> {
-    // Check if plugin implements shouldSkipDimension
     if (!this.plugin.shouldSkipDimension) {
-      return false; // No skip logic defined, process dimension
+      return false;
     }
 
     try {
-      const dependencies = this.resolveDependencies(
+      const dependencies = await this.resolveDependencies(
           dimension,
           sectionResults,
           globalResults
       );
 
-      // Call plugin method with dependency context
       const shouldSkip = this.plugin.shouldSkipDimension(
           dimension,
           section,
@@ -507,49 +474,35 @@ export class DagEngine {
           }
       );
 
-      // await Promise.resolve() works for both boolean and Promise<boolean>
       return await Promise.resolve(shouldSkip);
 
     } catch (error) {
-      // If shouldSkipDimension throws an error, log it and don't skip
       console.error(
           `Error in shouldSkipDimension for dimension "${dimension}":`,
           error instanceof Error ? error.message : String(error)
       );
-      return false; // On error, default to processing the dimension
+      return false;
     }
   }
 
-  /**
-   * Check if global dimension should be skipped
-   * Provides access to completed dependencies
-   *
-   * @param dimension - The dimension name
-   * @param sections - All sections being processed
-   * @param globalResults - All global dimension results
-   * @param sectionResultsMap - All section results (for resolving dependencies)
-   * @returns Promise<boolean> - true to skip, false to process
-   */
   private async shouldSkipGlobalDimension(
       dimension: string,
       sections: SectionData[],
       globalResults: Record<string, DimensionResult>,
       sectionResultsMap: Map<number, Record<string, DimensionResult>>
   ): Promise<boolean> {
-    // Check if plugin implements shouldSkipGlobalDimension
     if (!this.plugin.shouldSkipGlobalDimension) {
-      return false; // No skip logic defined, process dimension
+      return false;
     }
 
     try {
-      const dependencies = this.resolveGlobalDependencies(
+      const dependencies = await this.resolveGlobalDependencies(
           dimension,
           globalResults,
           sectionResultsMap,
           sections.length
       );
 
-      // Call plugin method with dependency context
       const shouldSkip = this.plugin.shouldSkipGlobalDimension(
           dimension,
           sections,
@@ -558,22 +511,17 @@ export class DagEngine {
           }
       );
 
-      // await Promise.resolve() works for both boolean and Promise<boolean>
       return await Promise.resolve(shouldSkip);
 
     } catch (error) {
-      // If shouldSkipGlobalDimension throws an error, log it and don't skip
       console.error(
           `Error in shouldSkipGlobalDimension for dimension "${dimension}":`,
           error instanceof Error ? error.message : String(error)
       );
-      return false; // On error, default to processing the dimension
+      return false;
     }
   }
 
-  /**
-   * Execute function with timeout
-   */
   private async executeWithTimeout<T>(fn: () => Promise<T>, dimension: string): Promise<T> {
     const timeoutMs = this.dimensionTimeouts[dimension] || this.timeout;
 
@@ -588,18 +536,15 @@ export class DagEngine {
     ]);
   }
 
-  /**
-   * Resolve dependencies for global dimensions
-   */
-  private resolveGlobalDependencies(
+  private async resolveGlobalDependencies(
       dimension: string,
       globalResults: Record<string, DimensionResult>,
       sectionResultsMap: Map<number, Record<string, DimensionResult>>,
       totalSections: number
-  ): DimensionDependencies {
-    const graph = this.plugin.getDependencies();
+  ): Promise<DimensionDependencies> {
+    const graph = await Promise.resolve(this.plugin.getDependencies());
     const deps: DimensionDependencies = {};
-    const allDimensions = this.plugin.getDimensionNames();
+    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
 
     for (const depName of graph[dimension] || []) {
       if (!allDimensions.includes(depName)) {
@@ -642,17 +587,14 @@ export class DagEngine {
     return deps;
   }
 
-  /**
-   * Resolve dependencies for section dimensions
-   */
-  private resolveDependencies(
+  private async resolveDependencies(
       dimension: string,
       sectionResults: Record<string, DimensionResult>,
       globalResults: Record<string, DimensionResult>
-  ): DimensionDependencies {
-    const graph = this.plugin.getDependencies();
+  ): Promise<DimensionDependencies> {
+    const graph = await Promise.resolve(this.plugin.getDependencies());
     const deps: DimensionDependencies = {};
-    const allDimensions = this.plugin.getDimensionNames();
+    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
 
     for (const depName of graph[dimension] || []) {
       if (!allDimensions.includes(depName)) {
@@ -676,20 +618,29 @@ export class DagEngine {
     return deps;
   }
 
+  /**
+   * ✅ UPDATED: executeDimension with async createPrompt and selectProvider
+   */
   private async executeDimension(
       dimension: string,
       sections: SectionData[],
       dependencies: DimensionDependencies,
       isGlobal: boolean
   ): Promise<DimensionResult> {
-    const prompt = this.plugin.createPrompt({
-      sections,
-      dimension,
-      dependencies,
-      isGlobal,
-    });
+    // ✅ Await createPrompt (can be async now)
+    const prompt = await Promise.resolve(
+        this.plugin.createPrompt({
+          sections,
+          dimension,
+          dependencies,
+          isGlobal,
+        })
+    );
 
-    const providerConfig = this.plugin.selectProvider(dimension, sections[0]);
+    // ✅ Await selectProvider (can be async now)
+    const providerConfig = await Promise.resolve(
+        this.plugin.selectProvider(dimension, sections[0])
+    );
 
     const providersToTry: Array<{
       provider: string;
@@ -723,7 +674,6 @@ export class DagEngine {
 
         const response = await pRetry(
             async () => {
-              // ✅ UPDATED: Pass dimension info in request
               const result = await this.adapter.execute(currentProvider.provider, {
                 input: prompt,
                 options: currentProvider.options,
@@ -773,17 +723,16 @@ export class DagEngine {
   }
 
   /**
-   * Topological sort using graphlib
-   * Provides detailed cycle detection for better debugging
+   * ✅ UPDATED: topologicalSort with async getDependencies
    */
-  private topologicalSort(dimensions: string[]): string[] {
+  private async topologicalSort(dimensions: string[]): Promise<string[]> {
     const graph = new Graph();
-    const deps = this.plugin.getDependencies();
 
-    // Add all dimensions as nodes
+    // ✅ Await getDependencies (can be async now)
+    const deps = await Promise.resolve(this.plugin.getDependencies());
+
     dimensions.forEach((dim) => graph.setNode(dim));
 
-    // Add edges for dependencies
     Object.entries(deps).forEach(([node, nodeDeps]) => {
       nodeDeps.forEach((dep) => {
         if (dimensions.includes(dep)) {
@@ -792,7 +741,6 @@ export class DagEngine {
       });
     });
 
-    // Check for cycles with detailed error message
     if (!alg.isAcyclic(graph)) {
       const cycles = alg.findCycles(graph);
       const cycleStr = cycles[0]?.join(' → ');
@@ -802,17 +750,11 @@ export class DagEngine {
       );
     }
 
-    // Cache the graph for analytics
     this.dependencyGraph = graph;
 
-    // Return topologically sorted dimensions
     return alg.topsort(graph);
   }
 
-  /**
-   * Calculate costs from metadata
-   * @private
-   */
   private calculateCosts(
       sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
       globalResults: Record<string, DimensionResult>
@@ -832,7 +774,7 @@ export class DagEngine {
       const metadata = result.metadata;
 
       if (!metadata?.tokens || !metadata?.model) {
-        return; // Skip if no token data
+        return;
       }
 
       const { tokens, model, provider = 'unknown' } = metadata;
@@ -844,18 +786,15 @@ export class DagEngine {
         return;
       }
 
-      // Calculate cost
       const cost = (
           (tokens.inputTokens * modelPricing.inputPer1M +
               tokens.outputTokens * modelPricing.outputPer1M) / 1_000_000
       );
 
-      // Update totals
       totalCost += cost;
       totalInputTokens += tokens.inputTokens;
       totalOutputTokens += tokens.outputTokens;
 
-      // Update by dimension
       if (!byDimension[dimension]) {
         byDimension[dimension] = {
           cost: 0,
@@ -869,7 +808,6 @@ export class DagEngine {
       byDimension[dimension].tokens.outputTokens += tokens.outputTokens;
       byDimension[dimension].tokens.totalTokens += tokens.totalTokens;
 
-      // Update by provider
       if (!byProvider[provider]) {
         byProvider[provider] = {
           cost: 0,
@@ -887,14 +825,12 @@ export class DagEngine {
       }
     };
 
-    // Process section results
     for (const { results } of sectionResults) {
       for (const [dimension, result] of Object.entries(results)) {
         processResult(dimension, result);
       }
     }
 
-    // Process global results
     for (const [dimension, result] of Object.entries(globalResults)) {
       processResult(dimension, result);
     }
@@ -908,41 +844,26 @@ export class DagEngine {
     };
   }
 
-  /**
-   * Get comprehensive graph analytics for enterprise reporting
-   *
-   * @example
-   * ```typescript
-   * const analytics = engine.getGraphAnalytics();
-   * console.log(`Workflow has ${analytics.totalDimensions} dimensions`);
-   * console.log(`Critical path: ${analytics.criticalPath.join(' → ')}`);
-   * console.log(`Can parallelize: ${analytics.parallelGroups.length} groups`);
-   * ```
-   */
-  getGraphAnalytics(): GraphAnalytics {
+  async getGraphAnalytics(): Promise<GraphAnalytics> {
     if (!this.dependencyGraph) {
-      // Build graph if not cached
-      const dimensions = this.plugin.getDimensionNames();
-      this.topologicalSort(dimensions);
+      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = this.plugin.getDimensionNames();
-    const deps = this.plugin.getDependencies();
+    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const deps = await Promise.resolve(this.plugin.getDependencies());
 
-    // Calculate total dependencies
     const totalDependencies = Object.values(deps).reduce(
         (sum, depList) => sum + depList.length,
         0
     );
 
-    // Find independent dimensions (no dependencies)
     const independentDimensions = dimensions.filter((dim) => {
       const dimDeps = deps[dim] || [];
       return dimDeps.length === 0;
     });
 
-    // Calculate max depth (longest path)
     let maxDepth = 0;
     let criticalPath: string[] = [];
 
@@ -954,10 +875,7 @@ export class DagEngine {
       }
     });
 
-    // Find parallel groups
     const parallelGroups = this.findParallelGroups(dimensions, deps);
-
-    // Find bottlenecks (dimensions with many dependents)
     const bottlenecks = this.findBottlenecks(graph, dimensions);
 
     return {
@@ -971,9 +889,6 @@ export class DagEngine {
     };
   }
 
-  /**
-   * Get longest path to a dimension (for critical path analysis)
-   */
   private getLongestPath(graph: Graph, endNode: string): string[] {
     const paths: string[][] = [];
 
@@ -994,16 +909,12 @@ export class DagEngine {
 
     findPaths(endNode);
 
-    // Return longest path
     return paths.reduce((longest, current) =>
             current.length > longest.length ? current : longest,
         []
     ).reverse();
   }
 
-  /**
-   * Find dimensions that can be processed in parallel
-   */
   private findParallelGroups(
       dimensions: string[],
       deps: Record<string, string[]>
@@ -1018,13 +929,11 @@ export class DagEngine {
       const group = [dim];
       processed.add(dim);
 
-      // Find dimensions with same dependencies
       for (const other of dimensions) {
         if (processed.has(other)) continue;
 
         const otherDeps = deps[other] || [];
 
-        // Check if dependencies are the same
         if (
             dimDeps.length === otherDeps.length &&
             dimDeps.every((d) => otherDeps.includes(d))
@@ -1042,9 +951,6 @@ export class DagEngine {
     return groups;
   }
 
-  /**
-   * Find bottleneck dimensions (many dimensions depend on them)
-   */
   private findBottlenecks(graph: Graph, dimensions: string[]): string[] {
     const bottlenecks: Array<{ dim: string; dependents: number }> = [];
 
@@ -1060,31 +966,19 @@ export class DagEngine {
         .map((b) => b.dim);
   }
 
-  /**
-   * Export graph in DOT format for visualization
-   * Can be rendered with Graphviz or d3-graphviz
-   *
-   * @example
-   * ```typescript
-   * const dot = engine.exportGraphDOT();
-   * fs.writeFileSync('workflow.dot', dot);
-   * // Render with: dot -Tpng workflow.dot -o workflow.png
-   * ```
-   */
-  exportGraphDOT(): string {
+  async exportGraphDOT(): Promise<string> {
     if (!this.dependencyGraph) {
-      const dimensions = this.plugin.getDimensionNames();
-      this.topologicalSort(dimensions);
+      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = this.plugin.getDimensionNames();
+    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
 
     let dot = 'digraph DagWorkflow {\n';
     dot += '  rankdir=LR;\n';
     dot += '  node [shape=box, style=rounded];\n\n';
 
-    // Add nodes with colors for global vs section
     dimensions.forEach((dim) => {
       const isGlobal = this.plugin.isGlobalDimension(dim);
       const color = isGlobal ? 'lightblue' : 'lightgreen';
@@ -1094,7 +988,6 @@ export class DagEngine {
 
     dot += '\n';
 
-    // Add edges
     graph.edges().forEach((edge) => {
       dot += `  "${edge.v}" -> "${edge.w}";\n`;
     });
@@ -1104,26 +997,14 @@ export class DagEngine {
     return dot;
   }
 
-  /**
-   * Export graph in JSON format for web visualization
-   * Compatible with D3.js, Cytoscape.js, vis.js
-   *
-   * @example
-   * ```typescript
-   * const graphData = engine.exportGraphJSON();
-   * // Use with D3.js force layout
-   * d3.forceSimulation(graphData.nodes)
-   *   .force('link', d3.forceLink(graphData.links))
-   * ```
-   */
-  exportGraphJSON(): { nodes: any[]; links: any[] } {
+  async exportGraphJSON(): Promise<{ nodes: any[]; links: any[] }> {
     if (!this.dependencyGraph) {
-      const dimensions = this.plugin.getDimensionNames();
-      this.topologicalSort(dimensions);
+      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = this.plugin.getDimensionNames();
+    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
 
     const nodes = dimensions.map((dim) => ({
       id: dim,
@@ -1139,29 +1020,14 @@ export class DagEngine {
     return { nodes, links };
   }
 
-  /**
-   * Get the provider adapter instance
-   */
   getAdapter(): ProviderAdapter {
     return this.adapter;
   }
 
-  /**
-   * Get list of available providers
-   */
   getAvailableProviders(): string[] {
     return this.adapter.listProviders();
   }
 
-  /**
-   * Get the queue instance for monitoring
-   *
-   * @example
-   * ```typescript
-   * const queue = engine.getQueue();
-   * console.log(`Queue: ${queue.size} waiting, ${queue.pending} active`);
-   * ```
-   */
   getQueue(): PQueue {
     return this.queue;
   }

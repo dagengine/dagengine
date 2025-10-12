@@ -16,7 +16,10 @@ export interface DimensionDependencies {
 export interface DimensionConfig {
   name: string;
   scope: 'section' | 'global';
-  transform?: (result: DimensionResult, sections: SectionData[]) => SectionData[];
+  transform?: (
+      result: DimensionResult,
+      sections: SectionData[]
+  ) => SectionData[] | Promise<SectionData[]>;
 }
 
 export type Dimension = string | DimensionConfig;
@@ -28,7 +31,7 @@ export interface ModelPricing {
 
 export interface PricingConfig {
   models: Record<string, ModelPricing>;
-  lastUpdated?: string;  // Optional metadata
+  lastUpdated?: string;
 }
 
 export interface TokenUsage {
