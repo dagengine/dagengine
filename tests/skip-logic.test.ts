@@ -195,7 +195,6 @@ describe('Dependency-Based Skipping', () => {
                 return { analysis: ['check'] };
             }
 
-            // ✅ FIXED: Use correct signature
             shouldSkipDimension(context: SectionDimensionContext): boolean {
                 const { dimension, dependencies } = context;
 
