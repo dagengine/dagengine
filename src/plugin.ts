@@ -73,13 +73,61 @@ export abstract class Plugin {
   }
 
   /**
-   * Optional method to skip dimensions dynamically per section
-   * Return true to skip this dimension for this specific section
+   * Optionally skip a section dimension for a specific section.
+   * Called after all dependencies have been computed.
+   *
+   * @param d* @param dimension - The dimensionimension - The dimension name
+   * @param section - The section being processed
+   * @param context - Dependencies and global results
    */
   shouldSkipDimension?(
       dimension: string,
       section: SectionData,
-      sectionResults: Record<string, DimensionResult>,
-      globalResults: Record<string, DimensionResult>
-  ): boolean;
+      context?: {
+        dependencies: DimensionDependencies;  // Computed dependencies
+        globalResults: Record<string, DimensionResult>;  // All global results
+      }
+  ): boolean | Promise<boolean>;
+
+  /**
+   * Optionally skip a global dimension based on all sections.
+   * Called after all dependencies have been computed.
+   *
+   * @param dimension - The dimension name
+   * @param sections - All sections being processed
+   * @param context - Dependencies (including aggregated section results)
+   *
+   * @example Skip global if dependency shows no work needed
+   * ```typescript
+   * dimensions = [
+   *   'extract_entities',  // section dimension
+   *   { name: 'cross_reference', scope: 'global' }
+   * ];
+   *
+   * getDependencies() {
+   *   return { cross_reference: ['extract_entities'] };
+   * }
+   *
+   * shouldSkipGlobalDimension(dimension, sections, context) {
+   *   if (dimension === 'cross_reference') {
+   *     // Access section dimension results (aggregated)
+   *     const entityResults = context?.dependencies?.extract_entities;
+   *     if (entityResults?.data?.sections) {
+   *       // Skip if no entities found in any section
+   *       return entityResults.data.sections.every(s =>
+   *         s.data?.entities?.length === 0
+   *       );
+   *     }
+   *   }
+   *   return false;
+   * }
+   * ```
+   */
+  shouldSkipGlobalDimension?(
+      dimension: string,
+      sections: SectionData[],
+      context?: {
+        dependencies: DimensionDependencies;
+      }
+  ): boolean | Promise<boolean>;
 }

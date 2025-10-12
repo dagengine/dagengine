@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, beforeEach } from 'vitest';
+import { describe, test, expect, afterEach, vi } from 'vitest';
 import { WhoisXMLProvider } from '../../src/providers/data/whoisxml.ts';
 
 const originalFetch = global.fetch;

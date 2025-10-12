@@ -6,6 +6,13 @@ export interface ProviderConfig {
 export interface ProviderRequest {
   input: string | string[];
   options?: Record<string, unknown>;
+  dimension?: string;
+  isGlobal?: boolean;
+  metadata?: {
+    sectionIndex?: number;
+    totalSections?: number;
+    [key: string]: unknown;
+  };
 }
 
 export interface TokenUsage {
