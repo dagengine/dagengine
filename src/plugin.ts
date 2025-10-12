@@ -42,7 +42,7 @@ export abstract class Plugin {
     this.dimensions = [];
   }
 
-  getDimensionNames(): string[] {
+  getDimensionNames(): string[] | Promise<string[]> {
     return this.dimensions.map((d) => (typeof d === 'string' ? d : d.name));
   }
 
@@ -60,15 +60,20 @@ export abstract class Plugin {
     return this.getDimensionConfig(name).scope === 'global';
   }
 
-  abstract createPrompt(context: PromptContext): string;
+  abstract createPrompt(context: PromptContext): string | Promise<string>;
 
-  abstract selectProvider(dimension: string, section?: SectionData): ProviderSelection;
+  abstract selectProvider(
+      dimension: string,
+      section?: SectionData
+  ): ProviderSelection | Promise<ProviderSelection>;
 
-  getDependencies(): Record<string, string[]> {
+  getDependencies(): Record<string, string[]> | Promise<Record<string, string[]>> {
     return {};
   }
 
-  processResults(results: Record<string, DimensionResult>): Record<string, DimensionResult> {
+  processResults(
+      results: Record<string, DimensionResult>
+  ): Record<string, DimensionResult> | Promise<Record<string, DimensionResult>> {
     return results;
   }
 
@@ -76,7 +81,7 @@ export abstract class Plugin {
    * Optionally skip a section dimension for a specific section.
    * Called after all dependencies have been computed.
    *
-   * @param d* @param dimension - The dimensionimension - The dimension name
+   * @param dimension - The dimension name
    * @param section - The section being processed
    * @param context - Dependencies and global results
    */
@@ -84,8 +89,8 @@ export abstract class Plugin {
       dimension: string,
       section: SectionData,
       context?: {
-        dependencies: DimensionDependencies;  // Computed dependencies
-        globalResults: Record<string, DimensionResult>;  // All global results
+        dependencies: DimensionDependencies;
+        globalResults: Record<string, DimensionResult>;
       }
   ): boolean | Promise<boolean>;
 
@@ -96,32 +101,6 @@ export abstract class Plugin {
    * @param dimension - The dimension name
    * @param sections - All sections being processed
    * @param context - Dependencies (including aggregated section results)
-   *
-   * @example Skip global if dependency shows no work needed
-   * ```typescript
-   * dimensions = [
-   *   'extract_entities',  // section dimension
-   *   { name: 'cross_reference', scope: 'global' }
-   * ];
-   *
-   * getDependencies() {
-   *   return { cross_reference: ['extract_entities'] };
-   * }
-   *
-   * shouldSkipGlobalDimension(dimension, sections, context) {
-   *   if (dimension === 'cross_reference') {
-   *     // Access section dimension results (aggregated)
-   *     const entityResults = context?.dependencies?.extract_entities;
-   *     if (entityResults?.data?.sections) {
-   *       // Skip if no entities found in any section
-   *       return entityResults.data.sections.every(s =>
-   *         s.data?.entities?.length === 0
-   *       );
-   *     }
-   *   }
-   *   return false;
-   * }
-   * ```
    */
   shouldSkipGlobalDimension?(
       dimension: string,
