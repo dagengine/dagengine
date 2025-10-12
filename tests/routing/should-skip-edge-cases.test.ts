@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { DagEngine } from '../../src/engine';
 import { Plugin } from '../../src/plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
-import type { SectionData } from '../../src/types';
+import type {SectionData, SectionDimensionContext} from '../../src/types';
 
 class MockProvider {
     name = 'mock';
@@ -94,7 +94,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip odd-indexed sections
                 return (section.metadata.index as number) % 2 === 1;
             }
@@ -133,7 +134,7 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 this.dimensions = ['extract', 'analyze'];
             }
 
-            getDependencies() {
+            defineDependencies() {
                 return {
                     analyze: ['extract'],
                 };
@@ -147,7 +148,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 if (dimension === 'extract') {
                     return section.metadata.skipExtract === true;
                 }
@@ -191,7 +193,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip if content is empty or whitespace only
                 return section.content.trim().length === 0;
             }
@@ -235,7 +238,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip sections divisible by 5
                 return (section.metadata.index as number) % 5 === 0;
             }
@@ -275,7 +279,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip if contains emoji or special unicode
                 return /[\u{1F600}-\u{1F64F}]/u.test(section.content);
             }
@@ -309,7 +314,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip based on nested metadata
                 const config = section.metadata.config as any;
                 if (!config) return false;
@@ -347,7 +353,8 @@ describe('shouldSkipDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipDimension(dimension: string, section: SectionData): boolean {
+            shouldSkipDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip every third call (simulating stateful logic)
                 skipCount++;
                 return skipCount % 3 === 0;
@@ -397,7 +404,9 @@ describe('shouldSkipGlobalDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections } = context;
+
                 // Skip if only one section
                 return sections.length === 1;
             }
@@ -435,7 +444,8 @@ describe('shouldSkipGlobalDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections } = context;
                 // Skip if all sections are empty
                 return sections.every(s => s.content.trim().length === 0);
             }
@@ -476,7 +486,8 @@ describe('shouldSkipGlobalDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { dimension, section } = context;
                 // Skip global_B
                 return dimension === 'global_B';
             }
@@ -512,7 +523,8 @@ describe('shouldSkipGlobalDimension - Edge Cases', () => {
                 return { provider: 'mock', options: {} };
             }
 
-            shouldSkipGlobalDimension(dimension: string, sections: SectionData[]): boolean {
+            shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
+                const { sections } = context;
                 // Complex condition: Skip if:
                 // - Less than 3 sections, OR
                 // - Average length < 50, OR

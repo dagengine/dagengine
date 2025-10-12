@@ -255,15 +255,15 @@ describe('DagEngine - Async Plugin Methods', () => {
         });
     });
 
-    describe('Async getDependencies()', () => {
-        test('should handle async getDependencies from config file', async () => {
+    describe('Async defineDependencies()', () => {
+        test('should handle async defineDependencies from config file', async () => {
             class AsyncDependenciesPlugin extends Plugin {
                 constructor() {
                     super('async-deps', 'Async Deps', 'Test');
                     this.dimensions = ['step1', 'step2', 'step3'];
                 }
 
-                async getDependencies(): Promise<Record<string, string[]>> {
+                async defineDependencies(): Promise<Record<string, string[]>> {
                     // Simulate loading from config file
                     await new Promise(resolve => setTimeout(resolve, 30));
                     return {
@@ -297,14 +297,14 @@ describe('DagEngine - Async Plugin Methods', () => {
             expect(executionOrder).toEqual(['step1', 'step2', 'step3']);
         });
 
-        test('should handle sync getDependencies (backward compatibility)', async () => {
+        test('should handle sync defineDependencies (backward compatibility)', async () => {
             class SyncDependenciesPlugin extends Plugin {
                 constructor() {
                     super('sync-deps', 'Sync Deps', 'Test');
                     this.dimensions = ['a', 'b'];
                 }
 
-                getDependencies(): Record<string, string[]> {
+                defineDependencies(): Record<string, string[]> {
                     return { b: ['a'] };
                 }
 
@@ -358,14 +358,14 @@ describe('DagEngine - Async Plugin Methods', () => {
         });
     });
 
-    describe('Async processResults()', () => {
-        test('should handle async processResults with database storage', async () => {
+    describe('Async finalizeResults()', () => {
+        test('should handle async finalizeResults with database storage', async () => {
             const storedResults: any[] = [];
 
             class AsyncProcessResultsPlugin extends Plugin {
                 constructor() {
                     super('async-process', 'Async Process', 'Test');
-                    this.dimensions = ['analyze'];
+                    this.dimensions = ['test'];
                 }
 
                 createPrompt(): string {
@@ -376,23 +376,32 @@ describe('DagEngine - Async Plugin Methods', () => {
                     return { provider: 'mock-ai', options: {} };
                 }
 
-                async processResults(
-                    results: Record<string, DimensionResult>
-                ): Promise<Record<string, DimensionResult>> {
-                    // Simulate database storage
-                    await new Promise(resolve => setTimeout(resolve, 30));
-                    storedResults.push({ ...results, stored_at: Date.now() });
+                async finalizeResults(context: any): Promise<Record<string, DimensionResult>> {
+                    const { results } = context;
 
-                    return {
-                        ...results,
-                        analyze: {
-                            ...results.analyze,
+                    // Simulate async database storage
+                    await new Promise(resolve => setTimeout(resolve, 10));
+
+                    // Store results
+                    storedResults.push({
+                        results,
+                        stored_at: new Date().toISOString()
+                    });
+
+                    const finalizedResults: Record<string, DimensionResult> = {};
+
+                    Object.entries(results).forEach(([key, result]) => {
+                        finalizedResults[key] = {
+                            ...result,
                             metadata: {
-                                ...results.analyze?.metadata,
-                                processed: true
+                                ...result.metadata,
+                                stored: true,
+                                stored_at: new Date().toISOString()
                             }
-                        }
-                    };
+                        };
+                    });
+
+                    return finalizedResults;
                 }
             }
 
@@ -407,7 +416,7 @@ describe('DagEngine - Async Plugin Methods', () => {
             expect(storedResults[0]).toHaveProperty('stored_at');
         });
 
-        test('should handle sync processResults (backward compatibility)', async () => {
+        test('should handle sync finalizeResults (backward compatibility)', async () => {
             class SyncProcessResultsPlugin extends Plugin {
                 constructor() {
                     super('sync-process', 'Sync Process', 'Test');
@@ -422,14 +431,22 @@ describe('DagEngine - Async Plugin Methods', () => {
                     return { provider: 'mock-ai', options: {} };
                 }
 
-                processResults(results: Record<string, DimensionResult>): Record<string, DimensionResult> {
-                    return {
-                        ...results,
-                        test: {
-                            ...results.test,
-                            metadata: { ...results.test?.metadata, processed_sync: true }
-                        }
-                    };
+                finalizeResults(context: any): Record<string, DimensionResult> {
+                    const { results } = context;
+
+                    const finalizedResults: Record<string, DimensionResult> = {};
+
+                    Object.entries(results).forEach(([key, result]) => {
+                        finalizedResults[key] = {
+                            ...result,
+                            metadata: {
+                                ...result.metadata,
+                                processed_sync: true
+                            }
+                        };
+                    });
+
+                    return finalizedResults;
                 }
             }
 

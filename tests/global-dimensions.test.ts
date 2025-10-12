@@ -71,7 +71,7 @@ describe('DagEngine - Global Dimensions', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     global_summary: ['section_dim']
                 };

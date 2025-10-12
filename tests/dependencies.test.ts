@@ -32,7 +32,7 @@ describe('DagEngine - Dependencies', () => {
         return { provider: 'mock-ai' };
       }
 
-      getDependencies(): Record<string, string[]> {
+      defineDependencies(): Record<string, string[]> {
         return {
           dependent: ['base'],
           final: ['dependent']
@@ -65,7 +65,7 @@ describe('DagEngine - Dependencies', () => {
         return { provider: 'mock-ai' };
       }
 
-      getDependencies(): Record<string, string[]> {
+      defineDependencies(): Record<string, string[]> {
         return {
           a: ['b'],
           b: ['c'],
@@ -102,7 +102,7 @@ describe('DagEngine - Dependencies', () => {
         return { provider: 'mock-ai' };
       }
 
-      getDependencies(): Record<string, string[]> {
+      defineDependencies(): Record<string, string[]> {
         return { second: ['first'] };
       }
     }

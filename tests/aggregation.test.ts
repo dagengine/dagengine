@@ -37,7 +37,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     global_summary: ['section_analysis']
                 };
@@ -90,7 +90,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['section_dim'] };
             }
         }
@@ -135,7 +135,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['section_dim'] };
             }
         }
@@ -188,7 +188,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['nonexistent_section_dim'] };
             }
         }
@@ -229,7 +229,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['section_dim'] };
             }
         }
@@ -273,7 +273,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['section_dim'] };
             }
         }
@@ -341,7 +341,7 @@ describe('DagEngine - Section Aggregation', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { global_dim: ['section_dim1', 'section_dim2'] };
             }
         }

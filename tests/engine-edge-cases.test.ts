@@ -81,7 +81,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             }
             createPrompt(): string { return 'test'; }
             selectProvider(): any { return { provider: 'mock-ai' }; }
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { g2: ['g1'] };
             }
         }
@@ -113,7 +113,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             }
             createPrompt(): string { return 'test'; }
             selectProvider(): any { return { provider: 'mock-ai' }; }
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { dim2: ['dim1'] };
             }
         }
@@ -203,7 +203,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             }
             createPrompt(): string { return 'test'; }
             selectProvider(): any { return { provider: 'mock-ai' }; }
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     dep1: ['base'],
                     dep2: ['base'],  // Both dep1 and dep2 depend on base
@@ -235,7 +235,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             }
             createPrompt(): string { return 'test'; }
             selectProvider(): any { return { provider: 'mock-ai' }; }
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     a: ['b'],
                     b: ['c'],

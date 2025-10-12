@@ -22,7 +22,7 @@ describe('DagEngine - Async Graph Analytics', () => {
                 this.dimensions = ['a', 'b', 'c', 'd'];
             }
 
-            async getDependencies(): Promise<Record<string, string[]>> {
+            async defineDependencies(): Promise<Record<string, string[]>> {
                 await new Promise(resolve => setTimeout(resolve, 20));
                 return {
                     b: ['a'],
@@ -63,7 +63,7 @@ describe('DagEngine - Async Graph Analytics', () => {
                 this.dimensions =['input', 'process', 'output'];
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     process: ['input'],
                     output: ['process']
@@ -103,7 +103,7 @@ describe('DagEngine - Async Graph Analytics', () => {
                 this.dimensions = ['fetch', 'transform', 'load'];
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     transform: ['fetch'],
                     load: ['transform']

@@ -33,7 +33,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     B: ['A'],
                     C: ['A'],
@@ -78,7 +78,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     L2: ['L1'],
                     L3: ['L2'],
@@ -121,7 +121,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     section1: ['global1'],
                     section2: ['section1'],
@@ -163,7 +163,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { dependent: ['failing'] };
             }
         }
@@ -207,7 +207,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { dependent: ['dep1', 'dep2'] };
             }
         }
@@ -246,7 +246,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return { independent: [] };
             }
         }
@@ -279,7 +279,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     B: ['A'],
                     C: ['A'],
@@ -332,7 +332,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     global_aggregator: ['section1', 'section2', 'section3']
                 };
@@ -384,7 +384,7 @@ describe('DagEngine - Complex Dependencies', () => {
                 return { provider: 'mock-ai' };
             }
 
-            getDependencies(): Record<string, string[]> {
+            defineDependencies(): Record<string, string[]> {
                 return {
                     global2: ['global1'],
                     section_analysis: ['global2']
