@@ -232,6 +232,45 @@ export class DagEngine {
     };
   }
 
+  private async processGlobalGroup(
+      dimensions: string[],
+      sections: SectionData[],
+      globalResults: Record<string, DimensionResult>,
+      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+      options: ProcessOptions
+  ): Promise<void> {
+    const dimensionsToProcess: string[] = [];
+
+    for (const dimension of dimensions) {
+      if (await this.shouldSkipGlobalDimension(dimension, sections, globalResults, sectionResultsMap)) {
+        globalResults[dimension] = {
+          data: {
+            skipped: true,
+            reason: 'Skipped by plugin shouldSkipGlobalDimension'
+          },
+        };
+        options.onDimensionComplete?.(dimension, globalResults[dimension]);
+      } else {
+        dimensionsToProcess.push(dimension);
+      }
+    }
+
+    // Process remaining dimensions in parallel
+    if (dimensionsToProcess.length > 0) {
+      await Promise.all(
+          dimensionsToProcess.map((dimension) =>
+              this.processGlobalDimension(
+                  dimension,
+                  sections,
+                  globalResults,
+                  sectionResultsMap,
+                  options
+              )
+          )
+      );
+    }
+  }
+
   /**
    * Apply transformation if dimension has transform function
    */
@@ -311,26 +350,6 @@ export class DagEngine {
     return groups;
   }
 
-  /**
-   * Process multiple independent global dimensions in parallel
-   */
-  private async processGlobalGroup(
-      dimensions: string[],
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
-  ): Promise<void> {
-    await Promise.all(
-        dimensions.map((dimension) =>
-            this.processGlobalDimension(dimension, sections, globalResults, sectionResultsMap, options)
-        )
-    );
-  }
-
-  /**
-   * Process a single global dimension
-   */
   private async processGlobalDimension(
       dimension: string,
       sections: SectionData[],
@@ -340,6 +359,17 @@ export class DagEngine {
   ): Promise<void> {
     try {
       options.onDimensionStart?.(dimension);
+
+      if (await this.shouldSkipGlobalDimension(dimension, sections, globalResults, sectionResultsMap)) {
+        globalResults[dimension] = {
+          data: {
+            skipped: true,
+            reason: 'Skipped by plugin shouldSkipGlobalDimension'
+          },
+        };
+        options.onDimensionComplete?.(dimension, globalResults[dimension]);
+        return;
+      }
 
       const dependencies = this.resolveGlobalDependencies(
           dimension,
@@ -387,11 +417,18 @@ export class DagEngine {
 
         const sectionResults = sectionResultsMap.get(sectionIdx) || {};
 
-        if (this.shouldSkipDimension(dimension, section, sectionResults, globalResults)) {
+        if (await this.shouldSkipDimension(dimension, section, sectionResults, globalResults)) {
           sectionResults[dimension] = {
-            data: { skipped: true, reason: 'Skipped by plugin logic' },
+            data: {
+              skipped: true,
+              reason: 'Skipped by plugin shouldSkipDimension'
+            },
           };
           sectionResultsMap.set(sectionIdx, sectionResults);
+
+          if (sectionIdx === 0) {
+            options.onSectionComplete?.(sectionIdx, sections.length);
+          }
           return;
         }
 
@@ -434,22 +471,104 @@ export class DagEngine {
 
   /**
    * Check if dimension should be skipped for this section
+   * Provides access to completed dependencies and global results
+   *
+   * @param dimension - The dimension name
+   * @param section - The section being processed
+   * @param sectionResults - All section results computed so far
+   * @param globalResults - All global dimension results
+   * @returns Promise<boolean> - true to skip, false to process
    */
-  private shouldSkipDimension(
+  private async shouldSkipDimension(
       dimension: string,
       section: SectionData,
       sectionResults: Record<string, DimensionResult>,
       globalResults: Record<string, DimensionResult>
-  ): boolean {
-    if ('shouldSkipDimension' in this.plugin) {
-      return (this.plugin as any).shouldSkipDimension(
+  ): Promise<boolean> {
+    // Check if plugin implements shouldSkipDimension
+    if (!this.plugin.shouldSkipDimension) {
+      return false; // No skip logic defined, process dimension
+    }
+
+    try {
+      const dependencies = this.resolveDependencies(
           dimension,
-          section,
           sectionResults,
           globalResults
       );
+
+      // Call plugin method with dependency context
+      const shouldSkip = this.plugin.shouldSkipDimension(
+          dimension,
+          section,
+          {
+            dependencies,
+            globalResults
+          }
+      );
+
+      // await Promise.resolve() works for both boolean and Promise<boolean>
+      return await Promise.resolve(shouldSkip);
+
+    } catch (error) {
+      // If shouldSkipDimension throws an error, log it and don't skip
+      console.error(
+          `Error in shouldSkipDimension for dimension "${dimension}":`,
+          error instanceof Error ? error.message : String(error)
+      );
+      return false; // On error, default to processing the dimension
     }
-    return false;
+  }
+
+  /**
+   * Check if global dimension should be skipped
+   * Provides access to completed dependencies
+   *
+   * @param dimension - The dimension name
+   * @param sections - All sections being processed
+   * @param globalResults - All global dimension results
+   * @param sectionResultsMap - All section results (for resolving dependencies)
+   * @returns Promise<boolean> - true to skip, false to process
+   */
+  private async shouldSkipGlobalDimension(
+      dimension: string,
+      sections: SectionData[],
+      globalResults: Record<string, DimensionResult>,
+      sectionResultsMap: Map<number, Record<string, DimensionResult>>
+  ): Promise<boolean> {
+    // Check if plugin implements shouldSkipGlobalDimension
+    if (!this.plugin.shouldSkipGlobalDimension) {
+      return false; // No skip logic defined, process dimension
+    }
+
+    try {
+      const dependencies = this.resolveGlobalDependencies(
+          dimension,
+          globalResults,
+          sectionResultsMap,
+          sections.length
+      );
+
+      // Call plugin method with dependency context
+      const shouldSkip = this.plugin.shouldSkipGlobalDimension(
+          dimension,
+          sections,
+          {
+            dependencies
+          }
+      );
+
+      // await Promise.resolve() works for both boolean and Promise<boolean>
+      return await Promise.resolve(shouldSkip);
+
+    } catch (error) {
+      // If shouldSkipGlobalDimension throws an error, log it and don't skip
+      console.error(
+          `Error in shouldSkipGlobalDimension for dimension "${dimension}":`,
+          error instanceof Error ? error.message : String(error)
+      );
+      return false; // On error, default to processing the dimension
+    }
   }
 
   /**
@@ -589,7 +708,6 @@ export class DagEngine {
     for (let i = 0; i < providersToTry.length; i++) {
       const currentProvider = providersToTry[i]!;
 
-      // Check if provider exists
       if (!this.adapter.hasProvider(currentProvider.provider)) {
         const availableProviders = this.adapter.listProviders().join(', ');
         lastError = new Error(
@@ -599,17 +717,21 @@ export class DagEngine {
       }
 
       try {
-        // Optional delay before fallback
         if (i > 0 && currentProvider.retryAfter) {
           await new Promise(resolve => setTimeout(resolve, currentProvider.retryAfter));
         }
 
-        // Try executing with this provider
         const response = await pRetry(
             async () => {
+              // ✅ UPDATED: Pass dimension info in request
               const result = await this.adapter.execute(currentProvider.provider, {
                 input: prompt,
                 options: currentProvider.options,
+                dimension: dimension,
+                isGlobal: isGlobal,
+                metadata: {
+                  totalSections: sections.length,
+                }
               });
 
               if (result.error) {
@@ -639,7 +761,6 @@ export class DagEngine {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        // Log fallback attempt
         if (i < providersToTry.length - 1) {
           console.warn(
               `Provider "${currentProvider.provider}" failed for dimension "${dimension}". Trying fallback provider "${providersToTry[i + 1]!.provider}"...`

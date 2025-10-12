@@ -16,7 +16,173 @@ describe('DagEngine - Dynamic Skipping', () => {
         registry.register(mockProvider);
     });
 
-    test('should skip dimensions based on shouldSkipDimension', async () => {
+    test('should skip dimensions based on shouldSkipDimension with dependency access', async () => {
+        class SkipPlugin extends Plugin {
+            constructor() {
+                super('skip', 'Skip', 'Test skip');
+                this.dimensions = ['check', 'analysis'];
+            }
+
+            createPrompt(context: any): string {
+                return context.dimension;
+            }
+
+            selectProvider(): any {
+                return { provider: 'mock-ai' };
+            }
+
+            getDependencies(): Record<string, string[]> {
+                return {
+                    analysis: ['check']  // analysis depends on check
+                };
+            }
+
+            // ✅ UPDATED: Access dependencies, not raw sectionResults
+            shouldSkipDimension(
+                dimension: string,
+                _section: any,
+                context?: {
+                    dependencies?: Record<string, any>;
+                    globalResults?: Record<string, any>;
+                }
+            ): boolean {
+                if (dimension === 'analysis') {
+                    // ✅ Access 'check' through dependencies
+                    // 'check' is available because it's declared as a dependency
+                    return context?.dependencies?.check?.data?.quality === 'good';
+                }
+                return false;
+            }
+        }
+
+        const engine = new DagEngine({
+            plugin: new SkipPlugin(),
+            registry
+        });
+
+        const result = await engine.process([createMockSection('Test')]);
+
+        // check dimension executes normally
+        expect(result.sections[0]?.results?.check?.data).toEqual({ quality: 'good' });
+
+        // analysis dimension is skipped because check.quality === 'good'
+        expect(result.sections[0]?.results?.analysis?.data).toEqual({
+            skipped: true,
+            reason: "Skipped by plugin shouldSkipDimension"
+        });
+    });
+
+    test('should execute dimension when skip condition not met', async () => {
+        class SkipPlugin extends Plugin {
+            constructor() {
+                super('skip', 'Skip', 'Test');
+                this.dimensions = ['check', 'analysis'];
+            }
+
+            createPrompt(context: any): string {
+                return context.dimension;
+            }
+
+            selectProvider(): any {
+                return { provider: 'mock-ai' };
+            }
+
+            getDependencies(): Record<string, string[]> {
+                return {
+                    analysis: ['check']
+                };
+            }
+
+            shouldSkipDimension(
+                dimension: string,
+                _section: any,
+                context?: {
+                    dependencies?: Record<string, any>;
+                    globalResults?: Record<string, any>;
+                }
+            ): boolean {
+                if (dimension === 'analysis') {
+                    // ✅ Access through dependencies
+                    return context?.dependencies?.check?.data?.quality === 'good';
+                }
+                return false;
+            }
+        }
+
+        mockProvider.setMockResponse('check', { quality: 'poor' });
+        mockProvider.setMockResponse('analysis', { result: 'deep' });
+
+        const engine = new DagEngine({
+            plugin: new SkipPlugin(),
+            registry
+        });
+
+        const result = await engine.process([createMockSection('Test')]);
+
+        // check executes and returns 'poor'
+        expect(result.sections[0]?.results?.check?.data).toEqual({ quality: 'poor' });
+
+        // analysis executes because check.quality !== 'good'
+        expect(result.sections[0]?.results?.analysis?.data).toEqual({ result: 'deep' });
+    });
+
+    test('should skip dimension without dependencies (content-based)', async () => {
+        class ContentSkipPlugin extends Plugin {
+            constructor() {
+                super('content-skip', 'Content Skip', 'Test content skip');
+                this.dimensions = ['process'];
+            }
+
+            createPrompt(context: any): string {
+                return context.dimension;
+            }
+
+            selectProvider(): any {
+                return { provider: 'mock-ai' };
+            }
+
+            // ✅ Simple skip without using dependencies
+            shouldSkipDimension(dimension: string, section: any): boolean {
+                // Skip if content is too short
+                return section.content.length < 10;
+            }
+        }
+
+        mockProvider.setMockResponse('process', { result: 'processed' });
+
+        const engine = new DagEngine({
+            plugin: new ContentSkipPlugin(),
+            registry
+        });
+
+        const result = await engine.process([
+            createMockSection('Hi'),           // Too short - skip
+            createMockSection('Long enough content')  // Long enough - process
+        ]);
+
+        // First section skipped
+        expect(result.sections[0]?.results?.process?.data).toEqual({
+            skipped: true,
+            reason: "Skipped by plugin shouldSkipDimension"
+        });
+
+        // Second section processed
+        expect(result.sections[1]?.results?.process?.data).toEqual({ result: 'processed' });
+    });
+});
+
+describe('Dependency-Based Skipping', () => {
+    let mockProvider: MockAIProvider;
+    let registry: ProviderRegistry;
+
+    beforeEach(() => {
+        mockProvider = new MockAIProvider();
+        mockProvider.setMockResponse('check', { quality: 'good' });
+        mockProvider.setMockResponse('analysis', { result: 'deep' });
+        registry = new ProviderRegistry();
+        registry.register(mockProvider);
+    });
+    test('should skip dimensions based on dependency results', async () => {
         class SkipPlugin extends Plugin {
             constructor() {
                 super('skip', 'Skip', 'Test skip');
@@ -38,14 +204,17 @@ describe('DagEngine - Dynamic Skipping', () => {
             shouldSkipDimension(
                 dimension: string,
                 _section: any,
-                sectionResults: Record<string, any>
+                context?: { dependencies?: Record<string, any> }
             ): boolean {
                 if (dimension === 'analysis') {
-                    return sectionResults['check']?.data?.quality === 'good';
+                    return context?.dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
         }
+
+        mockProvider.setMockResponse('check', { quality: 'good' });
+        mockProvider.setMockResponse('analysis', { result: 'deep' });
 
         const engine = new DagEngine({
             plugin: new SkipPlugin(),
@@ -55,7 +224,10 @@ describe('DagEngine - Dynamic Skipping', () => {
         const result = await engine.process([createMockSection('Test')]);
 
         expect(result.sections[0]?.results?.check?.data).toEqual({ quality: 'good' });
-        expect(result.sections[0]?.results?.analysis?.data).toEqual( { reason: "Skipped by plugin logic", "skipped": true});
+        expect(result.sections[0]?.results?.analysis?.data).toEqual({
+            skipped: true,
+            reason: 'Skipped by plugin shouldSkipDimension'
+        });
     });
 
     test('should execute dimension when skip condition not met', async () => {
@@ -80,10 +252,10 @@ describe('DagEngine - Dynamic Skipping', () => {
             shouldSkipDimension(
                 dimension: string,
                 _section: any,
-                sectionResults: Record<string, any>
+                context?: { dependencies?: Record<string, any> }
             ): boolean {
                 if (dimension === 'analysis') {
-                    return sectionResults['check']?.data?.quality === 'good';
+                    return context?.dependencies?.check?.data?.quality === 'good';
                 }
                 return false;
             }
@@ -103,54 +275,4 @@ describe('DagEngine - Dynamic Skipping', () => {
     });
 });
 
-// ============================================================================
-// tests/callbacks.test.ts - Callback Tests
-// ============================================================================
 
-describe('DagEngine - Callbacks', () => {
-    let mockProvider: MockAIProvider;
-    let registry: ProviderRegistry;
-
-    beforeEach(() => {
-        mockProvider = new MockAIProvider();
-        mockProvider.setMockResponse('test', { result: 'ok' });
-        registry = new ProviderRegistry();
-        registry.register(mockProvider);
-    });
-
-    test('should call all callbacks', async () => {
-        const callbacks = {
-            onDimensionStart: vi.fn(),
-            onDimensionComplete: vi.fn(),
-            onSectionStart: vi.fn(),
-            onSectionComplete: vi.fn()
-        };
-
-        class CallbackPlugin extends Plugin {
-            constructor() {
-                super('callback', 'Callback', 'Test');
-                this.dimensions = ['test'];
-            }
-
-            createPrompt(): string {
-                return 'test';
-            }
-
-            selectProvider(): any {
-                return { provider: 'mock-ai' };
-            }
-        }
-
-        const engine = new DagEngine({
-            plugin: new CallbackPlugin(),
-            registry
-        });
-
-        await engine.process([createMockSection('Test')], callbacks);
-
-        expect(callbacks.onDimensionStart).toHaveBeenCalledWith('test');
-        expect(callbacks.onDimensionComplete).toHaveBeenCalled();
-        expect(callbacks.onSectionStart).toHaveBeenCalled();
-        expect(callbacks.onSectionComplete).toHaveBeenCalled();
-    });
-});
