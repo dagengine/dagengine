@@ -181,6 +181,7 @@ export class DagEngine {
         this.cachedDependencyGraph = dependencyGraph;
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`Error in defineDependencies:`, err.message);
         options.onError?.('defineDependencies', err);
         throw err;
       }
@@ -308,6 +309,7 @@ export class DagEngine {
 
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
+          console.error(`Error in finalizeResults`, err.message);  // ✅ Added
           options.onError?.('finalizeResults', err);
           // Continue with non-finalized results
         }
@@ -347,6 +349,7 @@ export class DagEngine {
           }
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
+          console.error(`Error in afterProcessComplete:`, err.message);  // ✅ Added
           options.onError?.('afterProcessComplete', err);
           // Continue with original result
         }
@@ -1141,6 +1144,7 @@ export class DagEngine {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`Error in transform for ${dimension}:`, err.message); // ✅ ADDED
         options.onError?.(`transform-${dimension}`, err);
       }
     }
@@ -1175,6 +1179,7 @@ export class DagEngine {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`Error in transformSections for ${dimension}:`, err.message); // ✅ ADDED
         options.onError?.(`transformSections-${dimension}`, err);
       }
     }

@@ -281,3 +281,45 @@ export interface ProviderResponse<T = unknown> {
   error?: string;
   metadata?: ProviderMetadata;
 }
+
+/**
+ * Context for beforeProcessStart hook
+ */
+export interface BeforeProcessStartContext extends BaseContext {
+  sections: SectionData[];
+  options: ProcessOptions;
+}
+
+/**
+ * Context for afterProcessComplete hook
+ */
+export interface AfterProcessCompleteContext extends BaseContext {
+  sections: SectionData[];
+  options: ProcessOptions;
+  metadata?: Record<string, unknown>;
+  result: ProcessResult;
+  duration: number;
+  totalDimensions: number;
+  successfulDimensions: number;
+  failedDimensions: number;
+}
+
+/**
+ * Context for beforeProviderExecute hook
+ */
+export interface BeforeProviderExecuteContext extends DimensionContext {
+  request: ProviderRequest;
+  provider: string;
+  providerOptions: Record<string, unknown>;
+}
+
+/**
+ * Context for afterProviderExecute hook
+ */
+export interface AfterProviderExecuteContext extends DimensionContext {
+  request: ProviderRequest;
+  provider: string;
+  providerOptions: Record<string, unknown>;
+  response: ProviderResponse;
+  duration: number;
+}
