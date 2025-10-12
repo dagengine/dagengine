@@ -42,7 +42,7 @@ export abstract class Plugin {
     this.dimensions = [];
   }
 
-  getDimensionNames(): string[] | Promise<string[]> {
+  getDimensionNames(): string[] {
     return this.dimensions.map((d) => (typeof d === 'string' ? d : d.name));
   }
 

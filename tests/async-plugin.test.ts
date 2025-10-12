@@ -160,8 +160,8 @@ describe('DagEngine - Async Plugin Methods', () => {
                     this.dimensions = ['analyze'];
                 }
 
-                createPrompt(context: PromptContext): string {
-                    return context.sections[0]?.content;
+                createPrompt(context: PromptContext): string  {
+                    return context.sections[0]?.content ?? 'invalid result';
                 }
 
                 async selectProvider(): Promise<ProviderSelection> {
@@ -329,48 +329,8 @@ describe('DagEngine - Async Plugin Methods', () => {
         });
     });
 
-    describe('Async getDimensionNames()', () => {
-        test('should handle async getDimensionNames from database', async () => {
-            const userTiers = new Map([['user-123', 'premium']]);
-
-            class AsyncDimensionNamesPlugin extends Plugin {
-                constructor() {
-                    super('async-dims', 'Async Dims', 'Test');
-                    this.dimensions = []; // Will be populated async
-                }
-
-                async getDimensionNames(): Promise<string[]> {
-                    // Simulate database query
-                    await new Promise(resolve => setTimeout(resolve, 30));
-                    const tier = userTiers.get('user-123');
-
-                    return tier === 'premium'
-                        ? ['basic', 'advanced', 'premium_feature']
-                        : ['basic', 'advanced'];
-                }
-
-                createPrompt(context: PromptContext): string {
-                    return context.dimension;
-                }
-
-                selectProvider(): ProviderSelection {
-                    return { provider: 'mock-ai', options: {} };
-                }
-            }
-
-            const engine = new DagEngine({
-                plugin: new AsyncDimensionNamesPlugin(),
-                registry
-            });
-
-            const result = await engine.process([createMockSection('Test')]);
-
-            expect(result.sections[0]?.results.basic).toBeDefined();
-            expect(result.sections[0]?.results.advanced).toBeDefined();
-            expect(result.sections[0]?.results.premium_feature).toBeDefined();
-        });
-
-        test('should handle sync getDimensionNames (backward compatibility)', async () => {
+    describe('Handle getDimensionNames()', () => {
+        test('should handle sync getDimensionNames', async () => {
             class SyncDimensionNamesPlugin extends Plugin {
                 constructor() {
                     super('sync-dims', 'Sync Dims', 'Test');

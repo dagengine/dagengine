@@ -50,7 +50,7 @@ describe('DagEngine - Async Performance', () => {
         class ParallelAsyncPlugin extends Plugin {
             constructor() {
                 super('parallel', 'Parallel', 'Test');
-                this.dimensions = ['task1', 'task2', 'task3'];
+                this.dimensions = ['process']; // Single dimension
             }
 
             async createPrompt(context: PromptContext): Promise<string> {
@@ -67,15 +67,26 @@ describe('DagEngine - Async Performance', () => {
         const engine = new DagEngine({
             plugin: new ParallelAsyncPlugin(),
             registry,
-            concurrency: 3 // All can run in parallel
+            concurrency: 3 // Process 3 sections in parallel
         });
 
         const startTime = Date.now();
-        await engine.process([createMockSection('Test')]);
+
+        // ✅ THREE SECTIONS will process in parallel (not dimensions)
+        await engine.process([
+            createMockSection('Test1'),
+            createMockSection('Test2'),
+            createMockSection('Test3')
+        ]);
+
         const duration = Date.now() - startTime;
 
-        // Should take ~50ms (parallel), not ~150ms (sequential)
-        expect(duration).toBeLessThan(120);
+        // Sequential: 3 sections × 50ms = 150ms
+        // Parallel: max(50, 50, 50) = ~50ms + overhead
+        // Should be significantly less than 150ms
+        expect(duration).toBeLessThan(100); // Allow some overhead
+
+        console.log(`Parallel: ${duration}ms (sequential would be ~150ms)`);
     });
 
     test('should handle many async operations efficiently', async () => {

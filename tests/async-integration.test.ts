@@ -22,14 +22,7 @@ describe('DagEngine - Full Async Integration', () => {
         class FullAsyncPlugin extends Plugin {
             constructor() {
                 super('full-async', 'Full Async', 'Test');
-                this.dimensions = [];
-            }
-
-            async getDimensionNames(): Promise<string[]> {
-                executionLog.push('getDimensionNames-start');
-                await new Promise(resolve => setTimeout(resolve, 20));
-                executionLog.push('getDimensionNames-end');
-                return ['fetch', 'process', 'store'];
+                this.dimensions = ['fetch', 'process', 'store'];
             }
 
             async getDependencies(): Promise<Record<string, string[]>> {
@@ -70,8 +63,6 @@ describe('DagEngine - Full Async Integration', () => {
 
         await engine.process([createMockSection('Test')]);
 
-        expect(executionLog).toContain('getDimensionNames-start');
-        expect(executionLog).toContain('getDimensionNames-end');
         expect(executionLog).toContain('getDependencies-start');
         expect(executionLog).toContain('getDependencies-end');
         expect(executionLog).toContain('createPrompt-fetch');
