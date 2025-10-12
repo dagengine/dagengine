@@ -119,7 +119,7 @@ export class DagEngine {
       throw new Error('DagEngine.process() requires at least one section');
     }
 
-    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const allDimensions = this.plugin.getDimensionNames();
     const sortedDimensions = await this.topologicalSort(allDimensions);
 
     const globalResults: Record<string, DimensionResult> = {};
@@ -544,7 +544,7 @@ export class DagEngine {
   ): Promise<DimensionDependencies> {
     const graph = await Promise.resolve(this.plugin.getDependencies());
     const deps: DimensionDependencies = {};
-    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const allDimensions = this.plugin.getDimensionNames();
 
     for (const depName of graph[dimension] || []) {
       if (!allDimensions.includes(depName)) {
@@ -594,7 +594,7 @@ export class DagEngine {
   ): Promise<DimensionDependencies> {
     const graph = await Promise.resolve(this.plugin.getDependencies());
     const deps: DimensionDependencies = {};
-    const allDimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const allDimensions = this.plugin.getDimensionNames();
 
     for (const depName of graph[dimension] || []) {
       if (!allDimensions.includes(depName)) {
@@ -846,12 +846,12 @@ export class DagEngine {
 
   async getGraphAnalytics(): Promise<GraphAnalytics> {
     if (!this.dependencyGraph) {
-      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      const dimensions = this.plugin.getDimensionNames();
       await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const dimensions = this.plugin.getDimensionNames();
     const deps = await Promise.resolve(this.plugin.getDependencies());
 
     const totalDependencies = Object.values(deps).reduce(
@@ -968,12 +968,12 @@ export class DagEngine {
 
   async exportGraphDOT(): Promise<string> {
     if (!this.dependencyGraph) {
-      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      const dimensions = this.plugin.getDimensionNames()
       await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const dimensions = this.plugin.getDimensionNames();
 
     let dot = 'digraph DagWorkflow {\n';
     dot += '  rankdir=LR;\n';
@@ -999,12 +999,12 @@ export class DagEngine {
 
   async exportGraphJSON(): Promise<{ nodes: any[]; links: any[] }> {
     if (!this.dependencyGraph) {
-      const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+      const dimensions = this.plugin.getDimensionNames();
       await this.topologicalSort(dimensions);
     }
 
     const graph = this.dependencyGraph!;
-    const dimensions = await Promise.resolve(this.plugin.getDimensionNames());
+    const dimensions = this.plugin.getDimensionNames();
 
     const nodes = dimensions.map((dim) => ({
       id: dim,

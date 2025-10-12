@@ -60,12 +60,7 @@ describe('DagEngine - Async Graph Analytics', () => {
         class AsyncDOTPlugin extends Plugin {
             constructor() {
                 super('async-dot', 'Async DOT', 'Test');
-                this.dimensions = [];
-            }
-
-            async getDimensionNames(): Promise<string[]> {
-                await new Promise(resolve => setTimeout(resolve, 20));
-                return ['input', 'process', 'output'];
+                this.dimensions =['input', 'process', 'output'];
             }
 
             getDependencies(): Record<string, string[]> {
@@ -105,12 +100,7 @@ describe('DagEngine - Async Graph Analytics', () => {
         class AsyncJSONPlugin extends Plugin {
             constructor() {
                 super('async-json', 'Async JSON', 'Test');
-                this.dimensions = [];
-            }
-
-            async getDimensionNames(): Promise<string[]> {
-                await new Promise(resolve => setTimeout(resolve, 20));
-                return ['fetch', 'transform', 'load'];
+                this.dimensions = ['fetch', 'transform', 'load'];
             }
 
             getDependencies(): Record<string, string[]> {
