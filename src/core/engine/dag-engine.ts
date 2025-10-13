@@ -49,8 +49,8 @@ import { ProviderAdapter } from '../../providers/adapter.ts';
 import { ProviderRegistry } from '../../providers/registry.ts';
 import { SectionData, ProcessOptions, ProcessResult } from '../../types.ts';
 
-import { StateManager } from './state-manager.ts';
 import { PhaseExecutor } from './phase-executor.ts';
+import { createProcessState } from './state-manager';
 import { EngineConfig, mergeExecutionConfig, normalizeEngineConfig } from './engine-config.ts';
 import { DependencyGraphManager } from '../analysis/graph-manager.ts';
 import { ConfigValidator } from '../validation/config-validator.ts';
@@ -206,7 +206,7 @@ export class DagEngine {
         sections: SectionData[],
         options: ProcessOptions = {}
     ): Promise<ProcessResult> {
-        const stateManager = new StateManager(sections);
+        const stateManager = createProcessState(sections);
 
         try {
             // Phase 1: Pre-process

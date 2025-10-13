@@ -13,10 +13,10 @@
 
 import { Plugin } from '../../plugin.ts';
 import { ProviderAdapter } from '../../providers/adapter.ts';
-import { ProcessOptions, ProcessResult, PricingConfig } from '../../types.ts';
+import { ProcessOptions, ProcessResult, PricingConfig, SectionData } from '../../types.ts';
 import PQueue from 'p-queue';
 
-import { StateManager } from './state-manager.ts';
+import { updateStateSections } from './state-manager.ts';
 import { HookExecutor } from '../lifecycle/hook-executor.ts';
 import { DependencyGraphManager } from '../analysis/graph-manager.ts';
 import { CostCalculator } from '../analysis/cost-calculator.ts';
@@ -25,7 +25,7 @@ import { DimensionExecutor } from '../execution/dimension-executor.ts';
 import { DependencyResolver } from '../execution/dependency-resolver.ts';
 import { TransformationManager } from '../execution/transformation-manager.ts';
 
-import { ExecutionPlan } from '../shared/types.ts';
+import { ExecutionPlan, ProcessState } from '../shared/types.ts';
 import { NoSectionsError } from '../shared/errors.ts';
 import { countSuccessful, countFailed, applyFinalizedResults } from '../shared/utils.ts';
 
@@ -55,12 +55,14 @@ export class PhaseExecutor {
     private readonly costCalculator?: CostCalculator;
     private readonly queue: PQueue;
 
+    // Stateless managers (reusable)
+    private readonly dependencyResolver: DependencyResolver;
+    private readonly transformationManager: TransformationManager;
+
     // Runtime executors (initialized per process)
     private hookExecutor?: HookExecutor;
     private providerExecutor?: ProviderExecutor;
     private dimensionExecutor?: DimensionExecutor;
-    private readonly dependencyResolver: DependencyResolver;
-    private readonly transformationManager: TransformationManager;
 
     constructor(
         plugin: Plugin,
@@ -94,17 +96,8 @@ export class PhaseExecutor {
      *
      * Executes beforeProcessStart hook and validates sections.
      * Hook can modify sections or add metadata.
-     *
-     * @param stateManager - State manager
-     * @param options - Process options
-     * @throws {NoSectionsError} If no sections remain after hook
      */
-    async preProcess(
-        stateManager: StateManager,
-        options: ProcessOptions
-    ): Promise<void> {
-        const state = stateManager.getState();
-
+    async preProcess(state: ProcessState, options: ProcessOptions): Promise<void> {
         // Initialize hook executor
         this.hookExecutor = new HookExecutor(this.plugin, options);
 
@@ -117,14 +110,14 @@ export class PhaseExecutor {
 
         // Apply hook modifications
         if (startResult?.sections) {
-            stateManager.updateSections(startResult.sections);
+            updateStateSections(state, startResult.sections);
         }
         if (startResult?.metadata) {
-            stateManager.setMetadata(startResult.metadata);
+            state.metadata = startResult.metadata;
         }
 
         // Validate we have sections to process
-        if (stateManager.getSectionCount() === 0) {
+        if (state.sections.length === 0) {
             throw new NoSectionsError();
         }
     }
@@ -138,17 +131,8 @@ export class PhaseExecutor {
      *
      * Builds dependency graph, performs topological sort, and creates
      * parallel execution groups.
-     *
-     * @param stateManager - State manager
-     * @param options - Process options
-     * @returns Execution plan with sorted dimensions and groups
      */
-    async planExecution(
-        stateManager: StateManager,
-        options: ProcessOptions
-    ): Promise<ExecutionPlan> {
-        const state = stateManager.getState();
-
+    async planExecution(state: ProcessState, options: ProcessOptions): Promise<ExecutionPlan> {
         // Get dependency graph from plugin
         const dependencyGraph = await this.hookExecutor!.executeDefineDependencies(
             state.id,
@@ -186,13 +170,9 @@ export class PhaseExecutor {
      *
      * Executes all dimensions according to the execution plan.
      * Processes dimensions in parallel groups, respecting dependencies.
-     *
-     * @param stateManager - State manager
-     * @param plan - Execution plan from planning phase
-     * @param options - Process options
      */
     async executeDimensions(
-        stateManager: StateManager,
+        state: ProcessState,
         plan: ExecutionPlan,
         options: ProcessOptions
     ): Promise<void> {
@@ -206,20 +186,10 @@ export class PhaseExecutor {
             const sectionDims = group.filter(dim => !this.plugin.isGlobalDimension(dim));
 
             // Execute global dimensions first (they may transform sections)
-            await this.executeGlobalDimensions(
-                globalDims,
-                stateManager,
-                plan.dependencyGraph,
-                options
-            );
+            await this.executeGlobalDimensions(globalDims, state, plan.dependencyGraph, options);
 
             // Execute section dimensions
-            await this.executeSectionDimensions(
-                sectionDims,
-                stateManager,
-                plan.dependencyGraph,
-                options
-            );
+            await this.executeSectionDimensions(sectionDims, state, plan.dependencyGraph, options);
         }
     }
 
@@ -228,13 +198,11 @@ export class PhaseExecutor {
      */
     private async executeGlobalDimensions(
         dimensions: string[],
-        stateManager: StateManager,
+        state: ProcessState,
         dependencyGraph: Record<string, string[]>,
         options: ProcessOptions
     ): Promise<void> {
         if (dimensions.length === 0) return;
-
-        const state = stateManager.getState();
 
         // Execute all global dimensions in parallel
         await Promise.all(
@@ -250,7 +218,7 @@ export class PhaseExecutor {
 
         // Apply transformations sequentially (order matters)
         for (const dimension of dimensions) {
-            const result = stateManager.getGlobalResult(dimension);
+            const result = state.globalResults[dimension];
             const newSections = await this.transformationManager.applyTransformation(
                 dimension,
                 result,
@@ -261,7 +229,7 @@ export class PhaseExecutor {
 
             // Update sections if transformed
             if (newSections !== state.sections) {
-                stateManager.updateSections(newSections);
+                updateStateSections(state, newSections);
             }
         }
     }
@@ -271,12 +239,10 @@ export class PhaseExecutor {
      */
     private async executeSectionDimensions(
         dimensions: string[],
-        stateManager: StateManager,
+        state: ProcessState,
         dependencyGraph: Record<string, string[]>,
         options: ProcessOptions
     ): Promise<void> {
-        const state = stateManager.getState();
-
         for (const dimension of dimensions) {
             await this.dimensionExecutor!.processSectionDimension(
                 dimension,
@@ -295,21 +261,17 @@ export class PhaseExecutor {
      * Phase 4: Finalization
      *
      * Aggregates results, executes finalizeResults hook, and calculates costs.
-     *
-     * @param stateManager - State manager
-     * @param plan - Execution plan
-     * @param options - Process options
-     * @returns Process result with all outputs
      */
     async finalizeResults(
-        stateManager: StateManager,
+        state: ProcessState,
         plan: ExecutionPlan,
         options: ProcessOptions
     ): Promise<ProcessResult> {
-        const state = stateManager.getState();
-
         // Build section results
-        const sectionResults = this.buildSectionResults(stateManager);
+        const sectionResults = state.sections.map((section, idx) => ({
+            section,
+            results: state.sectionResultsMap.get(idx) ?? {},
+        }));
 
         // Aggregate all results for finalizeResults hook
         const allResults = this.aggregateAllResults(sectionResults, state.globalResults);
@@ -331,10 +293,7 @@ export class PhaseExecutor {
             : sectionResults;
 
         // Calculate costs if pricing is configured
-        const costs = this.costCalculator?.calculate(
-            finalSectionResults,
-            state.globalResults
-        );
+        const costs = this.costCalculator?.calculate(finalSectionResults, state.globalResults);
 
         return {
             sections: finalSectionResults,
@@ -353,20 +312,13 @@ export class PhaseExecutor {
      *
      * Executes afterProcessComplete hook with statistics.
      * Hook can modify the final result.
-     *
-     * @param stateManager - State manager
-     * @param result - Process result from finalization
-     * @param plan - Execution plan
-     * @param options - Process options
-     * @returns Final process result (possibly modified by hook)
      */
     async postProcess(
-        stateManager: StateManager,
+        state: ProcessState,
         result: ProcessResult,
         plan: ExecutionPlan,
         options: ProcessOptions
     ): Promise<ProcessResult> {
-        const state = stateManager.getState();
         const duration = Date.now() - state.startTime;
         const successCount = countSuccessful(state.globalResults, result.sections);
         const failureCount = countFailed(state.globalResults, result.sections);
@@ -394,25 +346,21 @@ export class PhaseExecutor {
      * Handles process failure
      *
      * Builds partial results and executes handleProcessFailure hook.
-     *
-     * @param stateManager - State manager
-     * @param error - Error that occurred
-     * @param options - Process options
-     * @returns Process result (possibly recovered by hook)
-     * @throws Re-throws error if hook doesn't provide recovery
      */
     async handleFailure(
-        stateManager: StateManager,
+        state: ProcessState,
         error: unknown,
         options: ProcessOptions
     ): Promise<ProcessResult> {
         const err = error instanceof Error ? error : new Error(String(error));
-        const state = stateManager.getState();
         const duration = Math.max(Date.now() - state.startTime, 1);
 
         // Build partial result
         const partialResult: ProcessResult = {
-            sections: this.buildSectionResults(stateManager),
+            sections: state.sections.map((section, idx) => ({
+                section,
+                results: state.sectionResultsMap.get(idx) ?? {},
+            })),
             globalResults: state.globalResults,
             transformedSections: state.sections,
         };
@@ -466,21 +414,10 @@ export class PhaseExecutor {
     }
 
     /**
-     * Builds section results array from state
-     */
-    private buildSectionResults(stateManager: StateManager) {
-        const state = stateManager.getState();
-        return state.sections.map((section, idx) => ({
-            section,
-            results: stateManager.getSectionResults(idx),
-        }));
-    }
-
-    /**
      * Aggregates all results for finalizeResults hook
      */
     private aggregateAllResults(
-        sectionResults: Array<{ section: any; results: Record<string, any> }>,
+        sectionResults: Array<{ section: SectionData; results: Record<string, any> }>,
         globalResults: Record<string, any>
     ): Record<string, any> {
         const allResults: Record<string, any> = { ...globalResults };
@@ -496,8 +433,6 @@ export class PhaseExecutor {
 
     /**
      * Gets the execution queue
-     *
-     * @returns PQueue instance used for concurrency control
      */
     getQueue(): PQueue {
         return this.queue;
