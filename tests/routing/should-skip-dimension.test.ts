@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DagEngine } from '../../src/engine';
+import { DagEngine } from '../../src/core/engine.ts';
 import { Plugin } from '../../src/plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
 import type { SectionData, SectionDimensionContext } from '../../src/types';

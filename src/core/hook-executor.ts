@@ -1,4 +1,4 @@
-import { Plugin } from './plugin';
+import { Plugin } from '../plugin.ts';
 import {
     ProcessOptions,
     ProcessStartResult,
@@ -19,7 +19,7 @@ import {
     FallbackContext,
     FallbackResponse,
     FailureContext,
-} from './types';
+} from '../types.ts';
 
 /**
  * Centralized hook execution with consistent error handling and logging

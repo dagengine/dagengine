@@ -1,6 +1,6 @@
-import { Plugin } from './plugin';
-import { ProviderAdapter, ProviderAdapterConfig } from './providers/adapter';
-import { ProviderRegistry } from './providers/registry';
+import { Plugin } from '../plugin.ts';
+import { ProviderAdapter, ProviderAdapterConfig } from '../providers/adapter.ts';
+import { ProviderRegistry } from '../providers/registry.ts';
 import {
   SectionData,
   DimensionResult,
@@ -11,13 +11,13 @@ import {
   DimensionContext,
   SectionDimensionContext,
   ProviderRequest,
-} from './types';
+} from '../types.ts';
 import PQueue from 'p-queue';
 import crypto from 'crypto';
-import { HookExecutor } from './hook-executor';
-import { DependencyGraphManager } from './graph-manager';
-import { CostCalculator } from './cost-calculator';
-import { ProviderExecutor } from './provider-executor';
+import { HookExecutor } from './hook-executor.ts';
+import { DependencyGraphManager } from './graph-manager.ts';
+import { CostCalculator } from './cost-calculator.ts';
+import { ProviderExecutor } from './provider-executor.ts';
 
 /**
  * Engine configuration

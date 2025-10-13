@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { DagEngine } from '../../src/engine';
+import { DagEngine } from '../../src/core/engine.ts';
 import { TestPlugin } from '../helpers/test-plugin';
 import { ProviderAdapter } from '../../src/providers/adapter';
 import type {

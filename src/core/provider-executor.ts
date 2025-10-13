@@ -1,6 +1,6 @@
-import { ProviderAdapter } from './providers/adapter';
-import { Plugin } from './plugin';
-import { HookExecutor } from './hook-executor';
+import { ProviderAdapter } from '../providers/adapter.ts';
+import { Plugin } from '../plugin.ts';
+import { HookExecutor } from './hook-executor.ts';
 import pRetry from 'p-retry';
 import {
     SectionData,
@@ -13,7 +13,7 @@ import {
     RetryContext,
     FallbackContext,
     FailureContext,
-} from './types';
+} from '../types.ts';
 
 interface ProviderAttempt {
     provider: string;

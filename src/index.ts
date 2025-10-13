@@ -10,8 +10,8 @@
 // MAIN ENGINE
 // ============================================================================
 
-export { DagEngine } from './engine';
-export type { EngineConfig, GraphAnalytics } from './engine';
+export { DagEngine } from './core/engine.ts';
+export type { EngineConfig, GraphAnalytics } from './core/engine.ts';
 
 // ============================================================================
 // PLUGIN SYSTEM
@@ -80,10 +80,10 @@ export type { WhoisData } from './providers/data/whoisxml';
 // INTERNAL CLASSES (Advanced Usage - For Testing & Custom Implementations)
 // ============================================================================
 
-export { HookExecutor } from './hook-executor';
-export { ProviderExecutor } from './provider-executor';
-export { DependencyGraphManager } from './graph-manager';
-export { CostCalculator } from './cost-calculator';
+export { HookExecutor } from './core/hook-executor.ts';
+export { ProviderExecutor } from './core/provider-executor.ts';
+export { DependencyGraphManager } from './core/graph-manager.ts';
+export { CostCalculator } from './core/cost-calculator.ts';
 
 // ============================================================================
 // UTILITIES

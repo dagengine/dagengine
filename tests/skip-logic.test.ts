@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { DagEngine } from '../src/engine';
+import { DagEngine } from '../src/core/engine.ts';
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';
 import { MockAIProvider, createMockSection } from './setup';

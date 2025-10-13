@@ -1,5 +1,5 @@
 import { Graph, alg } from '@dagrejs/graphlib';
-import { Plugin } from './plugin';
+import { Plugin } from '../plugin.ts';
 
 export interface GraphAnalytics {
     totalDimensions: number;
