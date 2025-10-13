@@ -1,3 +1,12 @@
+/**
+ * Dimension executor
+ *
+ * Handles the execution of individual dimensions (both global and section-level)
+ * with skip checking, dependency validation, timeout protection, and error handling.
+ *
+ * @module execution/dimension-executor
+ */
+
 import { Plugin } from '../../plugin.ts';
 import {
     SectionData,
@@ -7,22 +16,14 @@ import {
     ProcessOptions,
 } from '../../types.ts';
 import PQueue from 'p-queue';
-import { HookExecutor } from './hook-executor.ts';
+
+import { HookExecutor } from '../lifecycle/hook-executor.ts';
 import { ProviderExecutor } from './provider-executor.ts';
 import { DependencyResolver } from './dependency-resolver.ts';
-import { executeWithTimeout, hasFailedDependencies } from '../utils.ts';
-import { ERROR_MESSAGES, SKIP_REASONS } from '../constants.ts';
-
-/**
- * Process state interface
- */
-interface ProcessState {
-    id: string;
-    startTime: number;
-    sections: SectionData[];
-    globalResults: Record<string, DimensionResult>;
-    sectionResultsMap: Map<number, Record<string, DimensionResult>>;
-}
+import { ProcessState } from '../shared/types.ts';
+import { executeWithTimeout, hasFailedDependencies, getFailedDependencies } from '../shared/utils.ts';
+import { ERROR_MESSAGES, SKIP_REASONS } from '../shared/constants.ts';
+import { DependencyError } from '../shared/errors.ts';
 
 /**
  * Handles the execution of individual dimensions (both global and section-level)
@@ -47,6 +48,11 @@ export class DimensionExecutor {
 
     /**
      * Processes a global dimension across all sections
+     *
+     * @param dimension - Dimension name
+     * @param state - Process state
+     * @param dependencyGraph - Dependency graph
+     * @param options - Process options
      */
     async processGlobalDimension(
         dimension: string,
@@ -75,6 +81,11 @@ export class DimensionExecutor {
 
     /**
      * Processes a section-level dimension across all sections
+     *
+     * @param dimension - Dimension name
+     * @param state - Process state
+     * @param dependencyGraph - Dependency graph
+     * @param options - Process options
      */
     async processSectionDimension(
         dimension: string,
@@ -341,14 +352,34 @@ export class DimensionExecutor {
 
     // ==================== PRIVATE: SHARED ====================
 
+    /**
+     * Transforms and validates dependencies before execution
+     *
+     * Checks for failed dependencies and throws detailed error if found.
+     */
     private async transformAndValidateDependencies(
         context: DimensionContext | SectionDimensionContext
     ): Promise<void> {
         const transformedDeps = await this.hookExecutor.transformDependencies(context);
         context.dependencies = transformedDeps;
 
-        if (!this.continueOnError && hasFailedDependencies(transformedDeps)) {
-            throw new Error(ERROR_MESSAGES.DEPENDENCIES_FAILED(context.dimension));
+        if (hasFailedDependencies(transformedDeps)) {
+            // Only throw if continueOnError is false
+            if (!this.continueOnError) {
+                const failedDeps = getFailedDependencies(transformedDeps);
+                const failedDepErrors: Record<string, string> = {};
+                failedDeps.forEach(depName => {
+                    failedDepErrors[depName] = transformedDeps[depName]?.error || 'unknown error';
+                });
+
+                throw new DependencyError(context.dimension, failedDepErrors);
+            }
+
+            // If continueOnError: true, just log a warning and continue
+            const failedDeps = getFailedDependencies(transformedDeps);
+            console.warn(
+                `Dimension "${context.dimension}" executing with failed dependencies: ${failedDeps.join(', ')}`
+            );
         }
     }
 

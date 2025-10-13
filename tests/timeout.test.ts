@@ -41,7 +41,7 @@ describe('DagEngine - Timeout Handling', () => {
 
         const result = await engine.process([createMockSection('Test')]);
 
-        expect(result.sections[0]?.results?.slow_dimension?.error).toContain('Timeout');
+        expect(result.sections[0]?.results?.slow_dimension?.error).toContain('Dimension "slow_dimension" timed out after 500ms');
     });
 
     test('should respect per-dimension timeout', async () => {
@@ -78,6 +78,6 @@ describe('DagEngine - Timeout Handling', () => {
         const result = await engine.process([createMockSection('Test')]);
 
         // Slow should timeout
-        expect(result?.sections[0]?.results?.slow?.error).toContain('Timeout');
+        expect(result?.sections[0]?.results?.slow?.error).toContain('Dimension "slow" timed out after 100ms');
     });
 });

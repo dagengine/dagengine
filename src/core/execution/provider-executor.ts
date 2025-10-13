@@ -1,6 +1,15 @@
+/**
+ * Provider executor with retry and fallback logic
+ *
+ * Handles provider execution with comprehensive retry/fallback strategies,
+ * hook integration, and detailed attempt tracking.
+ *
+ * @module execution/provider-executor
+ */
+
 import { ProviderAdapter } from '../../providers/adapter.ts';
 import { Plugin } from '../../plugin.ts';
-import { HookExecutor } from './hook-executor.ts';
+import { HookExecutor } from '../lifecycle/hook-executor.ts';
 import pRetry from 'p-retry';
 import {
     SectionData,
@@ -14,22 +23,18 @@ import {
     FallbackContext,
     FailureContext,
 } from '../../types.ts';
-
-interface ProviderAttempt {
-    provider: string;
-    options: Record<string, unknown>;
-    retryAfter?: number;
-}
-
-interface AttemptRecord {
-    attempt: number;
-    error: Error;
-    provider: string;
-    timestamp: number;
-}
+import { ProviderAttempt, AttemptRecord } from '../shared/types.ts';
+import { ProviderNotFoundError, AllProvidersFailed } from '../shared/errors.ts';
 
 /**
  * Handles provider execution with retry and fallback logic
+ *
+ * Manages:
+ * - Primary provider execution
+ * - Retry logic with exponential backoff
+ * - Fallback to alternative providers
+ * - Hook integration for custom behavior
+ * - Detailed attempt tracking
  */
 export class ProviderExecutor {
     constructor(
@@ -42,6 +47,14 @@ export class ProviderExecutor {
 
     /**
      * Execute a dimension using the appropriate provider with retry/fallback logic
+     *
+     * @param dimension - Dimension name
+     * @param sections - Sections to process
+     * @param dependencies - Resolved dependencies
+     * @param isGlobal - Whether this is a global dimension
+     * @param dimensionContext - Dimension execution context
+     * @returns Dimension result
+     * @throws {AllProvidersFailed} If all providers fail
      */
     async execute(
         dimension: string,
@@ -132,7 +145,10 @@ export class ProviderExecutor {
 
             // Validate provider exists
             if (!this.adapter.hasProvider(currentProvider.provider)) {
-                lastError = this.createProviderNotFoundError(currentProvider.provider);
+                lastError = new ProviderNotFoundError(
+                    currentProvider.provider,
+                    this.adapter.listProviders()
+                );
                 continue;
             }
 
@@ -236,7 +252,12 @@ export class ProviderExecutor {
             return fallbackResult;
         }
 
-        throw lastError || new Error(`All providers failed for dimension "${dimension}"`);
+        // No recovery possible
+        throw new AllProvidersFailed(
+            dimension,
+            providersToTry.map(p => p.provider),
+            lastError || new Error('Unknown error')
+        );
     }
 
     private async executeWithRetries(
@@ -246,8 +267,6 @@ export class ProviderExecutor {
         previousAttempts: AttemptRecord[],
         dimension: string
     ) {
-        const executeStartTime = Date.now();
-
         // Track the current request, which may be modified by retry hook
         let currentRequest = request;
 
@@ -427,13 +446,6 @@ export class ProviderExecutor {
                 totalSections,
             },
         };
-    }
-
-    private createProviderNotFoundError(provider: string): Error {
-        const availableProviders = this.adapter.listProviders().join(', ');
-        return new Error(
-            `Provider "${provider}" not found. Available: ${availableProviders}`
-        );
     }
 
     private delay(ms: number): Promise<void> {

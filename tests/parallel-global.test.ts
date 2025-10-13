@@ -436,6 +436,6 @@ describe('DagEngine - Parallel Global Execution', () => {
         const result = await engine.process([createMockSection('Test')]);
 
         expect(result.globalResults.fast?.data).toBeDefined();
-        expect(result.globalResults.slow?.error).toContain('Timeout');
+        expect(result.globalResults.slow?.error).toContain('Dimension "slow" timed out after 1000ms');
     });
 });

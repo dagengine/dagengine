@@ -184,7 +184,7 @@ describe('DagEngine - Complex Dependencies', () => {
         await engine.process([createMockSection('Test')]);
 
         expect(receivedDeps.failing).toBeDefined();
-        expect(receivedDeps.failing.error).toBe('Intentional failure');
+        expect(receivedDeps.failing.error).toBe('All providers failed for dimension "failing". Tried: mock-ai');
     });
 
     test('should handle partial dependency failures', async () => {

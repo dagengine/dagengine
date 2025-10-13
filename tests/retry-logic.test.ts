@@ -214,7 +214,7 @@ describe('DagEngine - Retry Logic', () => {
         const result = await engine.process([createMockSection('Test')]);
 
         expect(result.sections[0]?.results?.test?.error).toBeDefined();
-        expect(result.sections[0]?.results?.test?.error).toContain('Persistent failure');
+        expect(result.sections[0]?.results?.test?.error).toContain('All providers failed for dimension "test". Tried: mock-ai');
     });
 
     test('should not retry successful requests', async () => {

@@ -130,7 +130,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
 
         await expect(
             engine.process([createMockSection('Test')])
-        ).rejects.toThrow('Dim1 failed');
+        ).rejects.toThrow('All providers failed for dimension "dim1". Tried: mock-ai');
     });
 
     test('should handle dependency failures with continueOnError true', async () => {
@@ -146,25 +146,32 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             }
         }
 
-        mockProvider.execute = async () => {
-            return { error: 'Dim1 failed' };
+        // Make dim1 fail, but dim2 succeed
+        mockProvider.execute = async (request) => {
+            if (request.dimension === 'dim1') {
+                return { error: 'Dim1 failed' };
+            }
+            // dim2 succeeds even with failed dependency
+            return { data: { result: 'dim2 executed with partial deps' } };
         };
 
         const engine = new DagEngine({
             plugin: new DepFailPlugin(),
             registry,
-            continueOnError: true, // ✅ Changed to true
+            continueOnError: true,
             maxRetries: 0
         });
 
         const result = await engine.process([createMockSection('Test')]);
 
         // ✅ dim1 has error from provider
-        expect(result.sections[0]?.results.dim1?.error).toBe('Dim1 failed');
+        expect(result.sections[0]?.results.dim1?.error).toBe(
+            'All providers failed for dimension "dim1". Tried: mock-ai'
+        );
 
-        // ✅ dim2 was never executed (dependency failed)
-        // Since continueOnError: true, dim2 gets error result instead of throwing
-        expect(result.sections[0]?.results.dim2?.error).toContain('Dim1 failed');
+        // ✅ dim2 executes successfully even with failed dependency
+        expect(result.sections[0]?.results.dim2?.data).toBeDefined();
+        expect(result.sections[0]?.results.dim2?.data?.result).toBe('dim2 executed with partial deps');
     });
 
     // Line 396: Skip dimension when plugin doesn't implement shouldSkipDimension
@@ -305,6 +312,6 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
 
         const result = await engine.process([createMockSection('Test')]);
 
-        expect(result.sections[0]?.results.test?.error).toContain('not found');
+        expect(result.sections[0]?.results.test?.error).toContain('All providers failed for dimension "test". Tried: nonexistent-provider');
     });
 });

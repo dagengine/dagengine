@@ -1,18 +1,17 @@
+/**
+ * Transformation manager
+ *
+ * Manages transformation of sections after global dimension execution.
+ * Handles both legacy transform functions and new hook-based transformations.
+ *
+ * @module execution/transformation-manager
+ */
+
 import { Plugin } from '../../plugin.ts';
 import { SectionData, DimensionResult, ProcessOptions } from '../../types.ts';
-import { HookExecutor } from './hook-executor.ts';
-import { resetSectionResultsMap } from '../utils.ts';
-
-/**
- * Process state interface
- */
-interface ProcessState {
-    id: string;
-    startTime: number;
-    sections: SectionData[];
-    globalResults: Record<string, DimensionResult>;
-    sectionResultsMap: Map<number, Record<string, DimensionResult>>;
-}
+import { HookExecutor } from '../lifecycle/hook-executor.ts';
+import { ProcessState } from '../shared/types.ts';
+import { resetSectionResultsMap } from '../shared/utils.ts';
 
 /**
  * Manages transformation of sections after global dimension execution
@@ -29,6 +28,13 @@ export class TransformationManager {
      *
      * Tries legacy transform first, then falls back to hook-based transform.
      * If sections are transformed, the section results map is reset.
+     *
+     * @param dimension - Dimension name
+     * @param result - Dimension result
+     * @param state - Process state
+     * @param hookExecutor - Hook executor instance
+     * @param options - Process options
+     * @returns Transformed sections or original sections if no transformation
      */
     async applyTransformation(
         dimension: string,

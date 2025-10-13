@@ -11,10 +11,10 @@ import {
 import PQueue from 'p-queue';
 import crypto from 'crypto';
 
-import { HookExecutor } from './executors/hook-executor.ts';
+import { HookExecutor } from './lifecycle/hook-executor.ts';
 import { DependencyGraphManager } from './graph-manager.ts';
-import { CostCalculator } from './cost-calculator.ts';
-import { ProviderExecutor } from './executors/provider-executor.ts';
+import { CostCalculator } from './analysis';
+import { ProviderExecutor } from './execution';
 
 import { DEFAULT_ENGINE_CONFIG } from './constants.ts';
 import {
