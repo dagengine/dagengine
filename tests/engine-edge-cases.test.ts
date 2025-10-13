@@ -105,7 +105,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
         expect(result.globalResults.g2?.error).toBeDefined();
     });
 
-    test.skip('should handle dependency failures with continueOnError false', async () => {
+    test('should throw when dependency fails with continueOnError false', async () => {
         class DepFailPlugin extends Plugin {
             constructor() {
                 super('dep-fail', 'Dep Fail', 'Test');
@@ -128,13 +128,43 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             continueOnError: false
         });
 
+        await expect(
+            engine.process([createMockSection('Test')])
+        ).rejects.toThrow('Dim1 failed');
+    });
+
+    test('should handle dependency failures with continueOnError true', async () => {
+        class DepFailPlugin extends Plugin {
+            constructor() {
+                super('dep-fail', 'Dep Fail', 'Test');
+                this.dimensions = ['dim1', 'dim2'];
+            }
+            createPrompt(): string { return 'test'; }
+            selectProvider(): any { return { provider: 'mock-ai' }; }
+            defineDependencies(): Record<string, string[]> {
+                return { dim2: ['dim1'] };
+            }
+        }
+
+        mockProvider.execute = async () => {
+            return { error: 'Dim1 failed' };
+        };
+
+        const engine = new DagEngine({
+            plugin: new DepFailPlugin(),
+            registry,
+            continueOnError: true, // ✅ Changed to true
+            maxRetries: 0
+        });
+
         const result = await engine.process([createMockSection('Test')]);
 
-        // dim1 should have error
+        // ✅ dim1 has error from provider
         expect(result.sections[0]?.results.dim1?.error).toBe('Dim1 failed');
 
-        // dim2 should have error because dependency failed
-        // expect(result.sections[0]?.results.dim2?.error).toContain('Dependencies failed');
+        // ✅ dim2 was never executed (dependency failed)
+        // Since continueOnError: true, dim2 gets error result instead of throwing
+        expect(result.sections[0]?.results.dim2?.error).toContain('Dim1 failed');
     });
 
     // Line 396: Skip dimension when plugin doesn't implement shouldSkipDimension

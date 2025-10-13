@@ -11,7 +11,7 @@
 // ============================================================================
 
 export { DagEngine } from './engine';
-export type { EngineConfig, ProcessOptions, ProcessResult } from './engine';
+export type { EngineConfig, GraphAnalytics } from './engine';
 
 // ============================================================================
 // PLUGIN SYSTEM
@@ -30,6 +30,8 @@ export type {
   DimensionDependencies,
   DimensionConfig,
   Dimension,
+  ProcessOptions,
+  ProcessResult,
 } from './types';
 
 // ============================================================================
@@ -75,10 +77,23 @@ export { WhoisXMLProvider } from './providers/data/whoisxml';
 export type { WhoisData } from './providers/data/whoisxml';
 
 // ============================================================================
+// INTERNAL CLASSES (Advanced Usage - For Testing & Custom Implementations)
+// ============================================================================
+
+export { HookExecutor } from './hook-executor';
+export { ProviderExecutor } from './provider-executor';
+export { DependencyGraphManager } from './graph-manager';
+export { CostCalculator } from './cost-calculator';
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 
 export { parseJSON } from './utils';
+
+// ============================================================================
+// PRICING & COST TYPES
+// ============================================================================
 
 export type {
   TokenUsage,
@@ -87,4 +102,33 @@ export type {
   PricingConfig,
   DimensionCost,
   CostSummary,
+} from './types';
+
+// ============================================================================
+// HOOK CONTEXT TYPES (For Custom Plugin Development)
+// ============================================================================
+
+export type {
+  BaseContext,
+  ProcessContext,
+  ProcessStartResult,
+  ProcessResultContext,
+  ProcessFailureContext,
+  DimensionContext,
+  SectionDimensionContext,
+  ProviderContext,
+  DimensionResultContext,
+  ProviderResultContext,
+  TransformSectionsContext,
+  FinalizeContext,
+  RetryContext,
+  RetryResponse,
+  FallbackContext,
+  FallbackResponse,
+  FailureContext,
+  SkipWithResult,
+  BeforeProcessStartContext,
+  AfterProcessCompleteContext,
+  BeforeProviderExecuteContext,
+  AfterProviderExecuteContext,
 } from './types';
