@@ -80,8 +80,8 @@ export type { WhoisData } from './providers/data/whoisxml';
 // INTERNAL CLASSES (Advanced Usage - For Testing & Custom Implementations)
 // ============================================================================
 
-export { HookExecutor } from './core/hook-executor.ts';
-export { ProviderExecutor } from './core/provider-executor.ts';
+export { HookExecutor } from './core/executors/hook-executor.ts';
+export { ProviderExecutor } from './core/executors/provider-executor.ts';
 export { DependencyGraphManager } from './core/graph-manager.ts';
 export { CostCalculator } from './core/cost-calculator.ts';
 

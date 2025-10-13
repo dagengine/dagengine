@@ -1,5 +1,5 @@
-import { ProviderAdapter } from '../providers/adapter.ts';
-import { Plugin } from '../plugin.ts';
+import { ProviderAdapter } from '../../providers/adapter.ts';
+import { Plugin } from '../../plugin.ts';
 import { HookExecutor } from './hook-executor.ts';
 import pRetry from 'p-retry';
 import {
@@ -13,7 +13,7 @@ import {
     RetryContext,
     FallbackContext,
     FailureContext,
-} from '../types.ts';
+} from '../../types.ts';
 
 interface ProviderAttempt {
     provider: string;

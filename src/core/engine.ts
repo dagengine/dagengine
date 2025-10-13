@@ -4,23 +4,35 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import {
   SectionData,
   DimensionResult,
-  DimensionDependencies,
   PricingConfig,
   ProcessOptions,
   ProcessResult,
-  DimensionContext,
-  SectionDimensionContext,
-  ProviderRequest,
 } from '../types.ts';
 import PQueue from 'p-queue';
 import crypto from 'crypto';
-import { HookExecutor } from './hook-executor.ts';
+
+import { HookExecutor } from './executors/hook-executor.ts';
 import { DependencyGraphManager } from './graph-manager.ts';
 import { CostCalculator } from './cost-calculator.ts';
-import { ProviderExecutor } from './provider-executor.ts';
+import { ProviderExecutor } from './executors/provider-executor.ts';
+
+import { DEFAULT_ENGINE_CONFIG } from './constants.ts';
+import {
+  validateEngineConfig,
+  initializeProviderAdapter,
+  resetSectionResultsMap,
+  applyFinalizedResults,
+  countSuccessful,
+  countFailed,
+} from './utils.ts';
+import {
+  DimensionExecutor,
+  TransformationManager,
+  DependencyResolver,
+} from './executors/index.ts';
 
 /**
- * Engine configuration
+ * Engine configuration interface
  */
 export interface EngineConfig {
   plugin: Plugin;
@@ -35,6 +47,9 @@ export interface EngineConfig {
   pricing?: PricingConfig;
 }
 
+/**
+ * Graph analytics export interface
+ */
 export interface GraphAnalytics {
   totalDimensions: number;
   totalDependencies: number;
@@ -46,10 +61,25 @@ export interface GraphAnalytics {
 }
 
 /**
- * DagEngine - AI-powered workflow orchestration (Refactored & Enterprise-Ready)
+ * Process state container
+ */
+interface ProcessState {
+  id: string;
+  startTime: number;
+  metadata?: any;
+  sections: SectionData[];
+  globalResults: Record<string, DimensionResult>;
+  sectionResultsMap: Map<number, Record<string, DimensionResult>>;
+}
+
+/**
+ * DagEngine - AI-powered workflow orchestration engine
+ *
+ * Orchestrates the execution of AI dimensions across multiple sections with
+ * dependency management, parallel execution, and comprehensive error handling.
  */
 export class DagEngine {
-  // Core components
+  // Core dependencies
   private readonly plugin: Plugin;
   private readonly adapter: ProviderAdapter;
   private readonly queue: PQueue;
@@ -57,10 +87,15 @@ export class DagEngine {
   // Specialized managers
   private readonly graphManager: DependencyGraphManager;
   private readonly costCalculator?: CostCalculator;
+  private readonly dependencyResolver: DependencyResolver;
+  private readonly transformationManager: TransformationManager;
+
+  // Runtime executors (initialized per process)
   private hookExecutor?: HookExecutor;
   private providerExecutor?: ProviderExecutor;
+  private dimensionExecutor?: DimensionExecutor;
 
-  // Configuration
+  // Configuration (kept as individual fields for backward compatibility with tests)
   private readonly maxRetries: number;
   private readonly retryDelay: number;
   private readonly continueOnError: boolean;
@@ -68,138 +103,74 @@ export class DagEngine {
   private readonly dimensionTimeouts: Record<string, number>;
   private readonly concurrency: number;
 
-  // Process-level state
-  private processId: string = '';
-  private processStartTime: number = 0;
-  private processMetadata: any = undefined;
+  // Process state
   private cachedDependencyGraph?: Record<string, string[]>;
 
   constructor(config: EngineConfig) {
-    this.validateConfig(config);
+    validateEngineConfig(config);
 
     this.plugin = config.plugin;
-    this.maxRetries = config.maxRetries ?? 3;
-    this.retryDelay = config.retryDelay ?? 1000;
-    this.continueOnError = config.continueOnError ?? true;
-    this.timeout = config.timeout ?? 60000;
+    this.maxRetries = config.maxRetries ?? DEFAULT_ENGINE_CONFIG.MAX_RETRIES;
+    this.retryDelay = config.retryDelay ?? DEFAULT_ENGINE_CONFIG.RETRY_DELAY;
+    this.continueOnError = config.continueOnError ?? DEFAULT_ENGINE_CONFIG.CONTINUE_ON_ERROR;
+    this.timeout = config.timeout ?? DEFAULT_ENGINE_CONFIG.TIMEOUT;
     this.dimensionTimeouts = config.dimensionTimeouts ?? {};
-    this.concurrency = config.concurrency ?? 5;
+    this.concurrency = config.concurrency ?? DEFAULT_ENGINE_CONFIG.CONCURRENCY;
 
-    // Initialize specialized managers
+    // Initialize managers
     this.graphManager = new DependencyGraphManager(this.plugin);
+    this.dependencyResolver = new DependencyResolver(this.plugin);
+    this.transformationManager = new TransformationManager(this.plugin);
+
     if (config.pricing) {
       this.costCalculator = new CostCalculator(config.pricing);
     }
 
-    // Initialize queue
+    // Initialize execution queue
     this.queue = new PQueue({ concurrency: this.concurrency });
 
     // Initialize provider adapter
-    this.adapter = this.initializeAdapter(config);
+    this.adapter = initializeProviderAdapter(config);
   }
 
   /**
-   * Main process method - orchestrates the entire workflow
+   * Main orchestration method - processes sections through all dimensions
    */
   async process(sections: SectionData[], options: ProcessOptions = {}): Promise<ProcessResult> {
-    // Initialize process state
-    this.initializeProcessState();
+    const state = this.initializeProcessState(sections);
 
-    // Initialize runtime-dependent executors
-    this.hookExecutor = new HookExecutor(this.plugin, options);
-    this.providerExecutor = new ProviderExecutor(
-        this.adapter,
-        this.plugin,
-        this.hookExecutor,
-        this.maxRetries,
-        this.retryDelay
-    );
-
-    // State to track for failure handling - declared at function scope
-    let currentSections: SectionData[] = [];
-    const globalResults: Record<string, DimensionResult> = {};
-    const sectionResultsMap = new Map<number, Record<string, DimensionResult>>();
+    // Initialize runtime executors
+    this.initializeExecutors(state, options);
 
     try {
-      // Phase 1: Pre-process hooks and setup
-      const processedSections = await this.executePreProcessPhase(sections, options);
-      currentSections = [...processedSections];
+      await this.executePreProcessPhase(state, options);
+      const { sortedDimensions, executionGroups } = await this.buildExecutionPlan(state, options);
+      await this.executeDimensionsPhase(state, executionGroups, options);
+      const result = await this.finalizeResultsPhase(state, sortedDimensions, options);
 
-      // Initialize section results map
-      currentSections.forEach((_, idx) => sectionResultsMap.set(idx, {}));
-
-      // Phase 2: Build dependency graph
-      const { sortedDimensions, executionGroups } = await this.buildExecutionPlan(
-          processedSections,
-          options
-      );
-
-      // Phase 3: Execute dimensions - pass references so they're updated in place
-      const executionResult = await this.executeDimensionsPhaseWithState(
-          processedSections,
-          executionGroups,
-          globalResults,
-          sectionResultsMap,
-          options
-      );
-
-      // Update current sections from execution result
-      currentSections = executionResult.currentSections;
-
-      // Phase 4: Finalize results
-      const result = await this.finalizeResultsPhase(
-          executionResult.finalSectionResults,
-          executionResult.globalResults,
-          executionResult.currentSections,
-          sortedDimensions,
-          options
-      );
-
-      // Phase 5: Post-process hooks
-      return await this.executePostProcessPhase(
-          result,
-          processedSections,
-          sortedDimensions,
-          executionResult.globalResults,
-          executionResult.finalSectionResults.map((_, idx) => idx),
-          options
-      );
+      return await this.executePostProcessPhase(result, state, sortedDimensions, options);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-
-      // Calculate duration for failure context
-      const duration = Date.now() - this.processStartTime;
-
-      // Use the mutable references that were updated during execution
-      return await this.handleProcessError(
-          err,
-          sections,
-          globalResults,
-          currentSections,
-          sectionResultsMap,
-          options,
-          duration
-      );
+      return await this.handleProcessError(error, state, options);
     }
   }
 
-  // ===== PUBLIC API METHODS =====
+  // ==================== PUBLIC API ====================
 
   async getGraphAnalytics(): Promise<GraphAnalytics> {
     const dimensions = this.plugin.getDimensionNames();
-    const deps = this.cachedDependencyGraph || {};
+    const deps = this.cachedDependencyGraph ?? {};
     return this.graphManager.getAnalytics(dimensions, deps);
   }
 
   async exportGraphDOT(): Promise<string> {
     const dimensions = this.plugin.getDimensionNames();
-    const deps = this.cachedDependencyGraph || {};
+    const deps = this.cachedDependencyGraph ?? {};
     return this.graphManager.exportDOT(dimensions, deps);
   }
 
   async exportGraphJSON(): Promise<{ nodes: any[]; links: any[] }> {
     const dimensions = this.plugin.getDimensionNames();
-    const deps = this.cachedDependencyGraph || {};
+    const deps = this.cachedDependencyGraph ?? {};
     return this.graphManager.exportJSON(dimensions, deps);
   }
 
@@ -215,55 +186,83 @@ export class DagEngine {
     return this.queue;
   }
 
-  // ===== PHASE 1: PRE-PROCESS =====
+  // ==================== INITIALIZATION ====================
+
+  private initializeProcessState(sections: SectionData[]): ProcessState {
+    return {
+      id: crypto.randomUUID(),
+      startTime: Date.now(),
+      sections: [...sections],
+      globalResults: {},
+      sectionResultsMap: new Map(sections.map((_, idx) => [idx, {}])),
+    };
+  }
+
+  private initializeExecutors(state: ProcessState, options: ProcessOptions): void {
+    this.hookExecutor = new HookExecutor(this.plugin, options);
+    this.providerExecutor = new ProviderExecutor(
+        this.adapter,
+        this.plugin,
+        this.hookExecutor,
+        this.maxRetries,
+        this.retryDelay
+    );
+    this.dimensionExecutor = new DimensionExecutor(
+        this.plugin,
+        this.providerExecutor,
+        this.hookExecutor,
+        this.dependencyResolver,
+        this.queue,
+        this.timeout,
+        this.dimensionTimeouts,
+        this.continueOnError
+    );
+  }
+
+  // ==================== PHASE 1: PRE-PROCESS ====================
 
   private async executePreProcessPhase(
-      sections: SectionData[],
+      state: ProcessState,
       options: ProcessOptions
-  ): Promise<SectionData[]> {
+  ): Promise<void> {
     const startResult = await this.hookExecutor!.executeBeforeProcessStart(
-        this.processId,
-        this.processStartTime,
-        sections
+        state.id,
+        state.startTime,
+        state.sections
     );
 
     if (startResult?.sections) {
-      sections = startResult.sections;
+      state.sections = startResult.sections;
     }
     if (startResult?.metadata) {
-      this.processMetadata = startResult.metadata;
+      state.metadata = startResult.metadata;
     }
 
-    if (!sections.length) {
+    if (state.sections.length === 0) {
       throw new Error('DagEngine.process() requires at least one section');
     }
-
-    return sections;
   }
 
-  // ===== PHASE 2: BUILD EXECUTION PLAN =====
+  // ==================== PHASE 2: BUILD EXECUTION PLAN ====================
 
   private async buildExecutionPlan(
-      sections: SectionData[],
+      state: ProcessState,
       options: ProcessOptions
   ): Promise<{ sortedDimensions: string[]; executionGroups: string[][] }> {
-    // Define dependencies
     const dependencyGraph = await this.hookExecutor!.executeDefineDependencies(
-        this.processId,
-        this.processStartTime,
-        sections,
-        this.processMetadata
+        state.id,
+        state.startTime,
+        state.sections,
+        state.metadata
     );
     this.cachedDependencyGraph = dependencyGraph;
 
-    // Topological sort
     const allDimensions = this.plugin.getDimensionNames();
     const sortedDimensions = await this.graphManager.buildAndSort(
         allDimensions,
         dependencyGraph
     );
 
-    // Group for parallel execution
     const executionGroups = this.graphManager.groupForParallelExecution(
         sortedDimensions,
         dependencyGraph
@@ -272,487 +271,151 @@ export class DagEngine {
     return { sortedDimensions, executionGroups };
   }
 
-  // ===== PHASE 3: EXECUTE DIMENSIONS =====
+  // ==================== PHASE 3: EXECUTE DIMENSIONS ====================
 
-  private async executeDimensionsPhaseWithState(
-      sections: SectionData[],
+  private async executeDimensionsPhase(
+      state: ProcessState,
       executionGroups: string[][],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
       options: ProcessOptions
-  ): Promise<{
-    finalSectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>;
-    globalResults: Record<string, DimensionResult>;
-    currentSections: SectionData[];
-  }> {
-    let currentSections = [...sections];
-
-    // Execute each group
+  ): Promise<void> {
     for (const group of executionGroups) {
-      const globalDims = group.filter((dim) => this.plugin.isGlobalDimension(dim));
-      const sectionDims = group.filter((dim) => !this.plugin.isGlobalDimension(dim));
+      const globalDims = group.filter(dim => this.plugin.isGlobalDimension(dim));
+      const sectionDims = group.filter(dim => !this.plugin.isGlobalDimension(dim));
 
-      // Execute global dimensions
-      if (globalDims.length > 0) {
-        await Promise.all(
-            globalDims.map((dimension) =>
-                this.processGlobalDimension(
-                    dimension,
-                    currentSections,
-                    globalResults,
-                    sectionResultsMap,
-                    options
-                )
-            )
-        );
-
-        // Apply transformations sequentially
-        for (const dimension of globalDims) {
-          currentSections = await this.applyTransformation(
-              dimension,
-              globalResults[dimension],
-              currentSections,
-              sectionResultsMap,
-              options
-          );
-        }
-      }
-
-      // Execute section dimensions
-      // If continueOnError is false, errors will bubble up from here
-      for (const dimension of sectionDims) {
-        await this.processSectionDimension(
-            dimension,
-            currentSections,
-            globalResults,
-            sectionResultsMap,
-            options
-        );
-      }
+      await this.executeGlobalDimensions(globalDims, state, options);
+      await this.executeSectionDimensions(sectionDims, state, options);
     }
-
-    // Build final section results
-    const finalSectionResults = await Promise.all(
-        currentSections.map(async (section, idx) => {
-          const results = sectionResultsMap.get(idx) || {};
-          return { section, results };
-        })
-    );
-
-    return { finalSectionResults, globalResults, currentSections };
   }
 
-  // ===== PHASE 4: FINALIZE RESULTS =====
+  private async executeGlobalDimensions(
+      dimensions: string[],
+      state: ProcessState,
+      options: ProcessOptions
+  ): Promise<void> {
+    if (dimensions.length === 0) return;
+
+    await Promise.all(
+        dimensions.map(dimension =>
+            this.dimensionExecutor!.processGlobalDimension(
+                dimension,
+                state,
+                this.cachedDependencyGraph ?? {},
+                options
+            )
+        )
+    );
+
+    // Apply transformations sequentially
+    for (const dimension of dimensions) {
+      state.sections = await this.transformationManager.applyTransformation(
+          dimension,
+          state.globalResults[dimension],
+          state,
+          this.hookExecutor!,
+          options
+      );
+    }
+  }
+
+  private async executeSectionDimensions(
+      dimensions: string[],
+      state: ProcessState,
+      options: ProcessOptions
+  ): Promise<void> {
+    for (const dimension of dimensions) {
+      await this.dimensionExecutor!.processSectionDimension(
+          dimension,
+          state,
+          this.cachedDependencyGraph ?? {},
+          options
+      );
+    }
+  }
+
+  // ==================== PHASE 4: FINALIZE RESULTS ====================
 
   private async finalizeResultsPhase(
-      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
-      globalResults: Record<string, DimensionResult>,
-      transformedSections: SectionData[],
+      state: ProcessState,
       sortedDimensions: string[],
       options: ProcessOptions
   ): Promise<ProcessResult> {
-    let finalizedSectionResults = sectionResults;
-
-    // Execute finalizeResults hook
-    const allResults: Record<string, DimensionResult> = {};
-    sectionResults.forEach((sr, idx) => {
-      Object.entries(sr.results).forEach(([dim, result]) => {
-        allResults[`${dim}_section_${idx}`] = result;
-      });
-    });
-    Object.assign(allResults, globalResults);
+    const sectionResults = this.buildSectionResults(state);
+    const allResults = this.aggregateAllResults(sectionResults, state.globalResults);
 
     const finalizedResults = await this.hookExecutor!.finalizeResults(
         allResults,
-        transformedSections,
-        globalResults,
-        transformedSections,
-        this.processId,
-        Date.now() - this.processStartTime,
-        this.processStartTime
+        state.sections,
+        state.globalResults,
+        state.sections,
+        state.id,
+        Date.now() - state.startTime,
+        state.startTime
     );
 
-    if (finalizedResults) {
-      finalizedSectionResults = this.applyFinalizedResults(
-          sectionResults,
-          finalizedResults,
-          globalResults
-      );
-    }
+    const finalSectionResults = finalizedResults
+        ? applyFinalizedResults(sectionResults, finalizedResults, state.globalResults)
+        : sectionResults;
 
-    // Calculate costs
-    const costs = this.costCalculator
-        ? this.costCalculator.calculate(finalizedSectionResults, globalResults)
-        : undefined;
+    const costs = this.costCalculator?.calculate(finalSectionResults, state.globalResults);
 
     return {
-      sections: finalizedSectionResults,
-      globalResults,
-      transformedSections,
+      sections: finalSectionResults,
+      globalResults: state.globalResults,
+      transformedSections: state.sections,
       ...(costs && { costs }),
     };
   }
 
-  // ===== PHASE 5: POST-PROCESS =====
+  // ==================== PHASE 5: POST-PROCESS ====================
 
   private async executePostProcessPhase(
       result: ProcessResult,
-      sections: SectionData[],
+      state: ProcessState,
       sortedDimensions: string[],
-      globalResults: Record<string, DimensionResult>,
-      sectionIndices: number[],
       options: ProcessOptions
   ): Promise<ProcessResult> {
+    const duration = Date.now() - state.startTime;
+    const successCount = countSuccessful(state.globalResults, result.sections);
+    const failureCount = countFailed(state.globalResults, result.sections);
+
     const modifiedResult = await this.hookExecutor!.executeAfterProcessComplete(
-        this.processId,
-        this.processStartTime,
-        sections,
-        this.processMetadata,
-        result,
-        Date.now() - this.processStartTime,
-        sortedDimensions,
-        this.countSuccessful(globalResults, result.sections),
-        this.countFailed(globalResults, result.sections)
-    );
-
-    return modifiedResult || result;
-  }
-
-  // ===== DIMENSION PROCESSING =====
-
-  private async processGlobalDimension(
-      dimension: string,
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
-  ): Promise<void> {
-    try {
-      options.onDimensionStart?.(dimension);
-
-      const dependencies = await this.resolveGlobalDependencies(
-          dimension,
-          globalResults,
-          sectionResultsMap,
-          sections.length
-      );
-
-      const context: DimensionContext = {
-        processId: this.processId,
-        timestamp: Date.now(),
-        dimension,
-        isGlobal: true,
-        sections,
-        dependencies,
-        globalResults,
-      };
-
-      // Check if should skip
-      const skipResult = await this.hookExecutor!.shouldSkipGlobalDimension(context);
-      if (skipResult === true) {
-        globalResults[dimension] = {
-          data: { skipped: true, reason: 'Skipped by plugin shouldSkipGlobalDimension' },
-        };
-        options.onDimensionComplete?.(dimension, globalResults[dimension]);
-        return;
-      }
-
-      if (skipResult && typeof skipResult === 'object' && skipResult.skip && skipResult.result) {
-        globalResults[dimension] = {
-          ...skipResult.result,
-          metadata: { ...skipResult.result.metadata, cached: true },
-        };
-        options.onDimensionComplete?.(dimension, globalResults[dimension]);
-        return;
-      }
-
-      // Transform dependencies
-      const transformedDeps = await this.hookExecutor!.transformDependencies(context);
-      context.dependencies = transformedDeps;
-
-      // Check for failed dependencies
-      if (!this.continueOnError && this.hasFailedDependencies(transformedDeps)) {
-        throw new Error(`Dependencies failed for dimension "${dimension}"`);
-      }
-
-      // Execute dimension
-      await this.hookExecutor!.executeBeforeDimension(context);
-
-      const startTime = Date.now();
-      const result = await this.executeWithTimeout(
-          () => this.providerExecutor!.execute(dimension, sections, transformedDeps, true, context),
-          dimension
-      );
-      const duration = Date.now() - startTime;
-
-      globalResults[dimension] = result;
-
-      await this.hookExecutor!.executeAfterDimension({
-        ...context,
-        request: { input: '', options: {} },
-        provider: result.metadata?.provider || 'unknown',
-        providerOptions: {},
+        state.id,
+        state.startTime,
+        state.sections,
+        state.metadata,
         result,
         duration,
-        ...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
-      });
+        sortedDimensions,
+        successCount,
+        failureCount
+    );
 
-      options.onDimensionComplete?.(dimension, result);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      options.onError?.(`global-${dimension}`, err);
-      globalResults[dimension] = { error: err.message };
-    }
+    return modifiedResult ?? result;
   }
 
-  private async processSectionDimension(
-      dimension: string,
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
-  ): Promise<void> {
-    options.onDimensionStart?.(dimension);
-
-    const tasks = sections.map((section, sectionIdx) => async () => {
-      try {
-        if (sectionIdx === 0) options.onSectionStart?.(sectionIdx, sections.length);
-
-        const sectionResults = sectionResultsMap.get(sectionIdx) || {};
-        const dependencies = await this.resolveDependencies(
-            dimension,
-            sectionResults,
-            globalResults
-        );
-
-        const context: SectionDimensionContext = {
-          processId: this.processId,
-          timestamp: Date.now(),
-          dimension,
-          isGlobal: false,
-          sections: [section],
-          dependencies,
-          globalResults,
-          section,
-          sectionIndex: sectionIdx,
-        };
-
-        // Check if should skip
-        const skipResult = await this.hookExecutor!.shouldSkipSectionDimension(context);
-        if (skipResult === true) {
-          sectionResults[dimension] = {
-            data: { skipped: true, reason: 'Skipped by plugin shouldSkipDimension' },
-          };
-          sectionResultsMap.set(sectionIdx, sectionResults);
-          if (sectionIdx === 0) options.onSectionComplete?.(sectionIdx, sections.length);
-          return;
-        }
-
-        if (skipResult && typeof skipResult === 'object' && skipResult.skip && skipResult.result) {
-          sectionResults[dimension] = {
-            ...skipResult.result,
-            metadata: { ...skipResult.result.metadata, cached: true },
-          };
-          sectionResultsMap.set(sectionIdx, sectionResults);
-          if (sectionIdx === 0) options.onSectionComplete?.(sectionIdx, sections.length);
-          return;
-        }
-
-        // Transform dependencies
-        const transformedDeps = await this.hookExecutor!.transformDependencies(context);
-        context.dependencies = transformedDeps;
-
-        if (!this.continueOnError && this.hasFailedDependencies(transformedDeps)) {
-          throw new Error(`Dependencies failed for dimension "${dimension}"`);
-        }
-
-        // Execute dimension
-        await this.hookExecutor!.executeBeforeDimension(context);
-
-        const startTime = Date.now();
-        const result = await this.executeWithTimeout(
-            () =>
-                this.providerExecutor!.execute(dimension, [section], transformedDeps, false, context),
-            dimension
-        );
-        const duration = Date.now() - startTime;
-
-        sectionResults[dimension] = result;
-        sectionResultsMap.set(sectionIdx, sectionResults);
-
-        await this.hookExecutor!.executeAfterDimension({
-          ...context,
-          request: { input: '', options: {} },
-          provider: result.metadata?.provider || 'unknown',
-          providerOptions: {},
-          result,
-          duration,
-          ...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
-        });
-
-        if (sectionIdx === 0) options.onSectionComplete?.(sectionIdx, sections.length);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.error(`Error processing dimension "${dimension}" for section ${sectionIdx}:`, err.message);
-        options.onError?.(`section-${sectionIdx}-${dimension}`, err);
-
-        const sectionResults = sectionResultsMap.get(sectionIdx) || {};
-        sectionResults[dimension] = { error: err.message };
-        sectionResultsMap.set(sectionIdx, sectionResults);
-
-        // Always re-throw if continueOnError is false
-        if (!this.continueOnError) {
-          throw error;
-        }
-      }
-    });
-
-    // If continueOnError is false, any error will be thrown by the task and caught here
-    try {
-      await this.queue.addAll(tasks);
-    } catch (error) {
-      // Re-throw to bubble up to executeDimensionsPhase
-      throw error;
-    }
-
-    options.onDimensionComplete?.(dimension, { data: 'Section dimension complete' });
-  }
-
-  // ===== TRANSFORMATION HANDLING =====
-
-  private async applyTransformation(
-      dimension: string,
-      result: DimensionResult | undefined,
-      currentSections: SectionData[],
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions
-  ): Promise<SectionData[]> {
-    const config = this.plugin.getDimensionConfig(dimension);
-
-    // Legacy transform
-    if (config.transform && result?.data) {
-      try {
-        const transformed = await Promise.resolve(config.transform(result, currentSections));
-        if (Array.isArray(transformed) && transformed.length > 0) {
-          this.resetSectionResultsMap(sectionResultsMap, transformed.length);
-          return transformed;
-        }
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.error(`Error in transform for ${dimension}:`, err.message);
-        options.onError?.(`transform-${dimension}`, err);
-      }
-    }
-
-    // New transformSections hook
-    if (result) {
-      const transformed = await this.hookExecutor!.transformSections({
-        processId: this.processId,
-        timestamp: Date.now(),
-        dimension,
-        isGlobal: true,
-        sections: currentSections,
-        dependencies: {},
-        globalResults: {},
-        request: { input: '', options: {} },
-        provider: result.metadata?.provider || 'unknown',
-        providerOptions: {},
-        result,
-        duration: 0,
-        tokensUsed: result.metadata?.tokens,
-        currentSections,
-      });
-
-      if (transformed) {
-        this.resetSectionResultsMap(sectionResultsMap, transformed.length);
-        return transformed;
-      }
-    }
-
-    return currentSections;
-  }
-
-  // ===== HELPER METHODS =====
-
-  private validateConfig(config: EngineConfig): void {
-    if (!config.plugin) {
-      throw new Error('DagEngine requires a plugin');
-    }
-
-    if (config.concurrency !== undefined && config.concurrency < 1) {
-      throw new Error('Concurrency must be at least 1');
-    }
-
-    if (!config.providers && !config.registry) {
-      throw new Error('DagEngine requires either "providers" or "registry"');
-    }
-  }
-
-  private initializeAdapter(config: EngineConfig): ProviderAdapter {
-    if (config.providers) {
-      const adapter = config.providers instanceof ProviderAdapter
-          ? config.providers
-          : new ProviderAdapter(config.providers);
-
-      // Validate that adapter has at least one provider
-      const availableProviders = adapter.listProviders();
-      if (availableProviders.length === 0) {
-        throw new Error('DagEngine requires at least one provider to be configured');
-      }
-
-      return adapter;
-    }
-
-    const adapter = new ProviderAdapter({});
-    const registryProviders = config.registry!.list();
-    registryProviders.forEach((name) => {
-      const provider = config.registry!.get(name);
-      adapter.registerProvider(provider);
-    });
-
-    const availableProviders = adapter.listProviders();
-    if (availableProviders.length === 0) {
-      throw new Error('DagEngine requires at least one provider to be configured');
-    }
-
-    return adapter;
-  }
-
-  private initializeProcessState(): void {
-    this.processId = crypto.randomUUID();
-    this.processStartTime = Date.now();
-  }
+  // ==================== ERROR HANDLING ====================
 
   private async handleProcessError(
-      error: Error,
-      sections: SectionData[],
-      globalResults: Record<string, DimensionResult>,
-      currentSections: SectionData[],
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      options: ProcessOptions,
-      duration: number
+      error: unknown,
+      state: ProcessState,
+      options: ProcessOptions
   ): Promise<ProcessResult> {
-    // Build partial results from what we have
-    const partialSections = currentSections.length > 0 ? currentSections : sections;
-    const partialSectionResults = partialSections.map((section, idx) => ({
-      section,
-      results: sectionResultsMap.get(idx) || {},
-    }));
+    const err = error instanceof Error ? error : new Error(String(error));
+    const duration = Math.max(Date.now() - state.startTime, 1);
 
-    // Ensure duration is at least 1ms to avoid test flakiness
-    const actualDuration = Math.max(duration, 1);
+    const partialResult: ProcessResult = {
+      sections: this.buildSectionResults(state),
+      globalResults: state.globalResults,
+      transformedSections: state.sections,
+    };
 
     const failureResult = await this.hookExecutor!.handleProcessFailure(
-        error,
-        {
-          sections: partialSectionResults,
-          globalResults,
-          transformedSections: partialSections,
-        },
-        sections,
-        this.processId,
-        this.processStartTime,
-        actualDuration
+        err,
+        partialResult,
+        state.sections,
+        state.id,
+        state.startTime,
+        duration
     );
 
     if (failureResult) {
@@ -762,149 +425,29 @@ export class DagEngine {
     throw error;
   }
 
-  private async executeWithTimeout<T>(fn: () => Promise<T>, dimension: string): Promise<T> {
-    const timeoutMs = this.dimensionTimeouts[dimension] || this.timeout;
-    return Promise.race([
-      fn(),
-      new Promise<T>((_, reject) =>
-          setTimeout(
-              () => reject(new Error(`Timeout after ${timeoutMs}ms for dimension "${dimension}"`)),
-              timeoutMs
-          )
-      ),
-    ]);
-  }
+  // ==================== HELPER METHODS ====================
 
-  private async resolveGlobalDependencies(
-      dimension: string,
-      globalResults: Record<string, DimensionResult>,
-      sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-      totalSections: number
-  ): Promise<DimensionDependencies> {
-    const graph = this.cachedDependencyGraph || {};
-    const deps: DimensionDependencies = {};
-    const allDimensions = this.plugin.getDimensionNames();
-
-    for (const depName of graph[dimension] || []) {
-      if (!allDimensions.includes(depName)) {
-        deps[depName] = { error: `Dependency "${depName}" not found in plugin dimensions` };
-        continue;
-      }
-
-      if (this.plugin.isGlobalDimension(depName)) {
-        deps[depName] = globalResults[depName] || {
-          error: `Global dependency "${depName}" not found`,
-        };
-      } else {
-        const sectionDeps: DimensionResult[] = [];
-        for (let i = 0; i < totalSections; i++) {
-          const sectionResults = sectionResultsMap.get(i);
-          if (sectionResults?.[depName]) {
-            sectionDeps.push(sectionResults[depName]);
-          }
-        }
-
-        deps[depName] =
-            sectionDeps.length > 0
-                ? { data: { sections: sectionDeps, aggregated: true, totalSections } }
-                : { error: `Section dependency "${depName}" not yet processed` };
-      }
-    }
-
-    return deps;
-  }
-
-  private async resolveDependencies(
-      dimension: string,
-      sectionResults: Record<string, DimensionResult>,
-      globalResults: Record<string, DimensionResult>
-  ): Promise<DimensionDependencies> {
-    const graph = this.cachedDependencyGraph || {};
-    const deps: DimensionDependencies = {};
-    const allDimensions = this.plugin.getDimensionNames();
-
-    for (const depName of graph[dimension] || []) {
-      if (!allDimensions.includes(depName)) {
-        deps[depName] = { error: `Dependency "${depName}" not found in plugin dimensions` };
-        continue;
-      }
-
-      deps[depName] = this.plugin.isGlobalDimension(depName)
-          ? globalResults[depName] || { error: `Global dependency "${depName}" not found` }
-          : sectionResults[depName] || { error: `Section dependency "${depName}" not found` };
-    }
-
-    return deps;
-  }
-
-  private hasFailedDependencies(deps: DimensionDependencies): boolean {
-    return Object.values(deps).some((dep) => dep.error);
-  }
-
-  private resetSectionResultsMap(
-      map: Map<number, Record<string, DimensionResult>>,
-      newLength: number
-  ): void {
-    map.clear();
-    for (let i = 0; i < newLength; i++) {
-      map.set(i, {});
-    }
-  }
-
-  private applyFinalizedResults(
-      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
-      finalizedResults: Record<string, DimensionResult>,
-      globalResults: Record<string, DimensionResult>
+  private buildSectionResults(
+      state: ProcessState
   ): Array<{ section: SectionData; results: Record<string, DimensionResult> }> {
-    const updated = sectionResults.map((sr, idx) => {
-      const updatedResults: Record<string, DimensionResult> = {};
-      Object.keys(sr.results).forEach((dim) => {
-        updatedResults[dim] =
-            (finalizedResults[`${dim}_section_${idx}`] || sr.results[dim]) as DimensionResult;
-      });
-      return { section: sr.section, results: updatedResults };
-    });
-
-    Object.keys(globalResults).forEach((dim) => {
-      if (finalizedResults[dim]) {
-        globalResults[dim] = finalizedResults[dim];
-      }
-    });
-
-    return updated;
+    return state.sections.map((section, idx) => ({
+      section,
+      results: state.sectionResultsMap.get(idx) ?? {},
+    }));
   }
 
-  private countSuccessful(
-      globalResults: Record<string, DimensionResult>,
-      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>
-  ): number {
-    let count = Object.values(globalResults).filter((r) => !r.error).length;
-    const seenSection = new Set<string>();
-    sectionResults.forEach((sr) => {
-      Object.entries(sr.results).forEach(([dim, result]) => {
-        if (!result.error && !seenSection.has(dim)) {
-          seenSection.add(dim);
-          count++;
-        }
-      });
-    });
-    return count;
-  }
+  private aggregateAllResults(
+      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
+      globalResults: Record<string, DimensionResult>
+  ): Record<string, DimensionResult> {
+    const allResults: Record<string, DimensionResult> = { ...globalResults };
 
-  private countFailed(
-      globalResults: Record<string, DimensionResult>,
-      sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>
-  ): number {
-    let count = Object.values(globalResults).filter((r) => r.error).length;
-    const seenSection = new Set<string>();
-    sectionResults.forEach((sr) => {
+    sectionResults.forEach((sr, idx) => {
       Object.entries(sr.results).forEach(([dim, result]) => {
-        if (result.error && !seenSection.has(dim)) {
-          seenSection.add(dim);
-          count++;
-        }
+        allResults[`${dim}_section_${idx}`] = result;
       });
     });
-    return count;
+
+    return allResults;
   }
 }

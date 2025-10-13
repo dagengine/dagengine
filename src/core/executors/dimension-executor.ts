@@ -1,0 +1,388 @@
+import { Plugin } from '../../plugin.ts';
+import {
+    SectionData,
+    DimensionResult,
+    DimensionContext,
+    SectionDimensionContext,
+    ProcessOptions,
+} from '../../types.ts';
+import PQueue from 'p-queue';
+import { HookExecutor } from './hook-executor.ts';
+import { ProviderExecutor } from './provider-executor.ts';
+import { DependencyResolver } from './dependency-resolver.ts';
+import { executeWithTimeout, hasFailedDependencies } from '../utils.ts';
+import { ERROR_MESSAGES, SKIP_REASONS } from '../constants.ts';
+
+/**
+ * Process state interface
+ */
+interface ProcessState {
+    id: string;
+    startTime: number;
+    sections: SectionData[];
+    globalResults: Record<string, DimensionResult>;
+    sectionResultsMap: Map<number, Record<string, DimensionResult>>;
+}
+
+/**
+ * Handles the execution of individual dimensions (both global and section-level)
+ *
+ * This executor manages:
+ * - Skip checking via plugin hooks
+ * - Dependency transformation and validation
+ * - Timeout protection
+ * - Error handling with configurable recovery
+ */
+export class DimensionExecutor {
+    constructor(
+        private readonly plugin: Plugin,
+        private readonly providerExecutor: ProviderExecutor,
+        private readonly hookExecutor: HookExecutor,
+        private readonly dependencyResolver: DependencyResolver,
+        private readonly queue: PQueue,
+        private readonly defaultTimeout: number,
+        private readonly dimensionTimeouts: Record<string, number>,
+        private readonly continueOnError: boolean
+    ) {}
+
+    /**
+     * Processes a global dimension across all sections
+     */
+    async processGlobalDimension(
+        dimension: string,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>,
+        options: ProcessOptions
+    ): Promise<void> {
+        try {
+            options.onDimensionStart?.(dimension);
+
+            const context = await this.createGlobalContext(dimension, state, dependencyGraph);
+
+            // Check if should skip
+            const skipResult = await this.checkGlobalSkip(context, dimension, state, options);
+            if (skipResult) return;
+
+            // Transform and validate dependencies
+            await this.transformAndValidateDependencies(context);
+
+            // Execute dimension
+            await this.executeGlobalDimension(dimension, state, context, options);
+        } catch (error) {
+            this.handleGlobalError(dimension, error, state, options);
+        }
+    }
+
+    /**
+     * Processes a section-level dimension across all sections
+     */
+    async processSectionDimension(
+        dimension: string,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>,
+        options: ProcessOptions
+    ): Promise<void> {
+        options.onDimensionStart?.(dimension);
+
+        const tasks = state.sections.map((section, sectionIdx) =>
+            this.createSectionTask(dimension, section, sectionIdx, state, dependencyGraph, options)
+        );
+
+        try {
+            await this.queue.addAll(tasks);
+            options.onDimensionComplete?.(dimension, { data: 'Section dimension complete' });
+        } catch (error) {
+            throw error; // Propagate to main error handler
+        }
+    }
+
+    // ==================== PRIVATE: GLOBAL EXECUTION ====================
+
+    private async createGlobalContext(
+        dimension: string,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>
+    ): Promise<DimensionContext> {
+        const dependencies = await this.dependencyResolver.resolveGlobalDependencies(
+            dimension,
+            state.globalResults,
+            state.sectionResultsMap,
+            state.sections.length,
+            dependencyGraph
+        );
+
+        return {
+            processId: state.id,
+            timestamp: Date.now(),
+            dimension,
+            isGlobal: true,
+            sections: state.sections,
+            dependencies,
+            globalResults: state.globalResults,
+        };
+    }
+
+    private async checkGlobalSkip(
+        context: DimensionContext,
+        dimension: string,
+        state: ProcessState,
+        options: ProcessOptions
+    ): Promise<boolean> {
+        const skipResult = await this.hookExecutor.shouldSkipGlobalDimension(context);
+
+        if (skipResult === true) {
+            state.globalResults[dimension] = {
+                data: { skipped: true, reason: SKIP_REASONS.PLUGIN_SKIP_GLOBAL },
+            };
+            options.onDimensionComplete?.(dimension, state.globalResults[dimension]);
+            return true;
+        }
+
+        if (skipResult && typeof skipResult === 'object' && skipResult.skip && skipResult.result) {
+            state.globalResults[dimension] = {
+                ...skipResult.result,
+                metadata: { ...skipResult.result.metadata, cached: true },
+            };
+            options.onDimensionComplete?.(dimension, state.globalResults[dimension]);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async executeGlobalDimension(
+        dimension: string,
+        state: ProcessState,
+        context: DimensionContext,
+        options: ProcessOptions
+    ): Promise<void> {
+        await this.hookExecutor.executeBeforeDimension(context);
+
+        const startTime = Date.now();
+        const timeoutMs = this.dimensionTimeouts[dimension] ?? this.defaultTimeout;
+
+        const result = await executeWithTimeout(
+            () => this.providerExecutor.execute(
+                dimension,
+                state.sections,
+                context.dependencies,
+                true,
+                context
+            ),
+            dimension,
+            timeoutMs
+        );
+
+        const duration = Date.now() - startTime;
+        state.globalResults[dimension] = result;
+
+        await this.hookExecutor.executeAfterDimension({
+            ...context,
+            request: { input: '', options: {} },
+            provider: result.metadata?.provider ?? 'unknown',
+            providerOptions: {},
+            result,
+            duration,
+            ...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
+        });
+
+        options.onDimensionComplete?.(dimension, result);
+    }
+
+    // ==================== PRIVATE: SECTION EXECUTION ====================
+
+    private createSectionTask(
+        dimension: string,
+        section: SectionData,
+        sectionIdx: number,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>,
+        options: ProcessOptions
+    ): () => Promise<void> {
+        return async () => {
+            try {
+                if (sectionIdx === 0) {
+                    options.onSectionStart?.(sectionIdx, state.sections.length);
+                }
+
+                await this.executeSectionDimension(
+                    dimension,
+                    section,
+                    sectionIdx,
+                    state,
+                    dependencyGraph,
+                    options
+                );
+
+                if (sectionIdx === 0) {
+                    options.onSectionComplete?.(sectionIdx, state.sections.length);
+                }
+            } catch (error) {
+                this.handleSectionError(dimension, sectionIdx, error, state, options);
+            }
+        };
+    }
+
+    private async executeSectionDimension(
+        dimension: string,
+        section: SectionData,
+        sectionIdx: number,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>,
+        options: ProcessOptions
+    ): Promise<void> {
+        const context = await this.createSectionContext(
+            dimension,
+            section,
+            sectionIdx,
+            state,
+            dependencyGraph
+        );
+
+        // Check if should skip
+        const skipResult = await this.checkSectionSkip(context, dimension, sectionIdx, state);
+        if (skipResult) return;
+
+        // Transform and validate dependencies
+        await this.transformAndValidateDependencies(context);
+
+        // Execute dimension
+        await this.hookExecutor.executeBeforeDimension(context);
+
+        const startTime = Date.now();
+        const timeoutMs = this.dimensionTimeouts[dimension] ?? this.defaultTimeout;
+
+        const result = await executeWithTimeout(
+            () => this.providerExecutor.execute(
+                dimension,
+                [section],
+                context.dependencies,
+                false,
+                context
+            ),
+            dimension,
+            timeoutMs
+        );
+
+        const duration = Date.now() - startTime;
+
+        const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
+        sectionResults[dimension] = result;
+        state.sectionResultsMap.set(sectionIdx, sectionResults);
+
+        await this.hookExecutor.executeAfterDimension({
+            ...context,
+            request: { input: '', options: {} },
+            provider: result.metadata?.provider ?? 'unknown',
+            providerOptions: {},
+            result,
+            duration,
+            ...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
+        });
+    }
+
+    private async createSectionContext(
+        dimension: string,
+        section: SectionData,
+        sectionIdx: number,
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>
+    ): Promise<SectionDimensionContext> {
+        const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
+        const dependencies = await this.dependencyResolver.resolveSectionDependencies(
+            dimension,
+            sectionResults,
+            state.globalResults,
+            dependencyGraph
+        );
+
+        return {
+            processId: state.id,
+            timestamp: Date.now(),
+            dimension,
+            isGlobal: false,
+            sections: [section],
+            dependencies,
+            globalResults: state.globalResults,
+            section,
+            sectionIndex: sectionIdx,
+        };
+    }
+
+    private async checkSectionSkip(
+        context: SectionDimensionContext,
+        dimension: string,
+        sectionIdx: number,
+        state: ProcessState
+    ): Promise<boolean> {
+        const skipResult = await this.hookExecutor.shouldSkipSectionDimension(context);
+
+        const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
+
+        if (skipResult === true) {
+            sectionResults[dimension] = {
+                data: { skipped: true, reason: SKIP_REASONS.PLUGIN_SKIP_SECTION },
+            };
+            state.sectionResultsMap.set(sectionIdx, sectionResults);
+            return true;
+        }
+
+        if (skipResult && typeof skipResult === 'object' && skipResult.skip && skipResult.result) {
+            sectionResults[dimension] = {
+                ...skipResult.result,
+                metadata: { ...skipResult.result.metadata, cached: true },
+            };
+            state.sectionResultsMap.set(sectionIdx, sectionResults);
+            return true;
+        }
+
+        return false;
+    }
+
+    // ==================== PRIVATE: SHARED ====================
+
+    private async transformAndValidateDependencies(
+        context: DimensionContext | SectionDimensionContext
+    ): Promise<void> {
+        const transformedDeps = await this.hookExecutor.transformDependencies(context);
+        context.dependencies = transformedDeps;
+
+        if (!this.continueOnError && hasFailedDependencies(transformedDeps)) {
+            throw new Error(ERROR_MESSAGES.DEPENDENCIES_FAILED(context.dimension));
+        }
+    }
+
+    private handleGlobalError(
+        dimension: string,
+        error: unknown,
+        state: ProcessState,
+        options: ProcessOptions
+    ): void {
+        const err = error instanceof Error ? error : new Error(String(error));
+        options.onError?.(`global-${dimension}`, err);
+        state.globalResults[dimension] = { error: err.message };
+    }
+
+    private handleSectionError(
+        dimension: string,
+        sectionIdx: number,
+        error: unknown,
+        state: ProcessState,
+        options: ProcessOptions
+    ): void {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error(
+            `Error processing dimension "${dimension}" for section ${sectionIdx}:`,
+            err.message
+        );
+        options.onError?.(`section-${sectionIdx}-${dimension}`, err);
+
+        const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
+        sectionResults[dimension] = { error: err.message };
+        state.sectionResultsMap.set(sectionIdx, sectionResults);
+
+        if (!this.continueOnError) {
+            throw error;
+        }
+    }
+}
