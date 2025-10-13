@@ -1,331 +1,350 @@
-# Core Concepts
-
-dag-ai has **3 core concepts**: Sections, Dimensions, and Dependencies.
-
+---
+title: Core Concepts
+description: Understand sections, dimensions, and dependencies
 ---
 
-## 1. Sections
+# Core Concepts
 
-**Sections** are the content you want to analyze.
+Three core concepts: **Sections**, **Dimensions**, and **Dependencies**.
+
+## Sections
+
+Sections are the data you want to process.
+
 ```typescript
 const sections = [
   { 
     content: 'Your text here', 
-    metadata: { id: 1, author: 'John' } 
+    metadata: { id: 1 } 
   },
   { 
     content: 'More text', 
-    metadata: { id: 2, author: 'Jane' } 
+    metadata: { id: 2 } 
   }
 ];
 ```
 
-**Think of sections as:**
-- 📄 Documents to analyze
-- 📝 Paragraphs in a report
-- 💬 Customer reviews
-- 📧 Emails or messages
-- 🎫 Support tickets
-
-### Section Structure
+**Structure:**
 ```typescript
 interface SectionData {
-  content: string;              // The text to analyze
-  metadata: Record<string, any>; // Any extra data you want to track
+  content: string;                 // Text to process
+  metadata: Record<string, any>;   // Additional data
 }
 ```
 
-**Example:**
-```typescript
-{
-  content: 'I love this product!',
-  metadata: {
-    userId: 123,
-    date: '2025-01-15',
-    source: 'email'
-  }
-}
-```
+Sections can be reviews, emails, paragraphs, or any text-based data.
 
----
+## Dimensions
 
-## 2. Dimensions
+Dimensions are analysis tasks.
 
-**Dimensions** are the analysis tasks you want to perform.
 ```typescript
 class MyPlugin extends Plugin {
   constructor() {
     super('my-plugin', 'My Plugin', 'Description');
-    this.dimensions = [
-      'sentiment',    // Task 1: Analyze sentiment
-      'topics',       // Task 2: Extract topics
-      'summary'       // Task 3: Create summary
-    ];
+    this.dimensions = ['sentiment', 'topics', 'summary'];
   }
 }
 ```
 
-### Section Dimensions (Default)
+### Section Dimensions
 
-Each section is analyzed independently:
+Process each section independently in parallel:
+
 ```typescript
 this.dimensions = ['sentiment', 'topics'];
 
+// Each section processed separately:
 // Section 1 → sentiment + topics
 // Section 2 → sentiment + topics
 // Section 3 → sentiment + topics
 ```
 
-**Perfect for:**
-- Per-document analysis
-- Independent reviews
-- Separate emails
-
 ### Global Dimensions
 
-All sections analyzed together:
+Process all sections together:
+
 ```typescript
 this.dimensions = [
-  { name: 'overall_themes', scope: 'global' }
+  { name: 'categorize', scope: 'global' }
 ];
 
-// All sections → find common themes
+// All sections processed together:
+// Sections 1-3 → categorize once
 ```
 
-**Perfect for:**
-- Cross-document patterns
-- Aggregated insights
-- Global summaries
-
-### Mixed Dimensions
+### Mixed Mode
 
 Combine both:
+
 ```typescript
 this.dimensions = [
-  'sentiment',                              // Section
-  'topics',                                 // Section
-  { name: 'overall_tone', scope: 'global' } // Global
+  'sentiment',                              // Section (parallel)
+  { name: 'overall_tone', scope: 'global' } // Global (once)
 ];
 ```
 
----
+## Dependencies
 
-## 3. Dependencies
+Dependencies define execution order.
 
-**Dependencies** define execution order.
+### Parallel Execution
 
-### No Dependencies
+No dependencies = parallel execution:
 
-Dimensions run in parallel:
-```typescript
-defineDependencies() {
-  return {
-    sentiment: [],  // No dependencies
-    topics: []      // No dependencies
-  };
-}
-
-// Execution: sentiment + topics (parallel)
-```
-
-### Simple Dependency
-
-One dimension waits for another:
 ```typescript
 defineDependencies() {
   return {
     sentiment: [],
-    summary: ['sentiment']  // Wait for sentiment first
+    topics: []
+  };
+}
+
+// Execution: sentiment and topics in parallel
+```
+
+### Sequential Execution
+
+With dependencies = ordered execution:
+
+```typescript
+defineDependencies() {
+  return {
+    sentiment: [],
+    summary: ['sentiment']  // Waits for sentiment
   };
 }
 
 // Execution: sentiment → summary
 ```
 
-### Multiple Dependencies
+### DAG Execution
 
-Wait for multiple dimensions:
+Multiple dependencies create a graph:
+
 ```typescript
 defineDependencies() {
   return {
     sentiment: [],
     topics: [],
-    summary: ['sentiment', 'topics']  // Wait for both
-  };
-}
-
-// Execution: (sentiment + topics in parallel) → summary
-```
-
-### Complex Dependencies
-
-Build complex workflows:
-```typescript
-defineDependencies() {
-  return {
-    A: [],
-    B: ['A'],
-    C: ['A'],
-    D: ['B', 'C']
+    summary: ['sentiment', 'topics']  // Waits for both
   };
 }
 
 // Execution:
-//     A
-//    / \
-//   B   C
-//    \ /
-//     D
+//   sentiment ↘
+//              summary
+//   topics   ↗
 ```
 
----
+## Dependency Access
 
-## How They Work Together
+Each dimension receives results from its dependencies:
 
-### Example: Content Analysis Pipeline
-```typescript
-class ContentPipeline extends Plugin {
-  constructor() {
-    super('pipeline', 'Content Pipeline', 'Full analysis');
-    
-    // 1. Define dimensions
-    this.dimensions = [
-      'sentiment',      // Analyze emotion
-      'topics',         // Extract topics
-      'quality',        // Check quality
-      'summary'         // Create summary
-    ];
-  }
-
-  // 2. Define dependencies
-  defineDependencies() {
-    return {
-      sentiment: [],          // No deps - runs first
-      topics: [],             // No deps - runs first (parallel with sentiment)
-      quality: ['sentiment'], // Needs sentiment
-      summary: ['sentiment', 'topics', 'quality']  // Needs all three
-    };
-  }
-
-  // 3. Create prompts for each dimension
-  createPrompt(context) {
-    const prompts = {
-      sentiment: `Analyze sentiment: "${context.sections[0].content}"
-        Return: {"sentiment": "positive|negative|neutral", "score": 0-1}`,
-      
-      topics: `Extract topics: "${context.sections[0].content}"
-        Return: {"topics": ["topic1", "topic2"]}`,
-      
-      quality: `Rate quality: "${context.sections[0].content}"
-        Sentiment: ${context.dependencies.sentiment.data.sentiment}
-        Return: {"quality": 1-10, "issues": []}`,
-      
-      summary: `Summarize: "${context.sections[0].content}"
-        Sentiment: ${context.dependencies.sentiment.data.sentiment}
-        Topics: ${context.dependencies.topics.data.topics.join(', ')}
-        Quality: ${context.dependencies.quality.data.quality}/10`
-    };
-    
-    return prompts[context.dimension];
-  }
-
-  // 4. Select provider
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
-  }
-}
-```
-
-**Execution flow:**
-```
-Level 0: sentiment + topics (parallel)
-         ↓           ↓
-Level 1: quality ←──┘
-         ↓
-Level 2: summary (waits for all)
-```
-
----
-
-## Accessing Dependencies
-
-When a dimension executes, it receives dependency results:
 ```typescript
 createPrompt(context) {
   if (context.dimension === 'summary') {
-    // Access previous results
+    // Access dependency results
     const sentiment = context.dependencies.sentiment.data;
     const topics = context.dependencies.topics.data;
     
-    return `Create summary:
-      Sentiment: ${sentiment.sentiment} (${sentiment.score})
+    return `Summarize with context:
+      Sentiment: ${sentiment.sentiment}
       Topics: ${topics.topics.join(', ')}
-      Text: "${context.sections[0].content}"`;
+      Content: ${context.sections[0].content}`;
   }
 }
 ```
 
 ### Section Dependencies
 
-For section dimensions, you get that section's results:
+Section dimensions receive that section's dependency results:
+
 ```typescript
-// Section dimension
-context.dependencies.sentiment  // This section's sentiment result
+// This section's sentiment result
+const sentiment = context.dependencies.sentiment.data;
 ```
 
 ### Global Dependencies
 
-For global dimensions, you get aggregated section results:
+Global dimensions receive aggregated results from section dimensions:
+
 ```typescript
-// Global dimension depends on section dimension
-context.dependencies.sentiment.data.sections  // Array of all section results
+// All sections' sentiment results
+const allSentiments = context.dependencies.sentiment.data.sections;
 ```
 
----
+## Complete Example
 
-## Section vs Global Processing
+```typescript
+class ContentAnalysis extends Plugin {
+  dimensions = [
+    'sentiment',
+    'topics',
+    'summary'
+  ];
+
+  defineDependencies() {
+    return {
+      sentiment: [],
+      topics: [],
+      summary: ['sentiment', 'topics']
+    };
+  }
+
+  createPrompt(context) {
+    if (context.dimension === 'sentiment') {
+      return `Analyze sentiment: "${context.sections[0].content}"
+      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+    }
+    
+    if (context.dimension === 'topics') {
+      return `Extract topics: "${context.sections[0].content}"
+      Return JSON: {"topics": ["topic1", "topic2"]}`;
+    }
+    
+    if (context.dimension === 'summary') {
+      const sentiment = context.dependencies.sentiment.data;
+      const topics = context.dependencies.topics.data;
+      
+      return `Create ${sentiment.sentiment} summary about ${topics.topics.join(', ')}:
+      "${context.sections[0].content}"`;
+    }
+  }
+
+  selectProvider() {
+    return { provider: 'anthropic', options: {} };
+  }
+}
+```
+
+**Execution:**
+```
+sentiment + topics (parallel)
+       ↓
+    summary (uses both results)
+```
+
+## Section Transformations
+
+Global dimensions can restructure the section array:
+
+```typescript
+class CategoryPlugin extends Plugin {
+  dimensions = [
+    { name: 'classify', scope: 'section' },
+    { name: 'group', scope: 'global' },
+    { name: 'analyze', scope: 'section' }
+  ];
+
+  defineDependencies() {
+    return {
+      group: ['classify'],
+      analyze: ['group']
+    };
+  }
+
+  transformSections(context) {
+    if (context.dimension === 'group') {
+      // Transform: 100 items → 5 categories
+      const categories = context.result.data.categories;
+      
+      return categories.map(cat => ({
+        content: cat.items.join('\n'),
+        metadata: { category: cat.name }
+      }));
+    }
+  }
+
+  createPrompt(context) {
+    if (context.dimension === 'classify') {
+      return `Classify: "${context.section.content}"`;
+    }
+    
+    if (context.dimension === 'group') {
+      const items = context.dependencies.classify.data.sections;
+      return `Group ${items.length} items into categories`;
+    }
+    
+    if (context.dimension === 'analyze') {
+      return `Analyze ${context.section.metadata.category} category:
+      ${context.section.content}`;
+    }
+  }
+
+  selectProvider() {
+    return { provider: 'anthropic', options: {} };
+  }
+}
+
+// Input: 100 items
+// After classify: 100 sections with categories
+// After group + transform: 5 merged category sections
+// After analyze: 5 category analyses (not 100!)
+```
+
+**Execution:**
+```
+1. classify: 100 items (parallel)
+2. group: Categorizes all items
+3. transform: 100 sections → 5 category sections
+4. analyze: 5 categories (parallel)
+```
+
+## Processing Flow
 
 ### Section Processing
 
-Each section analyzed separately:
 ```typescript
-// Input: 3 sections
 const sections = [
   { content: 'Text 1', metadata: {} },
   { content: 'Text 2', metadata: {} },
   { content: 'Text 3', metadata: {} }
 ];
 
-// Output: 3 separate results
-result.sections[0].results.sentiment  // Text 1 sentiment
-result.sections[1].results.sentiment  // Text 2 sentiment
-result.sections[2].results.sentiment  // Text 3 sentiment
+const result = await engine.process(sections);
+
+// Access results per section
+result.sections[0].results.sentiment
+result.sections[1].results.sentiment
+result.sections[2].results.sentiment
 ```
 
 ### Global Processing
 
-All sections analyzed together:
 ```typescript
 this.dimensions = [
   { name: 'themes', scope: 'global' }
 ];
 
-// Input: 3 sections (analyzed together)
-// Output: 1 global result
-result.globalResults.themes  // Themes across all 3 sections
+const result = await engine.process(sections);
+
+// Access global result
+result.globalResults.themes  // Result for all sections combined
 ```
+
+## Key Points
+
+**Sections:** Data to process  
+**Dimensions:** Tasks to perform  
+**Dependencies:** Execution order  
+**Section scope:** Process each independently (parallel)  
+**Global scope:** Process all together (once)  
+**Transformations:** Restructure sections mid-pipeline  
+**Dependency access:** Each dimension receives previous results
 
 ---
 
-## Practical Examples
+## Examples
 
-### Example 1: Simple Sentiment
+### Simple Analysis
+
 ```typescript
-class SimpleSentiment extends Plugin {
+class Simple extends Plugin {
   dimensions = ['sentiment'];
   
   createPrompt(context) {
-    return `Sentiment: "${context.sections[0].content}"`;
+    return `Analyze: "${context.sections[0].content}"`;
   }
   
   selectProvider() {
@@ -334,22 +353,23 @@ class SimpleSentiment extends Plugin {
 }
 ```
 
-### Example 2: With Dependencies
+### With Dependencies
+
 ```typescript
 class WithDeps extends Plugin {
-  dimensions = ['extract', 'summarize'];
+  dimensions = ['entities', 'summary'];
   
   defineDependencies() {
-    return { summarize: ['extract'] };
+    return { summary: ['entities'] };
   }
   
   createPrompt(context) {
-    if (context.dimension === 'extract') {
+    if (context.dimension === 'entities') {
       return `Extract entities: "${context.sections[0].content}"`;
     }
     
-    if (context.dimension === 'summarize') {
-      const entities = context.dependencies.extract.data.entities;
+    if (context.dimension === 'summary') {
+      const entities = context.dependencies.entities.data;
       return `Summarize focusing on: ${entities.join(', ')}`;
     }
   }
@@ -360,12 +380,13 @@ class WithDeps extends Plugin {
 }
 ```
 
-### Example 3: Mixed Scope
+### Mixed Scopes
+
 ```typescript
-class MixedScope extends Plugin {
+class Mixed extends Plugin {
   dimensions = [
-    'sentiment',                           // Section-level
-    { name: 'overall', scope: 'global' }   // Global-level
+    'sentiment',
+    { name: 'overall', scope: 'global' }
   ];
   
   defineDependencies() {
@@ -374,13 +395,12 @@ class MixedScope extends Plugin {
   
   createPrompt(context) {
     if (context.dimension === 'sentiment') {
-      return `Sentiment: "${context.sections[0].content}"`;
+      return `Analyze: "${context.sections[0].content}"`;
     }
     
     if (context.dimension === 'overall') {
-      // Access all section sentiments
-      const sentiments = context.dependencies.sentiment.data.sections;
-      return `Overall tone from ${sentiments.length} items`;
+      const allResults = context.dependencies.sentiment.data.sections;
+      return `Overall analysis from ${allResults.length} items`;
     }
   }
   
@@ -390,29 +410,10 @@ class MixedScope extends Plugin {
 }
 ```
 
----
-
-## Key Takeaways
-
-### Sections
-- ✅ Content to analyze
-- ✅ Can be any text with metadata
-- ✅ Processed independently by default
-
-### Dimensions
-- ✅ Analysis tasks to perform
-- ✅ Section-level (per document) or global (all documents)
-- ✅ Can be mixed in one workflow
-
-### Dependencies
-- ✅ Define execution order
-- ✅ Enable complex workflows
-- ✅ Automatic parallel execution where possible
-
----
-
 ## Next Steps
 
-- ✅ [Quick Start](/guide/quick-start) - Build your first workflow
-- ✅ [Examples](/guide/examples) - See real-world examples
-- ✅ [API Reference](/api/dag-engine) - Complete API docs
+- [Quick Start](/guide/quick-start) - Build your first workflow
+- [Dependencies Guide](/guide/dependencies) - Advanced dependency patterns
+- [Cost Optimization](/guide/cost-optimization) - Reduce API costs
+- [Examples](/guide/examples) - Real-world workflows
+- [API Reference](/api/engine) - Complete API
