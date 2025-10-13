@@ -5,7 +5,7 @@ description: Build your first AI workflow in 5 minutes
 
 # Quick Start
 
-Build your first AI workflow in 5 minutes.
+Get started with dag-ai in 5 minutes. Build a simple sentiment analysis workflow.
 
 ## Installation
 
@@ -25,43 +25,70 @@ pnpm add @ivan629/dag-ai
 
 :::
 
----
+## Your First Workflow
 
-## Basic Workflow
+Let's analyze the sentiment of customer reviews.
 
-### Step 1: Create a Plugin
+### Step 1: Set Your API Key
+
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+Get your API key from [Anthropic Console](https://console.anthropic.com/).
+
+### Step 2: Create a Plugin
+
+A **plugin** defines what analyses to run. Here's a simple sentiment analyzer:
 
 ```typescript
 import { Plugin } from '@ivan629/dag-ai';
 
 class SentimentPlugin extends Plugin {
   constructor() {
-    super('sentiment', 'Sentiment Analyzer', 'Analyzes sentiment');
+    super(
+      'sentiment',              // Plugin ID
+      'Sentiment Analyzer',     // Plugin name  
+      'Analyzes text sentiment' // Description
+    );
+    
+    // Define what to analyze
     this.dimensions = ['sentiment'];
   }
 
+  // Build the AI prompt
   createPrompt(context) {
-    return `Analyze sentiment: "${context.sections[0].content}"
-    Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+    return `Analyze the sentiment of this text: "${context.sections[0].content}"
+    
+    Return JSON:
+    {
+      "sentiment": "positive" | "negative" | "neutral",
+      "score": 0.0 to 1.0,
+      "reasoning": "brief explanation"
+    }`;
   }
 
+  // Choose which AI provider to use
   selectProvider() {
     return { 
       provider: 'anthropic',
-      options: { model: 'claude-sonnet-4-5-20250929' }
+      options: {
+        model: 'claude-sonnet-4-5-20250929',
+        temperature: 0.1
+      }
     };
   }
 }
 ```
 
-Three required methods:
-- `dimensions` - What to analyze
-- `createPrompt()` - What to ask the AI
-- `selectProvider()` - Which AI to use
+**What's happening:**
+- `dimensions` - What analyses to perform (just sentiment for now)
+- `createPrompt()` - The prompt sent to the AI
+- `selectProvider()` - Which AI service to use (Anthropic's Claude)
 
----
+### Step 3: Create the Engine
 
-### Step 2: Create Engine
+The **engine** runs your plugin on your data:
 
 ```typescript
 import { DagEngine } from '@ivan629/dag-ai';
@@ -74,391 +101,235 @@ const engine = new DagEngine({
 });
 ```
 
----
-
-### Step 3: Process Content
+### Step 4: Process Your Data
 
 ```typescript
+const reviews = [
+  { content: 'This product is amazing! Love it!', metadata: { id: 1 } },
+  { content: 'Terrible quality. Very disappointed.', metadata: { id: 2 } },
+  { content: 'It works as expected.', metadata: { id: 3 } }
+];
+
+const result = await engine.process(reviews);
+
+// Access results
+result.sections.forEach((section, i) => {
+  const sentiment = section.results.sentiment.data;
+  
+  console.log(`Review ${i + 1}:`, sentiment.sentiment);
+  console.log(`Score:`, sentiment.score);
+  console.log(`Reasoning:`, sentiment.reasoning);
+  console.log('---');
+});
+```
+
+**Output:**
+```
+Review 1: positive
+Score: 0.95
+Reasoning: Enthusiastic language with words like "amazing" and "love"
+---
+Review 2: negative
+Score: 0.15
+Reasoning: Strong negative words like "terrible" and "disappointed"
+---
+Review 3: neutral
+Score: 0.5
+Reasoning: Factual statement without emotional language
+---
+```
+
+## Complete Example
+
+Here's the full code in one place:
+
+```typescript
+import { DagEngine, Plugin } from '@ivan629/dag-ai';
+
+class SentimentPlugin extends Plugin {
+  constructor() {
+    super('sentiment', 'Sentiment Analyzer', 'Analyzes text sentiment');
+    this.dimensions = ['sentiment'];
+  }
+
+  createPrompt(context) {
+    return `Analyze the sentiment: "${context.sections[0].content}"
+    Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+  }
+
+  selectProvider() {
+    return { 
+      provider: 'anthropic',
+      options: { model: 'claude-sonnet-4-5-20250929' }
+    };
+  }
+}
+
+// Create engine
+const engine = new DagEngine({
+  plugin: new SentimentPlugin(),
+  providers: {
+    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
+  }
+});
+
+// Process data
 const result = await engine.process([
-  { content: 'I love this product!', metadata: {} }
+  { content: 'I love this!', metadata: {} }
 ]);
 
 console.log(result.sections[0].results.sentiment.data);
 // { sentiment: 'positive', score: 0.95 }
 ```
 
----
+## Understanding the Results
 
-## Multiple Dimensions
-
-Process multiple analyses in parallel:
+The `process()` method returns:
 
 ```typescript
-class ContentAnalysis extends Plugin {
-  constructor() {
-    super('analysis', 'Content Analysis', 'Analyzes content');
-    this.dimensions = ['sentiment', 'topics'];
-  }
-
-  createPrompt(context) {
-    if (context.dimension === 'sentiment') {
-      return `Analyze sentiment: "${context.sections[0].content}"
-      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+{
+  sections: [
+    {
+      section: { content: '...', metadata: {...} },
+      results: {
+        sentiment: {
+          data: { sentiment: 'positive', score: 0.95 },
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-5-20250929',
+            tokens: { inputTokens: 45, outputTokens: 12, totalTokens: 57 }
+          }
+        }
+      }
     }
-    
-    if (context.dimension === 'topics') {
-      return `Extract topics: "${context.sections[0].content}"
-      Return JSON: {"topics": ["topic1", "topic2"]}`;
-    }
-  }
-
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
-  }
-}
-
-const result = await engine.process([
-  { content: 'I love AI and machine learning!', metadata: {} }
-]);
-
-console.log(result.sections[0].results);
-// {
-//   sentiment: { data: { sentiment: 'positive', score: 0.9 } },
-//   topics: { data: { topics: ['AI', 'machine learning'] } }
-// }
-```
-
-Both dimensions run in parallel.
-
----
-
-## Dependencies
-
-Make one dimension wait for another:
-
-```typescript
-class WorkflowPlugin extends Plugin {
-  constructor() {
-    super('workflow', 'Workflow', 'Complete workflow');
-    this.dimensions = ['sentiment', 'summary'];
-  }
-
-  defineDependencies() {
-    return {
-      summary: ['sentiment']  // summary waits for sentiment
-    };
-  }
-
-  createPrompt(context) {
-    if (context.dimension === 'sentiment') {
-      return `Analyze sentiment: "${context.sections[0].content}"
-      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
-    }
-    
-    if (context.dimension === 'summary') {
-      // Access sentiment result
-      const sentiment = context.dependencies.sentiment.data.sentiment;
-      return `Create a ${sentiment}-toned summary: "${context.sections[0].content}"`;
-    }
-  }
-
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
-  }
+  ],
+  globalResults: {},
+  transformedSections: [...]
 }
 ```
 
-Execution: `sentiment` runs first → `summary` receives sentiment result.
+**Key parts:**
+- `sections` - Results for each input section
+- `results.sentiment.data` - Your analysis result
+- `results.sentiment.metadata` - Provider info and token usage
 
-## Global Dimensions & Section Transformations
+## What's Next?
 
-Global dimensions process all sections together and can restructure the section array:
+You've learned the basics! Now explore:
 
+### Multiple Analyses
+Run several analyses in parallel:
 ```typescript
-class CategorizePlugin extends Plugin {
-  dimensions = [
-    { name: 'classify', scope: 'section' },      // Per-section (parallel)
-    { name: 'group_by_category', scope: 'global' },  // All sections together
-    { name: 'analyze', scope: 'section' }        // Per-category (parallel)
-  ];
+this.dimensions = ['sentiment', 'topics', 'language'];
+```
+→ [Core Concepts](/guide/core-concepts)
 
-  defineDependencies() {
-    return {
-      group_by_category: ['classify'],
-      analyze: ['group_by_category']
-    };
-  }
-
-  createPrompt(context) {
-    if (context.dimension === 'classify') {
-      return `Classify this item: "${context.section.content}"
-      Return JSON: {"category": "electronics|books|clothing"}`;
-    }
-    
-    if (context.dimension === 'group_by_category') {
-      const items = context.dependencies.classify.data.sections;
-      return `Group these ${items.length} items by category.
-      Return JSON: {"categories": [{"name": "...", "items": [...]}]}`;
-    }
-    
-    if (context.dimension === 'analyze') {
-      // Now analyzing merged categories
-      return `Analyze this ${context.section.metadata.category} category:
-      ${context.section.content}`;
-    }
-  }
-
-  transformSections(context) {
-    if (context.dimension === 'group_by_category') {
-      // Transform: 100 items → 3 categories
-      const categories = context.result.data.categories;
-      
-      return categories.map(cat => ({
-        content: cat.items.join('\n'),
-        metadata: { category: cat.name, count: cat.items.length }
-      }));
-    }
-  }
-
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
-  }
+### Dependencies
+Make one analysis depend on another:
+```typescript
+defineDependencies() {
+  return { summary: ['sentiment', 'topics'] };
 }
-
-// Input: 100 product reviews
-const reviews = [
-  { content: 'Great laptop!', metadata: {} },
-  { content: 'Love this book', metadata: {} },
-  // ... 98 more reviews
-];
-
-const result = await engine.process(reviews);
-
-// Execution:
-// 1. classify: 100 reviews in parallel
-// 2. group_by_category: Groups into 3 categories (electronics, books, clothing)
-// 3. transformSections: 100 sections → 3 merged sections
-// 4. analyze: 3 categories in parallel (not 100 reviews!)
 ```
+→ [Dependencies Guide](/guide/dependencies)
 
-**Key benefit:** Process 3 categories instead of 100 individual reviews. Faster and cheaper.
-
-## Provider Fallback
-
-Automatically switch providers on failure:
-
+### Error Handling
+Add fallback providers and retry logic:
 ```typescript
-class FallbackPlugin extends Plugin {
-  constructor() {
-    super('fallback', 'Fallback', 'With fallback');
-    this.dimensions = ['sentiment'];
-  }
-
-  createPrompt(context) {
-    return `Analyze sentiment: "${context.sections[0].content}"`;
-  }
-
-  selectProvider() {
-    return {
-      provider: 'anthropic',
-      fallbacks: [
-        { provider: 'openai' },
-        { provider: 'gemini' }
-      ]
-    };
-  }
+selectProvider() {
+  return {
+    provider: 'anthropic',
+    fallbacks: [
+      { provider: 'openai' },
+      { provider: 'gemini' }
+    ]
+  };
 }
-
-const engine = new DagEngine({
-  plugin: new FallbackPlugin(),
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
-    openai: { apiKey: process.env.OPENAI_API_KEY },
-    gemini: { apiKey: process.env.GEMINI_API_KEY }
-  }
-});
 ```
+→ [Error Handling](/guide/error-handling)
 
-Tries Anthropic (3 retries) → OpenAI (3 retries) → Gemini (3 retries).
-
-## Batch Processing
-
-Process multiple sections in parallel:
-
+### Cost Optimization
+Skip unnecessary processing:
 ```typescript
-const sections = [
-  { content: 'Great product!', metadata: { id: 1 } },
-  { content: 'Not bad', metadata: { id: 2 } },
-  { content: 'Terrible experience', metadata: { id: 3 } }
-];
-
-const result = await engine.process(sections);
-
-result.sections.forEach((section, i) => {
-  console.log(`Section ${i + 1}:`, section.results.sentiment.data);
-});
+shouldSkipDimension(context) {
+  return context.section.content.length < 50;
+}
 ```
+→ [Skip Logic](/guide/skip-logic)
 
-Default concurrency: 5. Configure with `new DagEngine({ concurrency: 20 })`.
+## Common Issues
 
-## Cost Tracking
+### "Provider not found"
 
-Track API costs in real-time:
-
+**Problem:**
 ```typescript
 const engine = new DagEngine({
   plugin: new SentimentPlugin(),
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
-  },
-  pricing: {
-    models: {
-      'claude-sonnet-4-5-20250929': {
-        inputPer1M: 3.00,
-        outputPer1M: 15.00
-      }
-    }
-  }
+  providers: {}  // ❌ Empty!
 });
-
-const result = await engine.process(sections);
-
-console.log(result.costs);
-// {
-//   totalCost: 0.45,
-//   byDimension: { sentiment: { cost: 0.45, tokens: {...} } },
-//   byProvider: { anthropic: { cost: 0.45, tokens: {...} } }
-// }
 ```
 
-## Skip Logic
-
-Skip processing based on conditions:
-
+**Solution:**
 ```typescript
-class OptimizedPlugin extends Plugin {
-  dimensions = ['sentiment'];
-
-  shouldSkipDimension(context) {
-    // Skip short content
-    if (context.section.content.length < 50) return true;
-    
-    // Use cached result
-    const cached = this.cache.get(context.section.content);
-    if (cached) return { skip: true, result: cached };
-    
-    return false;
-  }
-
-  createPrompt(context) {
-    return `Analyze sentiment: "${context.sections[0].content}"`;
-  }
-
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
-  }
+providers: {
+  anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
 }
 ```
 
-## Common Patterns
+### "API key not set"
 
-### Pattern 1: Dynamic Model Selection
-
-```typescript
-selectProvider(dimension, section) {
-  if (section.content.length < 100) {
-    return { provider: 'anthropic', options: { model: 'claude-haiku-3-5' } };
-  }
-  return { provider: 'anthropic', options: { model: 'claude-sonnet-4-5-20250929' } };
-}
+**Problem:**
+```
+Error: Anthropic API key is required
 ```
 
-### Pattern 2: Timeout Configuration
-
-```typescript
-const engine = new DagEngine({
-  plugin: new YourPlugin(),
-  providers: { /* ... */ },
-  timeout: 120000,  // Global: 120 seconds
-  dimensionTimeouts: {
-    'slow_dimension': 180000  // This dimension: 180 seconds
-  }
-});
-```
-
-### Pattern 3: Error Handling
-
-```typescript
-const result = await engine.process(sections);
-
-result.sections.forEach(section => {
-  if (section.results.sentiment.error) {
-    console.error('Failed:', section.results.sentiment.error);
-  } else {
-    console.log('Success:', section.results.sentiment.data);
-  }
-});
-```
-
-## Next Steps
-
-- [Core Concepts](/guide/core-concepts) - Understand sections, dimensions, dependencies
-- [Cost Optimization](/guide/cost-optimization) - Reduce API costs
-- [Lifecycle Hooks](/lifecycle/hooks) - 16 extension points
-- [Examples](/guide/examples) - Real-world workflows
-- [API Reference](/api/engine) - Complete documentation
-
-## Troubleshooting
-
-### Provider not found
-
-```typescript
-// ❌ Missing provider config
-const engine = new DagEngine({
-  plugin: new YourPlugin(),
-  providers: {}  // Empty!
-});
-
-// ✅ Correct
-const engine = new DagEngine({
-  plugin: new YourPlugin(),
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
-  }
-});
-```
-
-### Circular dependency
-
-```typescript
-// ❌ Circular
-defineDependencies() {
-  return {
-    A: ['B'],
-    B: ['A']  // Can't depend on each other
-  };
-}
-
-// ✅ Correct
-defineDependencies() {
-  return {
-    B: ['A']  // Linear flow
-  };
-}
-```
-
-### API key not set
-
+**Solution:**
 ```bash
 # Set environment variable
-export ANTHROPIC_API_KEY=your_key_here
+export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Or use .env file
-echo "ANTHROPIC_API_KEY=your_key_here" > .env
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+```
+
+### Result is undefined
+
+**Problem:**
+```typescript
+console.log(result.sections[0].results.sentiment);
+// undefined
+```
+
+**Cause:** Dimension name mismatch
+
+**Solution:**
+```typescript
+// Plugin dimension name must match
+this.dimensions = ['sentiment'];  // ✅
+
+// Access with same name
+result.sections[0].results.sentiment  // ✅
 ```
 
 ## Getting Help
 
-- [GitHub Discussions](https://github.com/ivan629/dag-ai/discussions) - Ask questions
-- [GitHub Issues](https://github.com/ivan629/dag-ai/issues) - Report bugs
-- [Examples](/guide/examples) - See working code
+- 📖 [Core Concepts](/guide/core-concepts) - Understand sections, dimensions, dependencies
+- 🔧 [API Reference](/api/engine) - Complete configuration options
+- 💡 [Examples](/guide/examples) - Real-world use cases
+- 💬 [GitHub Discussions](https://github.com/ivan629/dag-ai/discussions) - Ask questions
+- 🐛 [GitHub Issues](https://github.com/ivan629/dag-ai/issues) - Report bugs
+
+## Next Steps
+
+**Ready to build more?**
+
+1. **[Core Concepts](/guide/core-concepts)** - Learn about sections, dimensions, and dependencies
+2. **[Examples](/guide/examples)** - See real-world workflows
+3. **[API Reference](/api/engine)** - Explore all configuration options
+
+**Want to go deeper?**
+
+- [Dependencies Guide](/guide/dependencies) - Master execution order
+- [Error Handling](/guide/error-handling) - Build resilient workflows
+- [Lifecycle Hooks](/lifecycle/hooks) - 16 extension points
+- [Provider System](/api/providers) - Multiple AI providers
