@@ -6,7 +6,8 @@
  * @module analysis/graph-manager
  */
 
-import { Graph, alg } from '@dagrejs/graphlib';
+import graphlib, { Graph } from '@dagrejs/graphlib';
+const alg = graphlib.alg;
 import { Plugin } from '../../plugin.ts';
 import { GraphAnalytics, GraphExport } from './graph-types.ts';
 import { CircularDependencyError, ExecutionGroupingError } from '../shared/errors.ts';

@@ -1,5 +1,10 @@
 export interface ProviderConfig {
   apiKey?: string;
+
+  gateway?: 'portkey';
+  gatewayApiKey?: string;
+  gatewayConfig?: string;
+
   [key: string]: unknown;
 }
 
@@ -44,4 +49,36 @@ export abstract class BaseProvider {
   }
 
   abstract execute(request: ProviderRequest): Promise<ProviderResponse>;
+
+  // Gateway helper methods
+  protected isUsingGateway(): boolean {
+    return this.config.gateway === 'portkey';  // CHANGED
+  }
+
+  protected getGatewayApiKey(): string | undefined {
+    return this.config.gatewayApiKey;
+  }
+
+  protected getGatewayConfig(): string | undefined {
+    return this.config.gatewayConfig;
+  }
+
+  protected getProviderApiKey(): string | undefined {
+    return this.config.apiKey;
+  }
+
+  /**
+   * Get base URL - either gateway or native provider URL
+   */
+  protected getBaseUrl(): string {
+    if (this.isUsingGateway()) {
+      return 'https://api.portkey.ai';  // CHANGED
+    }
+    return this.getNativeBaseUrl();
+  }
+
+  /**
+   * Each provider implements their native URL
+   */
+  protected abstract getNativeBaseUrl(): string;
 }
