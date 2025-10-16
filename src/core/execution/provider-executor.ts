@@ -128,6 +128,124 @@ export class ProviderExecutor {
         isGlobal: boolean,
         dimensionContext: DimensionContext | SectionDimensionContext
     ): Promise<DimensionResult> {
+        // Check if using gateway
+        const primaryProvider = providersToTry[0]!;
+        const provider = this.adapter.getProvider(primaryProvider.provider);
+
+        if (provider.isUsingGateway?.()) {
+            // Gateway mode: Single attempt, Portkey handles retries/fallbacks
+            return await this.executeSingleAttemptViaGateway(
+                dimension,
+                prompt,
+                primaryProvider,
+                sections,
+                isGlobal,
+                dimensionContext
+            );
+        }
+
+        // Direct mode: Use full retry/fallback logic
+        return await this.executeWithRetryAndFallback(
+            dimension,
+            prompt,
+            providersToTry,
+            sections,
+            isGlobal,
+            dimensionContext
+        );
+    }
+
+    /**
+     * Execute via gateway with single attempt (gateway handles retries/fallbacks)
+     */
+    private async executeSingleAttemptViaGateway(
+        dimension: string,
+        prompt: string,
+        provider: ProviderAttempt,
+        sections: SectionData[],
+        isGlobal: boolean,
+        dimensionContext: DimensionContext | SectionDimensionContext
+    ): Promise<DimensionResult> {
+        let currentRequest = this.createProviderRequest(
+            prompt,
+            dimension,
+            isGlobal,
+            sections.length,
+            provider.options
+        );
+
+        // Build provider context
+        const providerContext: ProviderContext = {
+            ...dimensionContext,
+            request: currentRequest,
+            provider: provider.provider,
+            providerOptions: provider.options,
+        };
+
+        // Execute beforeProviderExecute hook
+        currentRequest = await this.hookExecutor.executeBeforeProvider(
+            dimensionContext,
+            currentRequest,
+            provider.provider,
+            provider.options
+        );
+        providerContext.request = currentRequest;
+
+        try {
+            // Single attempt - Portkey handles retries internally
+            const result = await this.adapter.execute(provider.provider, currentRequest);
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            // Execute afterProviderExecute hook
+            const finalResponse = await this.hookExecutor.executeAfterProvider({
+                ...providerContext,
+                result,
+                duration: 0,
+                ...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
+            });
+
+            return {
+                data: finalResponse.data,
+                ...(finalResponse.metadata && { metadata: finalResponse.metadata }),
+            };
+        } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+
+            // Try dimension failure hook
+            const fallbackResult = await this.handleDimensionFailure(
+                providerContext,
+                err,
+                [], // No previous attempts when using gateway
+                [provider.provider]
+            );
+
+            if (fallbackResult) {
+                return fallbackResult;
+            }
+
+            // No recovery possible
+            throw new AllProvidersFailed(
+                dimension,
+                [provider.provider],
+                err
+            );
+        }
+    }
+
+    /**
+     * Execute with full retry/fallback logic (direct mode only)
+     */
+    private async executeWithRetryAndFallback(
+        dimension: string,
+        prompt: string,
+        providersToTry: ProviderAttempt[],
+        sections: SectionData[],
+        isGlobal: boolean,
+        dimensionContext: DimensionContext | SectionDimensionContext
+    ): Promise<DimensionResult> {
         let lastError: Error | null = null;
         const previousAttempts: AttemptRecord[] = [];
         let currentRequest: ProviderRequest = this.createProviderRequest(

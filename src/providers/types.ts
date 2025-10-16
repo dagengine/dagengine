@@ -51,7 +51,7 @@ export abstract class BaseProvider {
   abstract execute(request: ProviderRequest): Promise<ProviderResponse>;
 
   // Gateway helper methods
-  protected isUsingGateway(): boolean {
+   isUsingGateway(): boolean {
     return this.config.gateway === 'portkey';  // CHANGED
   }
 

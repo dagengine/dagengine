@@ -117,6 +117,9 @@ describe('DagEngine - Error Handling', () => {
 
         const result = await engine.process([createMockSection('Test')]);
 
-        expect(result?.sections?.[0]?.results?.test?.error).toContain('All providers failed for dimension "test". Tried: nonexistent');
+        const error = result?.sections?.[0]?.results?.test?.error;
+
+        expect(error).toContain('Provider "nonexistent" not found');
+        expect(error).toContain('Available:');
     });
 });

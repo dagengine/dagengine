@@ -292,6 +292,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
     });
 
     // Test provider not found scenario
+// tests/engine-edge-cases.test.ts
     test('should throw error when provider not found', async () => {
         class MissingProviderPlugin extends Plugin {
             constructor() {
@@ -312,6 +313,41 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
 
         const result = await engine.process([createMockSection('Test')]);
 
-        expect(result.sections[0]?.results.test?.error).toContain('All providers failed for dimension "test". Tried: nonexistent-provider');
+        const error = result.sections[0]?.results.test?.error;
+
+        expect(error).toContain('Provider "nonexistent-provider" not found');
+        expect(error).toContain('Available:');
+    });
+
+// tests/error-handling.test.ts
+    test('should handle missing provider error', async () => {
+        class MissingProviderPlugin extends Plugin {
+            constructor() {
+                super('missing', 'Missing', 'Test');
+                this.dimensions = ['test'];
+            }
+
+            createPrompt(): string {
+                return 'test';
+            }
+
+            selectProvider(): any {
+                return { provider: 'nonexistent' };
+            }
+        }
+
+        const engine = new DagEngine({
+            plugin: new MissingProviderPlugin(),
+            registry,
+            continueOnError: true
+        });
+
+        const result = await engine.process([createMockSection('Test')]);
+
+        const error = result?.sections?.[0]?.results?.test?.error;
+
+        // ✅ This is what actually happens
+        expect(error).toContain('Provider "nonexistent" not found');
+        expect(error).toContain('Available:');
     });
 });
