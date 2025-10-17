@@ -61,11 +61,6 @@ export class AnthropicProvider extends BaseProvider {
       headers['x-portkey-config'] = gatewayConfig;
     }
 
-    console.log('🔍 Portkey Request Debug:');
-    console.log('URL:', 'https://api.portkey.ai/v1/chat/completions');
-    console.log('Headers:', headers);
-    console.log('Body:', JSON.stringify(openAIRequest, null, 2));
-
     const response = await fetch('https://api.portkey.ai/v1/chat/completions', {  // CHANGED
       method: 'POST',
       headers,

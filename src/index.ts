@@ -82,8 +82,8 @@ export type { WhoisData } from './providers/data/whoisxml';
 
 export { HookExecutor } from './core/lifecycle/hook-executor.ts';
 export { ProviderExecutor } from './core/execution/provider-executor.ts';
-export { DependencyGraphManager } from './core/graph-manager.ts';
-export { CostCalculator } from './core/cost-calculator.ts';
+export { DependencyGraphManager } from './core/analysis/graph-manager.ts';
+export { CostCalculator } from './core/analysis/cost-calculator.ts';
 
 // ============================================================================
 // UTILITIES
