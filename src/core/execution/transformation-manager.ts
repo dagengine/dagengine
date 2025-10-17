@@ -7,15 +7,15 @@
  * @module execution/transformation-manager
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import type {
 	SectionData,
 	DimensionResult,
 	ProcessOptions,
-} from "../../types.ts";
-import type { HookExecutor } from "../lifecycle/hook-executor.ts";
-import type { ProcessState } from "../shared/types.ts";
-import { resetSectionResultsMap } from "../shared/utils.ts";
+} from "../../types.js";
+import type { HookExecutor } from "../lifecycle/hook-executor.js";
+import type { ProcessState } from "../shared/types.js";
+import { resetSectionResultsMap } from "../shared/utils.js";
 
 /**
  * Manages transformation of sections after global dimension execution

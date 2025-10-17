@@ -11,33 +11,33 @@
  * @module engine/phase-executor
  */
 
-import type { Plugin } from "../../plugin.ts";
-import type { ProviderAdapter } from "../../providers/adapter.ts";
+import type { Plugin } from "../../plugin.js";
+import type { ProviderAdapter } from "../../providers/adapter.js";
 import type {
 	ProcessOptions,
 	ProcessResult,
 	PricingConfig,
 	SectionData,
-} from "../../types.ts";
+} from "../../types.js";
 import PQueue from "p-queue";
 
-import { updateStateSections } from "../engine/state-manager.ts";
-import { HookExecutor } from "../lifecycle/hook-executor.ts";
-import { DependencyGraphManager } from "../analysis/graph-manager.ts";
-import { CostCalculator } from "../analysis/cost-calculator.ts";
-import { ProviderExecutor } from "./provider-executor.ts";
-import { DimensionExecutor } from "./dimension-executor.ts";
-import { DependencyResolver } from "./dependency-resolver.ts";
-import { TransformationManager } from "./transformation-manager.ts";
+import { updateStateSections } from "../engine/state-manager.js";
+import { HookExecutor } from "../lifecycle/hook-executor.js";
+import { DependencyGraphManager } from "../analysis/graph-manager.js";
+import { CostCalculator } from "../analysis/cost-calculator.js";
+import { ProviderExecutor } from "./provider-executor.js";
+import { DimensionExecutor } from "./dimension-executor.js";
+import { DependencyResolver } from "./dependency-resolver.js";
+import { TransformationManager } from "./transformation-manager.js";
 
-import type { ExecutionPlan, ProcessState } from "../shared/types.ts";
-import { NoSectionsError } from "../shared/errors.ts";
-import { DimensionResult } from "../../types.ts";
+import type { ExecutionPlan, ProcessState } from "../shared/types.js";
+import { NoSectionsError } from "../shared/errors.js";
+import { DimensionResult } from "../../types.js";
 import {
 	countSuccessful,
 	countFailed,
 	applyFinalizedResults,
-} from "../shared/utils.ts";
+} from "../shared/utils.js";
 
 /**
  * Execution configuration

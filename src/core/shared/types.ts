@@ -8,7 +8,7 @@
  * @module shared/types
  */
 
-import type { SectionData, DimensionResult } from "../../types.ts";
+import type { SectionData, DimensionResult } from "../../types.js";
 
 // ============================================================================
 // PROCESS STATE

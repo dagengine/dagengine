@@ -6,5 +6,5 @@
  * @module validation
  */
 
-export { ConfigValidator } from "./config-validator.ts";
-export { DependencyValidator } from "./dependency-validator.ts";
+export { ConfigValidator } from "./config-validator.js";
+export { DependencyValidator } from "./dependency-validator.js";

@@ -7,9 +7,9 @@
  * @module execution/provider-executor
  */
 
-import type { ProviderAdapter } from "../../providers/adapter.ts";
-import type { Plugin } from "../../plugin.ts";
-import type { HookExecutor } from "../lifecycle/hook-executor.ts";
+import type { ProviderAdapter } from "../../providers/adapter.js";
+import type { Plugin } from "../../plugin.js";
+import type { HookExecutor } from "../lifecycle/hook-executor.js";
 import pRetry from "p-retry";
 import type {
 	SectionData,
@@ -25,9 +25,9 @@ import type {
 	FailureContext,
 	RetryResponse,
 	FallbackResponse,
-} from "../../types.ts";
-import type { ProviderAttempt, AttemptRecord } from "../shared/types.ts";
-import { ProviderNotFoundError, AllProvidersFailed } from "../shared/errors.ts";
+} from "../../types.js";
+import type { ProviderAttempt, AttemptRecord } from "../shared/types.js";
+import { ProviderNotFoundError, AllProvidersFailed } from "../shared/errors.js";
 
 /**
  * Provider selection configuration

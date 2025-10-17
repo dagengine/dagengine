@@ -5,6 +5,6 @@
  * all executor-related functionality used by the DagEngine.
  */
 
-export { DimensionExecutor } from "../execution/dimension-executor.ts";
-export { DependencyResolver } from "../execution/dependency-resolver.ts";
-export { TransformationManager } from "../execution/transformation-manager.ts";
+export { DimensionExecutor } from "../execution/dimension-executor.js";
+export { DependencyResolver } from "../execution/dependency-resolver.js";
+export { TransformationManager } from "../execution/transformation-manager.js";

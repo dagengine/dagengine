@@ -7,7 +7,7 @@
  * @module lifecycle/hook-executor
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import type {
 	ProcessOptions,
 	ProcessStartResult,
@@ -31,8 +31,8 @@ import type {
 	FallbackContext,
 	FallbackResponse,
 	FailureContext,
-} from "../../types.ts";
-import type { SkipCheckResult } from "../shared/types.ts";
+} from "../../types.js";
+import type { SkipCheckResult } from "../shared/types.js";
 
 /**
  * Centralized hook execution with consistent error handling

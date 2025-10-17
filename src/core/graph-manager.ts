@@ -1,11 +1,11 @@
 import graphlib, { Graph } from "@dagrejs/graphlib";
 const alg = graphlib.alg;
 
-import type { Plugin } from "../plugin.ts";
+import type { Plugin } from "../plugin.js";
 import {
 	CircularDependencyError,
 	ExecutionGroupingError,
-} from "./shared/errors.ts";
+} from "./shared/errors.js";
 
 /**
  * Graph analytics interface
@@ -472,4 +472,4 @@ export class DependencyGraphManager {
 }
 
 // Re-export ExecutionPlan from shared types
-export type { ExecutionPlan } from "./shared/types.ts";
+export type { ExecutionPlan } from "./shared/types.js";

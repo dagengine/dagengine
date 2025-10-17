@@ -7,26 +7,26 @@
  * @module execution/dimension-executor
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import {
 	type SectionData,
 	type DimensionContext,
 	type SectionDimensionContext,
 	type ProcessOptions,
-} from "../../types.ts";
+} from "../../types.js";
 import type PQueue from "p-queue";
 
-import type { HookExecutor } from "../lifecycle/hook-executor.ts";
-import type { ProviderExecutor } from "./provider-executor.ts";
-import type { DependencyResolver } from "./dependency-resolver.ts";
-import type { ProcessState } from "../shared/types.ts";
+import type { HookExecutor } from "../lifecycle/hook-executor.js";
+import type { ProviderExecutor } from "./provider-executor.js";
+import type { DependencyResolver } from "./dependency-resolver.js";
+import type { ProcessState } from "../shared/types.js";
 import {
 	executeWithTimeout,
 	hasFailedDependencies,
 	getFailedDependencies,
-} from "../shared/utils.ts";
-import { SKIP_REASONS } from "../shared/constants.ts";
-import { DependencyError } from "../shared/errors.ts";
+} from "../shared/utils.js";
+import { SKIP_REASONS } from "../shared/constants.js";
+import { DependencyError } from "../shared/errors.js";
 
 /**
  * Handles the execution of individual dimensions (both global and section-level)

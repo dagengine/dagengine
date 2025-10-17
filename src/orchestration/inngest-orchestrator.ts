@@ -7,19 +7,19 @@
  * @module orchestration/inngest
  */
 
-import type { InngestConfig } from "../core/engine/engine-config.ts";
-import type { PhaseExecutor } from "../core/execution/phase-executor.ts";
-import type { ProcessState } from "../core/shared/types.ts";
+import type { InngestConfig } from "../core/engine/engine-config.js";
+import type { PhaseExecutor } from "../core/execution/phase-executor.js";
+import type { ProcessState } from "../core/shared/types.js";
 import type {
 	ExecutionPlan,
 	SerializedProcessState,
-} from "../core/shared/types.ts";
+} from "../core/shared/types.js";
 import {
 	createProcessState,
 	serializeState,
 	deserializeState,
-} from "../core/engine/state-manager.ts";
-import type { SectionData, ProcessOptions, ProcessResult } from "../types.ts";
+} from "../core/engine/state-manager.js";
+import type { SectionData, ProcessOptions, ProcessResult } from "../types.js";
 
 /**
  * Workflow execution event data

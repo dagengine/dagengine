@@ -11,8 +11,8 @@ import type {
 	SectionData,
 	DimensionResult,
 	DimensionDependencies,
-} from "../../types.ts";
-import { DimensionTimeoutError } from "./errors.ts";
+} from "../../types.js";
+import { DimensionTimeoutError } from "./errors.js";
 
 // ============================================================================
 // DEPENDENCY UTILITIES

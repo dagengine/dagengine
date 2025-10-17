@@ -44,30 +44,30 @@
  * ```
  */
 import type PQueue from "p-queue";
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import {
 	ProviderAdapter,
 	type ProviderAdapterConfig,
-} from "../../providers/adapter.ts";
-import { ProviderRegistry } from "../../providers/registry.ts";
+} from "../../providers/adapter.js";
+import { ProviderRegistry } from "../../providers/registry.js";
 import type {
 	SectionData,
 	ProcessOptions,
 	ProcessResult,
-} from "../../types.ts";
+} from "../../types.js";
 
-import { PhaseExecutor } from "../execution/phase-executor.ts";
-import { createProcessState } from "./state-manager.ts";
+import { PhaseExecutor } from "../execution/phase-executor.js";
+import { createProcessState } from "./state-manager.js";
 import {
 	type EngineConfig,
 	mergeExecutionConfig,
 	normalizeEngineConfig,
-} from "./engine-config.ts";
-import { DependencyGraphManager } from "../analysis/graph-manager.ts";
-import { ConfigValidator } from "../validation/config-validator.ts";
-import type { GraphAnalytics } from "../graph-manager.ts";
+} from "./engine-config.js";
+import { DependencyGraphManager } from "../analysis/graph-manager.js";
+import { ConfigValidator } from "../validation/config-validator.js";
+import type { GraphAnalytics } from "../graph-manager.js";
 import crypto from "crypto";
-import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.ts";
+import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.js";
 
 export interface ExecutionConfig {
 	concurrency: number;

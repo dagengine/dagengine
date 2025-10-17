@@ -7,12 +7,12 @@
  * @module validation/dependency-validator
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import {
 	CircularDependencyError,
 	DependencyNotFoundError,
 	ValidationError,
-} from "../shared/errors.ts";
+} from "../shared/errors.js";
 
 /**
  * Dependency graph validator
@@ -138,7 +138,7 @@ export class DependencyValidator {
 			// No restrictions here - the dependency system handles this
 
 			// Dependency validation happens elsewhere in the system
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 			const _deps = dependencyGraph[dimension] || [];
 		}
 	}
