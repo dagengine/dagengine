@@ -1,8 +1,27 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import { AnthropicProvider } from "../../src/providers/ai/anthropic.ts";
+import type { ProviderRequest } from "../../src/types.ts";
 
 // Mock fetch globally
 const originalFetch = global.fetch;
+
+/**
+ * Mock fetch options structure
+ */
+interface MockFetchOptions {
+	body?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Captured request body structure
+ */
+interface CapturedBody {
+	model?: string;
+	max_tokens?: number;
+	temperature?: number;
+	[key: string]: unknown;
+}
 
 describe("AnthropicProvider", () => {
 	afterEach(() => {
@@ -79,10 +98,12 @@ describe("AnthropicProvider", () => {
 	});
 
 	test("should handle custom model", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {} as CapturedBody;
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({ content: [{ text: '{"result": "ok"}' }] }),
@@ -95,14 +116,16 @@ describe("AnthropicProvider", () => {
 			options: { model: "claude-opus-4" },
 		});
 
-		expect(capturedBody.model).toBe("claude-opus-4");
+		expect(capturedBody?.model).toBe("claude-opus-4");
 	});
 
 	test("should handle custom maxTokens", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {} as CapturedBody;
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({ content: [{ text: '{"result": "ok"}' }] }),
@@ -115,14 +138,16 @@ describe("AnthropicProvider", () => {
 			options: { maxTokens: 8192 },
 		});
 
-		expect(capturedBody.max_tokens).toBe(8192);
+		expect(capturedBody?.max_tokens).toBe(8192);
 	});
 
 	test("should handle custom temperature", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {} as CapturedBody;
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({ content: [{ text: '{"result": "ok"}' }] }),
@@ -135,14 +160,16 @@ describe("AnthropicProvider", () => {
 			options: { temperature: 0.5 },
 		});
 
-		expect(capturedBody.temperature).toBe(0.5);
+		expect(capturedBody?.temperature).toBe(0.5);
 	});
 
 	test("should use default model when not specified", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {} as CapturedBody;
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({ content: [{ text: '{"result": "ok"}' }] }),
@@ -155,7 +182,7 @@ describe("AnthropicProvider", () => {
 			options: {},
 		});
 
-		expect(capturedBody.model).toBe("claude-sonnet-4-5-20250929");
+		expect(capturedBody?.model).toBe("claude-sonnet-4-5-20250929");
 	});
 
 	test("should handle truly malformed JSON responses", async () => {
@@ -267,5 +294,35 @@ describe("AnthropicProvider", () => {
 		});
 
 		expect(result.error).toBeDefined();
+	});
+
+	test("should handle network errors", async () => {
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+
+		const provider = new AnthropicProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("Network error");
+		expect(result.data).toBeUndefined();
+	});
+
+	test("should handle timeout errors", async () => {
+		global.fetch = vi
+			.fn()
+			.mockRejectedValue(new Error("Request timeout after 30000ms"));
+
+		const provider = new AnthropicProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("timeout");
+		expect(result.data).toBeUndefined();
 	});
 });

@@ -173,7 +173,7 @@ describe("Lifecycle Hooks", () => {
 				}
 
 				afterProcessComplete(context: AfterProcessCompleteContext): ProcessResult {
-					processMetadata = context.metadata;
+					processMetadata = context.metadata as Record<string, unknown> | undefined;
 					return context.result;
 				}
 			}
@@ -361,12 +361,14 @@ describe("Lifecycle Hooks", () => {
 				afterProcessComplete(
 					context: AfterProcessCompleteContext,
 				): ProcessResult {
+					const existingMetadata = context.result.metadata ?? {};
+
 					return {
 						...context.result,
 						metadata: {
-							...context.result.metadata,
+							...existingMetadata,
 							processed: true,
-							timestamp: Date.now()
+							timestamp: Date.now(),
 						},
 					};
 				}

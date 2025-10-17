@@ -11,7 +11,6 @@
 // ============================================================================
 
 export { DagEngine } from "./core/engine/dag-engine.ts";
-export type { EngineConfig, GraphAnalytics } from "./core/engine/dag-engine.ts";
 
 // ============================================================================
 // PLUGIN SYSTEM

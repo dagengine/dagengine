@@ -3,6 +3,27 @@ import { GeminiProvider } from "../../src/providers/ai/gemini.ts";
 
 const originalFetch = global.fetch;
 
+/**
+ * Mock fetch options structure
+ */
+interface MockFetchOptions {
+	body?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Captured request body structure
+ */
+interface CapturedBody {
+	generationConfig?: {
+		topP?: number;
+		topK?: number;
+		responseMimeType?: string;
+		[key: string]: unknown;
+	};
+	[key: string]: unknown;
+}
+
 describe("GeminiProvider", () => {
 	afterEach(() => {
 		global.fetch = originalFetch;
@@ -188,10 +209,10 @@ describe("GeminiProvider", () => {
 			],
 		};
 
-		let capturedUrl: string = "";
+		let capturedUrl = "";
 
-		global.fetch = vi.fn().mockImplementation(async (url) => {
-			capturedUrl = url as string;
+		global.fetch = vi.fn().mockImplementation(async (url: string | URL | Request) => {
+			capturedUrl = url.toString();
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -212,7 +233,7 @@ describe("GeminiProvider", () => {
 	});
 
 	test("should handle topP and topK parameters", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
 		const mockResponse = {
 			candidates: [
@@ -223,8 +244,10 @@ describe("GeminiProvider", () => {
 			],
 		};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -237,12 +260,12 @@ describe("GeminiProvider", () => {
 			options: { topP: 0.9, topK: 40 },
 		});
 
-		expect(capturedBody.generationConfig.topP).toBe(0.9);
-		expect(capturedBody.generationConfig.topK).toBe(40);
+		expect(capturedBody.generationConfig?.topP).toBe(0.9);
+		expect(capturedBody.generationConfig?.topK).toBe(40);
 	});
 
 	test("should use default model gemini-1.5-pro", async () => {
-		let capturedUrl: string = "";
+		let capturedUrl = "";
 
 		const mockResponse = {
 			candidates: [
@@ -253,8 +276,8 @@ describe("GeminiProvider", () => {
 			],
 		};
 
-		global.fetch = vi.fn().mockImplementation(async (url) => {
-			capturedUrl = url as string;
+		global.fetch = vi.fn().mockImplementation(async (url: string | URL | Request) => {
+			capturedUrl = url.toString();
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -307,7 +330,7 @@ describe("GeminiProvider", () => {
 	});
 
 	test("should force JSON response format", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
 		const mockResponse = {
 			candidates: [
@@ -318,8 +341,10 @@ describe("GeminiProvider", () => {
 			],
 		};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -332,7 +357,7 @@ describe("GeminiProvider", () => {
 			options: {},
 		});
 
-		expect(capturedBody.generationConfig.responseMimeType).toBe(
+		expect(capturedBody.generationConfig?.responseMimeType).toBe(
 			"application/json",
 		);
 	});
@@ -362,5 +387,46 @@ describe("GeminiProvider", () => {
 
 		expect(consoleSpy).toHaveBeenCalled();
 		consoleSpy.mockRestore();
+	});
+
+	test("should handle network errors", async () => {
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+
+		const provider = new GeminiProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("Network error");
+	});
+
+	test("should handle malformed JSON responses", async () => {
+		const mockResponse = {
+			candidates: [
+				{
+					content: {
+						parts: [{ text: "This is not valid JSON" }],
+						role: "model",
+					},
+					finishReason: "STOP",
+				},
+			],
+		};
+
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => mockResponse,
+		} as Response);
+
+		const provider = new GeminiProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("No JSON found");
 	});
 });

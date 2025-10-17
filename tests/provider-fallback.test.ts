@@ -1,21 +1,27 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import {
-	BaseProvider,
-	ProviderConfig,
-	type ProviderRequest,
-	type ProviderResponse,
-} from "../src/providers/types";
-import { createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { BaseProvider } from "../src/providers/types.ts";
+import { createMockSection } from "./setup.ts";
+import type {
+	ProviderRequest,
+	ProviderResponse,
+	ProviderSelection,
+	PromptContext,
+} from "../src/types.ts";
 
+/**
+ * Provider test response structure
+ */
 interface ProviderTestResponse {
 	provider: string;
 	result: string;
 }
 
-// Mock providers for testing
+/**
+ * Mock primary provider for testing fallback scenarios
+ */
 class PrimaryProvider extends BaseProvider {
 	public callCount = 0;
 	public shouldFail = true;
@@ -24,19 +30,22 @@ class PrimaryProvider extends BaseProvider {
 		super("primary", {});
 	}
 
-	async execute(request: ProviderRequest): Promise<ProviderResponse> {
+	protected getNativeBaseUrl(): string {
+		return "";
+	}
+
+	async execute(_request: ProviderRequest): Promise<ProviderResponse> {
 		this.callCount++;
 		if (this.shouldFail) {
 			return { error: "Primary provider failed" };
 		}
 		return { data: { provider: "primary", result: "success" } };
 	}
-
-	getNativeBaseUrl() {
-		return '';
-	}
 }
 
+/**
+ * Mock fallback provider
+ */
 class FallbackProvider extends BaseProvider {
 	public callCount = 0;
 	public shouldFail = false;
@@ -45,11 +54,11 @@ class FallbackProvider extends BaseProvider {
 		super("fallback", {});
 	}
 
-	getNativeBaseUrl() {
-		return '';
+	protected getNativeBaseUrl(): string {
+		return "";
 	}
 
-	async execute(request: ProviderRequest): Promise<ProviderResponse> {
+	async execute(_request: ProviderRequest): Promise<ProviderResponse> {
 		this.callCount++;
 		if (this.shouldFail) {
 			return { error: "Fallback provider failed" };
@@ -58,6 +67,9 @@ class FallbackProvider extends BaseProvider {
 	}
 }
 
+/**
+ * Mock second fallback provider
+ */
 class SecondFallbackProvider extends BaseProvider {
 	public callCount = 0;
 	public shouldFail = false;
@@ -66,15 +78,16 @@ class SecondFallbackProvider extends BaseProvider {
 		super("second-fallback", {});
 	}
 
-	async execute(request: ProviderRequest): Promise<ProviderResponse> {
+	protected getNativeBaseUrl(): string {
+		return "";
+	}
+
+	async execute(_request: ProviderRequest): Promise<ProviderResponse> {
 		this.callCount++;
 		if (this.shouldFail) {
 			return { error: "Second fallback provider failed" };
 		}
 		return { data: { provider: "second-fallback", result: "success" } };
-	}
-	getNativeBaseUrl() {
-		return '';
 	}
 }
 
@@ -114,7 +127,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -136,9 +149,8 @@ describe("DagEngine - Provider Fallback", () => {
 		expect(primaryProvider.callCount).toBeGreaterThan(0);
 		expect(fallbackProvider.callCount).toBe(0);
 
-		// ✅ Type-safe access
-		const analysisData = result.sections[0]?.results?.analysis
-			?.data as ProviderTestResponse;
+		const analysisData = result.sections[0]?.results.analysis
+			?.data as ProviderTestResponse | undefined;
 		expect(analysisData?.provider).toBe("primary");
 	});
 
@@ -153,7 +165,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -177,8 +189,8 @@ describe("DagEngine - Provider Fallback", () => {
 		expect(primaryProvider.callCount).toBeGreaterThan(0);
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 
-		const analysisData = result.sections[0]?.results?.analysis
-			?.data as ProviderTestResponse;
+		const analysisData = result.sections[0]?.results.analysis
+			?.data as ProviderTestResponse | undefined;
 		expect(analysisData?.provider).toBe("fallback");
 	});
 
@@ -193,7 +205,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -222,8 +234,8 @@ describe("DagEngine - Provider Fallback", () => {
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 		expect(secondFallbackProvider.callCount).toBeGreaterThan(0);
 
-		const analysisData = result.sections[0]?.results?.analysis
-			?.data as ProviderTestResponse;
+		const analysisData = result.sections[0]?.results.analysis
+			?.data as ProviderTestResponse | undefined;
 		expect(analysisData?.provider).toBe("second-fallback");
 	});
 
@@ -238,7 +250,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -259,7 +271,7 @@ describe("DagEngine - Provider Fallback", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.analysis?.error).toBeDefined();
+		expect(result.sections[0]?.results.analysis?.error).toBeDefined();
 		expect(primaryProvider.callCount).toBeGreaterThan(0);
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 	});
@@ -275,7 +287,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -283,7 +295,7 @@ describe("DagEngine - Provider Fallback", () => {
 						{
 							provider: "fallback",
 							options: {},
-							retryAfter: 100, // 100ms delay
+							retryAfter: 100,
 						},
 					],
 				};
@@ -303,7 +315,7 @@ describe("DagEngine - Provider Fallback", () => {
 		await engine.process([createMockSection("Test")]);
 		const duration = Date.now() - startTime;
 
-		expect(duration).toBeGreaterThanOrEqual(90); // Allow small margin
+		expect(duration).toBeGreaterThanOrEqual(90);
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 	});
 
@@ -318,11 +330,10 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
-					// No fallbacks specified
 				};
 			}
 		}
@@ -339,8 +350,8 @@ describe("DagEngine - Provider Fallback", () => {
 
 		expect(primaryProvider.callCount).toBeGreaterThan(0);
 
-		const analysisData = result.sections[0]?.results?.analysis
-			?.data as ProviderTestResponse;
+		const analysisData = result.sections[0]?.results.analysis
+			?.data as ProviderTestResponse | undefined;
 		expect(analysisData?.provider).toBe("primary");
 	});
 
@@ -355,7 +366,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -379,12 +390,10 @@ describe("DagEngine - Provider Fallback", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		// Should skip nonexistent and use fallback
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 
-		// ✅ Type-safe access
-		const analysisData = result.sections[0]?.results?.analysis
-			?.data as ProviderTestResponse;
+		const analysisData = result.sections[0]?.results.analysis
+			?.data as ProviderTestResponse | undefined;
 		expect(analysisData?.provider).toBe("fallback");
 	});
 
@@ -395,11 +404,11 @@ describe("DagEngine - Provider Fallback", () => {
 				this.dimensions = ["analysis1", "analysis2"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(dimension: string): any {
+			selectProvider(dimension: string): ProviderSelection {
 				if (dimension === "analysis1") {
 					return {
 						provider: "primary",
@@ -410,7 +419,6 @@ describe("DagEngine - Provider Fallback", () => {
 					return {
 						provider: "fallback",
 						options: {},
-						// No fallback for analysis2
 					};
 				}
 			}
@@ -427,10 +435,10 @@ describe("DagEngine - Provider Fallback", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		const analysis1Data = result.sections[0]?.results?.analysis1
-			?.data as ProviderTestResponse;
-		const analysis2Data = result.sections[0]?.results?.analysis2
-			?.data as ProviderTestResponse;
+		const analysis1Data = result.sections[0]?.results.analysis1
+			?.data as ProviderTestResponse | undefined;
+		const analysis2Data = result.sections[0]?.results.analysis2
+			?.data as ProviderTestResponse | undefined;
 
 		expect(analysis1Data?.provider).toBe("fallback");
 		expect(analysis2Data?.provider).toBe("fallback");
@@ -447,7 +455,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -462,13 +470,11 @@ describe("DagEngine - Provider Fallback", () => {
 		const engine = new DagEngine({
 			plugin: new TestPlugin(),
 			registry,
-			maxRetries: 2, // 2 retries per provider
+			maxRetries: 2,
 		});
 
 		await engine.process([createMockSection("Test")]);
 
-		// Primary should be called multiple times due to retries
-		// Then fallback should be called
 		expect(primaryProvider.callCount).toBeGreaterThan(1);
 		expect(fallbackProvider.callCount).toBeGreaterThan(0);
 	});
@@ -486,7 +492,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -507,7 +513,7 @@ describe("DagEngine - Provider Fallback", () => {
 		const result = await engine.process([createMockSection("Test")]);
 
 		const globalData = result.globalResults.global_analysis
-			?.data as ProviderTestResponse;
+			?.data as ProviderTestResponse | undefined;
 		expect(globalData?.provider).toBe("fallback");
 	});
 
@@ -522,7 +528,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -543,8 +549,9 @@ describe("DagEngine - Provider Fallback", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.analysis?.error).toBeDefined();
-		expect(result.sections[0]?.results?.analysis?.error).toContain("failed");
+		const error = result.sections[0]?.results.analysis?.error;
+		expect(error).toBeDefined();
+		expect(error).toContain("failed");
 	});
 
 	test("should log warnings when falling back", async () => {
@@ -562,7 +569,7 @@ describe("DagEngine - Provider Fallback", () => {
 				return "test prompt";
 			}
 
-			selectProvider(): any {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "primary",
 					options: {},
@@ -582,7 +589,6 @@ describe("DagEngine - Provider Fallback", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		// Should have logged fallback warning
 		expect(consoleWarnSpy).toHaveBeenCalledWith(
 			expect.stringContaining("failed"),
 		);

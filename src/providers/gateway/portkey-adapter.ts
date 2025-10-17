@@ -22,7 +22,7 @@ interface OpenAIRequest {
 /**
  * OpenAI-compatible response format from Portkey
  */
-interface OpenAIResponse {
+export interface OpenAIResponse {
 	choices?: Array<{
 		message?: {
 			content?: string;

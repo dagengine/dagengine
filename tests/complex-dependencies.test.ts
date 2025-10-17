@@ -1,8 +1,43 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	PromptContext,
+	DimensionDependencies,
+	ProviderSelection,
+	ProviderRequest,
+	ProviderResponse,
+	SectionData,
+	DimensionResult,
+} from "../src/types.ts";
+
+/**
+ * Aggregated dependency data structure
+ */
+interface AggregatedDependency {
+	data: {
+		aggregated: boolean;
+		sections: DimensionResult[];
+		[key: string]: unknown;
+	};
+	error?: string;
+}
+
+/**
+ * Value result structure
+ */
+interface ValueResult {
+	value: number;
+}
+
+/**
+ * Sum result structure
+ */
+interface SumResult {
+	sum: number;
+}
 
 describe("DagEngine - Complex Dependencies", () => {
 	let mockProvider: MockAIProvider;
@@ -24,13 +59,13 @@ describe("DagEngine - Complex Dependencies", () => {
 				this.dimensions = ["A", "B", "C", "D"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -69,13 +104,13 @@ describe("DagEngine - Complex Dependencies", () => {
 				this.dimensions = ["L1", "L2", "L3", "L4", "L5"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -112,13 +147,13 @@ describe("DagEngine - Complex Dependencies", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -144,7 +179,7 @@ describe("DagEngine - Complex Dependencies", () => {
 	});
 
 	test("should handle dependency on failed dimension", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class FailedDepPlugin extends Plugin {
 			constructor() {
@@ -152,15 +187,15 @@ describe("DagEngine - Complex Dependencies", () => {
 				this.dimensions = ["failing", "dependent"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "dependent") {
 					receivedDeps = context.dependencies;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -168,7 +203,7 @@ describe("DagEngine - Complex Dependencies", () => {
 			}
 		}
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			if (request.input === "failing") {
 				return { error: "Intentional failure" };
 			}
@@ -183,14 +218,16 @@ describe("DagEngine - Complex Dependencies", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		expect(receivedDeps.failing).toBeDefined();
-		expect(receivedDeps.failing.error).toBe(
+		expect(receivedDeps).not.toBeNull();
+		const failingDep = receivedDeps!.failing;
+		expect(failingDep).toBeDefined();
+		expect(failingDep?.error).toBe(
 			'All providers failed for dimension "failing". Tried: mock-ai',
 		);
 	});
 
 	test("should handle partial dependency failures", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class PartialFailPlugin extends Plugin {
 			constructor() {
@@ -198,15 +235,15 @@ describe("DagEngine - Complex Dependencies", () => {
 				this.dimensions = ["dep1", "dep2", "dependent"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "dependent") {
 					receivedDeps = context.dependencies;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -214,7 +251,7 @@ describe("DagEngine - Complex Dependencies", () => {
 			}
 		}
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			if (request.input === "dep1") {
 				return { error: "Dep1 failed" };
 			}
@@ -229,8 +266,9 @@ describe("DagEngine - Complex Dependencies", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		expect(receivedDeps.dep1.error).toBeDefined();
-		expect(receivedDeps.dep2.data).toBeDefined();
+		expect(receivedDeps).not.toBeNull();
+		expect(receivedDeps!.dep1?.error).toBeDefined();
+		expect(receivedDeps!.dep2?.data).toBeDefined();
 	});
 
 	test("should handle empty dependency arrays", async () => {
@@ -244,8 +282,8 @@ describe("DagEngine - Complex Dependencies", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -260,7 +298,7 @@ describe("DagEngine - Complex Dependencies", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.independent).toBeDefined();
+		expect(result.sections[0]?.results.independent).toBeDefined();
 	});
 
 	test("should handle complex web of dependencies", async () => {
@@ -272,13 +310,13 @@ describe("DagEngine - Complex Dependencies", () => {
 				this.dimensions = ["A", "B", "C", "D", "E", "F"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -324,7 +362,7 @@ describe("DagEngine - Complex Dependencies", () => {
 	});
 
 	test("should handle global depending on multiple sections", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class GlobalDepPlugin extends Plugin {
 			constructor() {
@@ -337,15 +375,15 @@ describe("DagEngine - Complex Dependencies", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_aggregator") {
 					receivedDeps = context.dependencies;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -367,9 +405,15 @@ describe("DagEngine - Complex Dependencies", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		expect(receivedDeps.section1.data.aggregated).toBe(true);
-		expect(receivedDeps.section2.data.aggregated).toBe(true);
-		expect(receivedDeps.section3.data.aggregated).toBe(true);
+		expect(receivedDeps).not.toBeNull();
+
+		const section1 = receivedDeps!.section1 as AggregatedDependency;
+		const section2 = receivedDeps!.section2 as AggregatedDependency;
+		const section3 = receivedDeps!.section3 as AggregatedDependency;
+
+		expect(section1.data.aggregated).toBe(true);
+		expect(section2.data.aggregated).toBe(true);
+		expect(section3.data.aggregated).toBe(true);
 	});
 
 	test("should handle interdependent globals with transformation", async () => {
@@ -383,7 +427,7 @@ describe("DagEngine - Complex Dependencies", () => {
 					{
 						name: "global2",
 						scope: "global" as const,
-						transform: (result, sections) => {
+						transform: (_result: DimensionResult, sections: SectionData[]): SectionData[] => {
 							return sections.slice(0, 2); // Keep only first 2
 						},
 					},
@@ -391,13 +435,13 @@ describe("DagEngine - Complex Dependencies", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {

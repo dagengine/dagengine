@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi, beforeAll, afterAll } from "vitest";
 
 // Global test setup
 beforeAll(() => {

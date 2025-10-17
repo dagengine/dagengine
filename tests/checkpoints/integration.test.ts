@@ -1,12 +1,17 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../../src/core/engine/dag-engine";
-import { Plugin } from "../../src/plugin";
-import { ProviderRegistry } from "../../src/providers/registry";
-import { MockAIProvider, createMockSection } from "../setup";
+import { DagEngine } from "../../src/core/engine/dag-engine.ts";
+import { Plugin } from "../../src/plugin.ts";
+import { ProviderRegistry } from "../../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "../setup.ts";
 import {
 	serializeState,
 	deserializeState,
-} from "../../src/core/engine/state-manager";
+} from "../../src/core/engine/state-manager.ts";
+import type {
+	ProviderSelection,
+	ProviderRequest,
+	ProviderResponse,
+} from "../../src/types.ts";
 
 describe("Checkpoint Integration - With PhaseExecutor", () => {
 	let mockProvider: MockAIProvider;
@@ -31,8 +36,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 
 				defineDependencies(): Record<string, string[]> {
@@ -82,8 +87,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 
 				defineDependencies(): Record<string, string[]> {
@@ -130,8 +135,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 			}
 
@@ -153,6 +158,7 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			expect(result.sections[0]?.results.dim3).toBeDefined();
 		});
 	});
+
 	describe("Error Recovery with Checkpoints", () => {
 		test("should handle errors and continue with checkpointing", async () => {
 			class ErrorRecoveryPlugin extends Plugin {
@@ -165,13 +171,14 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 			}
 
-			// ✅ Mock based on dimension name
-			mockProvider.execute = async (request) => {
+			mockProvider.execute = async (
+				request: ProviderRequest,
+			): Promise<ProviderResponse> => {
 				if (request.dimension === "dim2") {
 					return { error: "dim2 failed" };
 				}
@@ -183,7 +190,7 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 				registry,
 				execution: {
 					continueOnError: true,
-					maxRetries: 0, // Disable retries for clearer test
+					maxRetries: 0,
 				},
 			});
 
@@ -210,8 +217,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 			}
 
@@ -248,8 +255,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 					return "test";
 				}
 
-				selectProvider(): any {
-					return { provider: "mock-ai" };
+				selectProvider(): ProviderSelection {
+					return { provider: "mock-ai", options: {} };
 				}
 			}
 
@@ -266,5 +273,55 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 				expect(result.sections[0]?.results[dim]).toBeDefined();
 			});
 		}, 30000);
+	});
+
+	describe("State Serialization", () => {
+		test("should serialize and deserialize state correctly", () => {
+			const sections = [
+				createMockSection("Section 1"),
+				createMockSection("Section 2"),
+			];
+
+			// Create a mock state
+			const mockState = {
+				id: "test-process-id",
+				startTime: Date.now(),
+				metadata: { testKey: "testValue" },
+				sections: [...sections],
+				globalResults: {
+					dim1: { data: { result: "global-result" } },
+				},
+				sectionResultsMap: new Map([
+					[0, { dim1: { data: { result: "section-0-result" } } }],
+					[1, { dim1: { data: { result: "section-1-result" } } }],
+				]),
+			};
+
+			// Serialize
+			const serialized = serializeState(mockState);
+
+			// Verify serialized format
+			expect(serialized.id).toBe(mockState.id);
+			expect(serialized.startTime).toBe(mockState.startTime);
+			expect(serialized.sections).toHaveLength(2);
+			expect(Array.isArray(serialized.sectionResultsMap)).toBe(true);
+			expect(serialized.sectionResultsMap).toHaveLength(2);
+
+			// Deserialize
+			const deserialized = deserializeState(serialized);
+
+			// Verify deserialized state
+			expect(deserialized.id).toBe(mockState.id);
+			expect(deserialized.startTime).toBe(mockState.startTime);
+			expect(deserialized.sections).toHaveLength(2);
+			expect(deserialized.sectionResultsMap instanceof Map).toBe(true);
+			expect(deserialized.sectionResultsMap.size).toBe(2);
+			expect(deserialized.sectionResultsMap.get(0)).toEqual(
+				mockState.sectionResultsMap.get(0),
+			);
+			expect(deserialized.sectionResultsMap.get(1)).toEqual(
+				mockState.sectionResultsMap.get(1),
+			);
+		});
 	});
 });

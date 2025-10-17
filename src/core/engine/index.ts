@@ -8,7 +8,6 @@
 
 export { DagEngine } from "./dag-engine.ts";
 export { PhaseExecutor } from "../execution/phase-executor.ts";
-export { StateManager } from "./state-manager.ts";
 
 export type {
 	EngineConfig,

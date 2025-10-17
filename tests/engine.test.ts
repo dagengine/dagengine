@@ -1,8 +1,9 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type { PromptContext, ProviderSelection } from "../src/types.ts";
 
 class TestPlugin extends Plugin {
 	constructor() {
@@ -10,12 +11,12 @@ class TestPlugin extends Plugin {
 		this.dimensions = ["sentiment", "summary"];
 	}
 
-	createPrompt(context: any): string {
-		return `Analyze ${context.dimension}: ${context.sections[0].content}`;
+	createPrompt(context: PromptContext): string {
+		return `Analyze ${context.dimension}: ${context.sections[0]?.content ?? ""}`;
 	}
 
-	selectProvider(): any {
-		return { provider: "mock-ai" };
+	selectProvider(): ProviderSelection {
+		return { provider: "mock-ai", options: {} };
 	}
 
 	defineDependencies(): Record<string, string[]> {
@@ -51,8 +52,8 @@ describe("DagEngine - Core Functionality", () => {
 		const result = await engine.process(sections);
 
 		expect(result.sections).toHaveLength(1);
-		expect(result?.sections?.[0]?.results?.sentiment).toBeDefined();
-		expect(result?.sections?.[0]?.results?.summary).toBeDefined();
+		expect(result.sections[0]?.results.sentiment).toBeDefined();
+		expect(result.sections[0]?.results.summary).toBeDefined();
 	});
 
 	test("should process multiple sections", async () => {
@@ -111,7 +112,126 @@ describe("DagEngine - Core Functionality", () => {
 
 		await engine.process(sections);
 
-		// With concurrency 1, sections process one at a time
 		expect(mockProvider.callCount).toBeGreaterThan(0);
+	});
+
+	test("should handle dependencies correctly", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [createMockSection("Test content")];
+		const result = await engine.process(sections);
+
+		// Summary depends on sentiment, so both should be defined
+		expect(result.sections[0]?.results.sentiment).toBeDefined();
+		expect(result.sections[0]?.results.summary).toBeDefined();
+
+		// Verify the data structure
+		const sentimentData = result.sections[0]?.results.sentiment?.data as {
+			sentiment?: string;
+			score?: number;
+		};
+		const summaryData = result.sections[0]?.results.summary?.data as {
+			summary?: string;
+		};
+
+		expect(sentimentData?.sentiment).toBe("positive");
+		expect(sentimentData?.score).toBe(0.9);
+		expect(summaryData?.summary).toBe("Test summary");
+	});
+
+	test("should initialize with default concurrency", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [
+			createMockSection("Content 1"),
+			createMockSection("Content 2"),
+		];
+
+		const result = await engine.process(sections);
+
+		expect(result.sections).toHaveLength(2);
+	});
+
+	test("should handle empty metadata in sections", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [
+			{ content: "Test content", metadata: {} },
+		];
+
+		const result = await engine.process(sections);
+
+		expect(result.sections).toHaveLength(1);
+		expect(result.sections[0]?.section.metadata).toEqual({});
+	});
+
+	test("should return result object with expected structure", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [createMockSection("Test content")];
+		const result = await engine.process(sections);
+
+		// Test only what we know should be there
+		expect(result).toBeDefined();
+		expect(result.sections).toBeDefined();
+		expect(Array.isArray(result.sections)).toBe(true);
+	});
+
+	test("should return transformed sections", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [createMockSection("Test content")];
+		const result = await engine.process(sections);
+
+		expect(result.transformedSections).toBeDefined();
+		expect(result.transformedSections).toHaveLength(1);
+		expect(result.transformedSections[0]?.content).toBe("Test content");
+	});
+
+	test("should initialize with default concurrency", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [
+			createMockSection("Content 1"),
+			createMockSection("Content 2"),
+		];
+
+		const result = await engine.process(sections);
+
+		expect(result.sections).toHaveLength(2);
+	});
+
+	test("should handle empty metadata in sections", async () => {
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+		});
+
+		const sections = [
+			{ content: "Test content", metadata: {} },
+		];
+
+		const result = await engine.process(sections);
+
+		expect(result.sections).toHaveLength(1);
+		expect(result.sections[0]?.section.metadata).toEqual({});
 	});
 });

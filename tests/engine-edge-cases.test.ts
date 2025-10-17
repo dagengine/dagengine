@@ -1,8 +1,29 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine/dag-engine"; // ✅ Fixed import
-import { Plugin, type ProviderSelection  } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	ProviderSelection,
+	ProviderRequest,
+	ProviderResponse,
+} from "../src/types.ts";
+
+/**
+ * Test data structure
+ */
+interface TestData {
+	result?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Execution configuration for testing
+ */
+interface ExecutionConfig {
+	dimensionTimeouts: Record<string, number>;
+	[key: string]: unknown;
+}
 
 describe("DagEngine - Edge Cases for 100% Coverage", () => {
 	let mockProvider: MockAIProvider;
@@ -15,33 +36,32 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		registry.register(mockProvider);
 	});
 
-	// Line 70: dimensionTimeouts with || fallback
 	test("should use empty object for dimensionTimeouts when not provided", () => {
 		class SimplePlugin extends Plugin {
 			constructor() {
 				super("simple", "Simple", "Test");
 				this.dimensions = ["test"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		const engine = new DagEngine({
 			plugin: new SimplePlugin(),
 			registry,
-			dimensionTimeouts: undefined, // Explicitly undefined to test fallback
+			dimensionTimeouts: undefined,
 		});
 
-		// ✅ Fixed: Use getter instead of private property access
-		const config = engine.getExecutionConfig();
+		const config = engine.getExecutionConfig() as ExecutionConfig;
 		expect(config.dimensionTimeouts).toEqual({});
 	});
 
-	// Lines 151-152: Transformation error in parallel group with onError not defined
 	test("should handle transformation error without onError callback", async () => {
 		class TransformErrorPlugin extends Plugin {
 			constructor() {
@@ -60,11 +80,13 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 					},
 				];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -73,14 +95,12 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 			registry,
 		});
 
-		// Process WITHOUT onError callback
 		const result = await engine.process([createMockSection("Test")]);
 
 		// Should continue despite error
 		expect(result.transformedSections).toHaveLength(1);
 	});
 
-	// Line 312: Global dependency with error when continueOnError is false
 	test("should throw when global dependency fails and continueOnError is false", async () => {
 		class FailDepPlugin extends Plugin {
 			constructor() {
@@ -90,18 +110,21 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 					{ name: "g2", scope: "global" as const },
 				];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
+
 			defineDependencies(): Record<string, string[]> {
 				return { g2: ["g1"] };
 			}
 		}
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			if (request.input === "test") {
 				return { error: "G1 failed" };
 			}
@@ -111,7 +134,7 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		const engine = new DagEngine({
 			plugin: new FailDepPlugin(),
 			registry,
-			continueOnError: false, // Important: set to false
+			continueOnError: false,
 		});
 
 		const result = await engine.process([createMockSection("Test")]);
@@ -126,18 +149,21 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 				super("dep-fail", "Dep Fail", "Test");
 				this.dimensions = ["dim1", "dim2"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
+
 			defineDependencies(): Record<string, string[]> {
 				return { dim2: ["dim1"] };
 			}
 		}
 
-		mockProvider.execute = async () => {
+		mockProvider.execute = async (): Promise<ProviderResponse> => {
 			return { error: "Dim1 failed" };
 		};
 
@@ -153,29 +179,26 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 	});
 
 	test("should handle dependency failures with continueOnError true", async () => {
-		interface TestData {
-			result?: string;
-			[key: string]: unknown;
-		}
-
 		class DepFailPlugin extends Plugin {
 			constructor() {
 				super("dep-fail", "Dep Fail", "Test");
 				this.dimensions = ["dim1", "dim2"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
+
 			selectProvider(): ProviderSelection {
 				return { provider: "mock-ai", options: {} };
 			}
+
 			defineDependencies(): Record<string, string[]> {
 				return { dim2: ["dim1"] };
 			}
 		}
 
-		// Make dim1 fail, but dim2 succeed
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			if (request.dimension === "dim1") {
 				return { error: "Dim1 failed" };
 			}
@@ -194,12 +217,12 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		// ✅ dim1 has error from provider
+		// dim1 has error from provider
 		expect(result.sections[0]?.results.dim1?.error).toBe(
 			'All providers failed for dimension "dim1". Tried: mock-ai',
 		);
 
-		// ✅ dim2 executes successfully even with failed dependency
+		// dim2 executes successfully even with failed dependency
 		expect(result.sections[0]?.results.dim2?.data).toBeDefined();
 
 		// Type-safe access to data
@@ -207,18 +230,19 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		expect(dim2Data?.result).toBe("dim2 executed with partial deps");
 	});
 
-	// Line 396: Skip dimension when plugin doesn't implement shouldSkipDimension
 	test("should not skip when plugin does not implement shouldSkipDimension", async () => {
 		class NoSkipPlugin extends Plugin {
 			constructor() {
 				super("no-skip", "No Skip", "Test");
 				this.dimensions = ["test"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 			// Note: NO shouldSkipDimension method
 		}
@@ -235,23 +259,24 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		expect(result.sections[0]?.results.test?.data).toBeDefined();
 	});
 
-	// Line 489: Retry with rate limit (different backoff)
 	test("should handle retry with exponential backoff", async () => {
 		class RetryPlugin extends Plugin {
 			constructor() {
 				super("retry", "Retry", "Test");
 				this.dimensions = ["test"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		let attemptCount = 0;
-		mockProvider.execute = async () => {
+		mockProvider.execute = async (): Promise<ProviderResponse> => {
 			attemptCount++;
 			if (attemptCount < 3) {
 				throw new Error("Retry me");
@@ -272,19 +297,21 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		expect(result.sections[0]?.results.test?.data).toEqual({ result: "ok" });
 	});
 
-	// Lines 511-514: Topological sort with shared dependencies
 	test("should handle topological sort with shared dependencies", async () => {
 		class SharedDepPlugin extends Plugin {
 			constructor() {
 				super("shared", "Shared", "Test");
 				this.dimensions = ["base", "dep1", "dep2", "final"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
+
 			defineDependencies(): Record<string, string[]> {
 				return {
 					dep1: ["base"],
@@ -308,19 +335,21 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		expect(result.sections[0]?.results.final).toBeDefined();
 	});
 
-	// Additional: Test circular dependency detection (if not already covered)
-	test("should detect and throw on circular dependencies", () => {
+	test("should detect and throw on circular dependencies", async () => {
 		class CircularPlugin extends Plugin {
 			constructor() {
 				super("circular", "Circular", "Test");
 				this.dimensions = ["a", "b", "c"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
+
 			defineDependencies(): Record<string, string[]> {
 				return {
 					a: ["b"],
@@ -335,23 +364,24 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 			registry,
 		});
 
-		expect(engine.process([createMockSection("Test")])).rejects.toThrow(
+		await expect(engine.process([createMockSection("Test")])).rejects.toThrow(
 			"Circular dependency",
 		);
 	});
 
-	// Test provider not found scenario
 	test("should throw error when provider not found", async () => {
 		class MissingProviderPlugin extends Plugin {
 			constructor() {
 				super("missing", "Missing", "Test");
 				this.dimensions = ["test"];
 			}
+
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "nonexistent-provider" };
+
+			selectProvider(): ProviderSelection {
+				return { provider: "nonexistent-provider", options: {} };
 			}
 		}
 
@@ -365,11 +395,12 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 
 		const error = result.sections[0]?.results.test?.error;
 
+		expect(error).toBeDefined();
 		expect(error).toContain('Provider "nonexistent-provider" not found');
 		expect(error).toContain("Available:");
 	});
 
-	test("should handle missing provider error", async () => {
+	test("should handle missing provider error consistently", async () => {
 		class MissingProviderPlugin extends Plugin {
 			constructor() {
 				super("missing", "Missing", "Test");
@@ -380,8 +411,8 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "nonexistent" };
+			selectProvider(): ProviderSelection {
+				return { provider: "nonexistent", options: {} };
 			}
 		}
 
@@ -393,9 +424,9 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		const error = result?.sections?.[0]?.results?.test?.error;
+		const error = result.sections[0]?.results.test?.error;
 
-		// ✅ This is what actually happens
+		expect(error).toBeDefined();
 		expect(error).toContain('Provider "nonexistent" not found');
 		expect(error).toContain("Available:");
 	});

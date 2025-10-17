@@ -30,6 +30,10 @@ export class TavilyProvider extends BaseProvider {
 			(config.endpoint as string) || "https://api.tavily.com/search";
 	}
 
+	getNativeBaseUrl(): string {
+		return "";
+	}
+
 	async execute(
 		request: ProviderRequest,
 	): Promise<ProviderResponse<TavilyResult[]>> {

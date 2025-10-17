@@ -1,11 +1,12 @@
 // tests/engine-config.test.ts
 
 import { describe, test, expect } from "vitest";
-import { DagEngine } from "../src/core/engine/dag-engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { ProviderAdapter } from "../src/providers/adapter";
-import { MockAIProvider } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { ProviderAdapter } from "../src/providers/adapter.ts";
+import { MockAIProvider } from "./setup.ts";
+import type { ProviderSelection } from "../src/types.ts";
 
 class TestPlugin extends Plugin {
 	constructor() {
@@ -17,8 +18,8 @@ class TestPlugin extends Plugin {
 		return "test";
 	}
 
-	selectProvider(): any {
-		return { provider: "mock-ai" };
+	selectProvider(): ProviderSelection {
+		return { provider: "mock-ai", options: {} };
 	}
 }
 
@@ -29,7 +30,7 @@ describe("DagEngine - Configuration Validation", () => {
 
 		expect(() => {
 			new DagEngine({
-				plugin: null as any,
+				plugin: null as unknown as Plugin,
 				registry,
 			});
 		}).toThrow();
@@ -39,7 +40,7 @@ describe("DagEngine - Configuration Validation", () => {
 		expect(() => {
 			new DagEngine({
 				plugin: new TestPlugin(),
-			});
+			} as never);
 		}).toThrow('requires either "providers" or "registry"');
 	});
 
@@ -319,5 +320,80 @@ describe("DagEngine - Configuration Validation", () => {
 
 		const providers = engine.getAvailableProviders();
 		expect(providers).toContain("mock-ai");
+	});
+
+	test("should validate negative retryDelay", () => {
+		const registry = new ProviderRegistry();
+		registry.register(new MockAIProvider());
+
+		expect(() => {
+			new DagEngine({
+				plugin: new TestPlugin(),
+				registry,
+				retryDelay: -100,
+			});
+		}).toThrow();
+	});
+
+	test("should validate negative timeout", () => {
+		const registry = new ProviderRegistry();
+		registry.register(new MockAIProvider());
+
+		expect(() => {
+			new DagEngine({
+				plugin: new TestPlugin(),
+				registry,
+				timeout: -1000,
+			});
+		}).toThrow();
+	});
+
+	test("should accept execution config object", () => {
+		const registry = new ProviderRegistry();
+		registry.register(new MockAIProvider());
+
+		const engine = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+			execution: {
+				concurrency: 10,
+				maxRetries: 5,
+				retryDelay: 2000,
+				timeout: 30000,
+				continueOnError: false,
+			},
+		});
+
+		const config = engine.getExecutionConfig();
+		expect(config.concurrency).toBe(10);
+		expect(config.maxRetries).toBe(5);
+		expect(config.retryDelay).toBe(2000);
+		expect(config.timeout).toBe(30000);
+		expect(config.continueOnError).toBe(false);
+	});
+
+	test("should handle both flat and nested execution config", () => {
+		const registry = new ProviderRegistry();
+		registry.register(new MockAIProvider());
+
+		// Flat config should work
+		const engine1 = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+			concurrency: 10,
+		});
+
+		expect(engine1.getExecutionConfig().concurrency).toBe(10);
+
+		// Nested config should work
+		const engine2 = new DagEngine({
+			plugin: new TestPlugin(),
+			registry,
+			execution: {
+				concurrency: 15,
+			},
+		});
+
+		expect(engine2.getExecutionConfig().concurrency).toBe(15);
 	});
 });

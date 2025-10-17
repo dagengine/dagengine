@@ -1,8 +1,12 @@
 import graphlib, { Graph } from "@dagrejs/graphlib";
 const alg = graphlib.alg;
 
-import type { Plugin } from "../plugin";
+import type { Plugin } from "../plugin.ts";
+import { CircularDependencyError, ExecutionGroupingError } from "./shared/errors.ts";
 
+/**
+ * Graph analytics interface
+ */
 export interface GraphAnalytics {
 	totalDimensions: number;
 	totalDependencies: number;
@@ -11,6 +15,39 @@ export interface GraphAnalytics {
 	parallelGroups: string[][];
 	independentDimensions: string[];
 	bottlenecks: string[];
+}
+
+/**
+ * Graph node for JSON export
+ */
+interface GraphNode {
+	id: string;
+	label: string;
+	type: "global" | "section";
+}
+
+/**
+ * Graph link for JSON export
+ */
+interface GraphLink {
+	source: string;
+	target: string;
+}
+
+/**
+ * Graph export format
+ */
+export interface GraphExport {
+	nodes: GraphNode[];
+	links: GraphLink[];
+}
+
+/**
+ * Bottleneck information
+ */
+interface Bottleneck {
+	dim: string;
+	dependents: number;
 }
 
 /**
@@ -23,6 +60,11 @@ export class DependencyGraphManager {
 
 	/**
 	 * Perform topological sort and build dependency graph
+	 *
+	 * @param dimensions - All dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns Topologically sorted dimension names
+	 * @throws {CircularDependencyError} If cycles detected
 	 */
 	async buildAndSort(
 		dimensions: string[],
@@ -54,7 +96,13 @@ export class DependencyGraphManager {
 
 	/**
 	 * Group dimensions for parallel execution
-	 * Returns batches where dimensions in each batch can run in parallel
+	 *
+	 * Returns batches where dimensions in each batch can run in parallel.
+	 *
+	 * @param dimensions - Sorted dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns Array of execution groups
+	 * @throws {ExecutionGroupingError} If grouping fails
 	 */
 	groupForParallelExecution(
 		dimensions: string[],
@@ -70,7 +118,7 @@ export class DependencyGraphManager {
 
 			// Find dimensions whose dependencies are all processed
 			for (const dim of remaining) {
-				const dimDeps = dependencies[dim] || [];
+				const dimDeps = dependencies[dim] ?? [];
 				const validDeps = dimDeps.filter((dep) => validDimensions.has(dep));
 				const allDepsProcessed = validDeps.every((dep) => processed.has(dep));
 
@@ -106,6 +154,10 @@ export class DependencyGraphManager {
 
 	/**
 	 * Get comprehensive graph analytics
+	 *
+	 * @param dimensions - All dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns Graph analytics
 	 */
 	async getAnalytics(
 		dimensions: string[],
@@ -124,7 +176,7 @@ export class DependencyGraphManager {
 		);
 
 		const independentDimensions = dimensions.filter((dim) => {
-			const dimDeps = dependencies[dim] || [];
+			const dimDeps = dependencies[dim] ?? [];
 			return dimDeps.length === 0;
 		});
 
@@ -145,6 +197,10 @@ export class DependencyGraphManager {
 
 	/**
 	 * Export graph as DOT format for visualization
+	 *
+	 * @param dimensions - All dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns DOT format string
 	 */
 	async exportDOT(
 		dimensions: string[],
@@ -155,49 +211,57 @@ export class DependencyGraphManager {
 		}
 
 		const graph = this.graph!;
-		let dot = "digraph DagWorkflow {\n";
-		dot += "  rankdir=LR;\n";
-		dot += "  node [shape=box, style=rounded];\n\n";
+		const lines: string[] = [
+			"digraph DagWorkflow {",
+			"  rankdir=LR;",
+			"  node [shape=box, style=rounded];",
+			"",
+		];
 
 		// Add nodes with styling
 		dimensions.forEach((dim) => {
 			const isGlobal = this.plugin.isGlobalDimension(dim);
 			const color = isGlobal ? "lightblue" : "lightgreen";
 			const shape = isGlobal ? "box" : "ellipse";
-			dot += `  "${dim}" [fillcolor="${color}", style="filled", shape="${shape}"];\n`;
+			lines.push(`  "${dim}" [fillcolor="${color}", style="filled", shape="${shape}"];`);
 		});
 
-		dot += "\n";
+		lines.push("");
 
 		// Add edges
 		graph.edges().forEach((edge) => {
-			dot += `  "${edge.v}" -> "${edge.w}";\n`;
+			lines.push(`  "${edge.v}" -> "${edge.w}";`);
 		});
 
-		dot += "}\n";
-		return dot;
+		lines.push("}");
+
+		return lines.join("\n");
 	}
 
 	/**
 	 * Export graph as JSON for programmatic use
+	 *
+	 * @param dimensions - All dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns JSON graph export
 	 */
 	async exportJSON(
 		dimensions: string[],
 		dependencies: Record<string, string[]>,
-	): Promise<{ nodes: any[]; links: any[] }> {
+	): Promise<GraphExport> {
 		if (!this.graph) {
 			await this.buildAndSort(dimensions, dependencies);
 		}
 
 		const graph = this.graph!;
 
-		const nodes = dimensions.map((dim) => ({
+		const nodes: GraphNode[] = dimensions.map((dim) => ({
 			id: dim,
 			label: dim,
 			type: this.plugin.isGlobalDimension(dim) ? "global" : "section",
 		}));
 
-		const links = graph.edges().map((edge) => ({
+		const links: GraphLink[] = graph.edges().map((edge) => ({
 			source: edge.v,
 			target: edge.w,
 		}));
@@ -207,46 +271,70 @@ export class DependencyGraphManager {
 
 	/**
 	 * Get the internal graph instance
+	 *
+	 * @returns Graph instance or undefined if not built yet
 	 */
 	getGraph(): Graph | undefined {
 		return this.graph;
 	}
 
-	// ===== Private Helper Methods =====
+	// ============================================================================
+	// PRIVATE HELPER METHODS
+	// ============================================================================
 
+	/**
+	 * Validate that the graph is acyclic
+	 *
+	 * @param graph - Graph to validate
+	 * @throws {CircularDependencyError} If cycles detected
+	 */
 	private validateAcyclic(graph: Graph): void {
 		if (!alg.isAcyclic(graph)) {
 			const cycles = alg.findCycles(graph);
-			const cycleStr = cycles[0]?.join(" → ");
-			throw new Error(
-				`Circular dependency detected: ${cycleStr}\n` +
-					`Please review your defineDependencies() configuration.`,
-			);
+			const cycle = cycles[0];
+			if (cycle) {
+				throw new CircularDependencyError(cycle);
+			}
+			// Fallback if no cycle found (shouldn't happen)
+			throw new CircularDependencyError([]);
 		}
 	}
 
+	/**
+	 * Create a detailed grouping error
+	 *
+	 * @param remaining - Dimensions that couldn't be grouped
+	 * @param dependencies - Dependency graph
+	 * @param processed - Already processed dimensions
+	 * @param validDimensions - Valid dimension names
+	 * @returns Execution grouping error
+	 */
 	private createGroupingError(
 		remaining: string[],
 		dependencies: Record<string, string[]>,
 		processed: Set<string>,
 		validDimensions: Set<string>,
-	): Error {
+	): ExecutionGroupingError {
 		const stuckDimensions = remaining.map((dim) => {
-			const dimDeps = dependencies[dim] || [];
+			const dimDeps = dependencies[dim] ?? [];
 			const validDeps = dimDeps.filter((dep) => validDimensions.has(dep));
 			const unmetDeps = validDeps.filter((dep) => !processed.has(dep));
 			return `${dim} (waiting for: ${unmetDeps.join(", ") || "none"})`;
 		});
 
-		return new Error(
-			"Unable to create execution groups. " +
-				"Remaining dimensions: " +
-				stuckDimensions.join("; ") +
-				". " +
-				"This indicates a circular dependency or invalid graph.",
-		);
+		return new ExecutionGroupingError(remaining, {
+			stuck: stuckDimensions,
+			processed: Array.from(processed),
+		});
 	}
 
+	/**
+	 * Find the critical path in the graph
+	 *
+	 * @param graph - Dependency graph
+	 * @param dimensions - All dimension names
+	 * @returns Maximum depth and critical path
+	 */
 	private findCriticalPath(
 		graph: Graph,
 		dimensions: string[],
@@ -265,12 +353,19 @@ export class DependencyGraphManager {
 		return { maxDepth, criticalPath };
 	}
 
+	/**
+	 * Get the longest path to a node
+	 *
+	 * @param graph - Dependency graph
+	 * @param endNode - End node to find path to
+	 * @returns Longest path as array of dimension names
+	 */
 	private getLongestPath(graph: Graph, endNode: string): string[] {
 		const paths: string[][] = [];
 
 		const findPaths = (node: string, currentPath: string[] = []): void => {
 			const newPath = [...currentPath, node];
-			const predecessors = graph.predecessors(node) || [];
+			const predecessors = graph.predecessors(node) ?? [];
 
 			if (predecessors.length === 0) {
 				paths.push(newPath);
@@ -293,6 +388,13 @@ export class DependencyGraphManager {
 			.reverse();
 	}
 
+	/**
+	 * Find groups of dimensions with identical dependencies
+	 *
+	 * @param dimensions - All dimension names
+	 * @param dependencies - Dependency graph
+	 * @returns Groups of dimensions that can run in parallel
+	 */
 	private findParallelGroups(
 		dimensions: string[],
 		dependencies: Record<string, string[]>,
@@ -303,7 +405,7 @@ export class DependencyGraphManager {
 		for (const dim of dimensions) {
 			if (processed.has(dim)) continue;
 
-			const dimDeps = dependencies[dim] || [];
+			const dimDeps = dependencies[dim] ?? [];
 			const group = [dim];
 			processed.add(dim);
 
@@ -311,12 +413,9 @@ export class DependencyGraphManager {
 			for (const other of dimensions) {
 				if (processed.has(other)) continue;
 
-				const otherDeps = dependencies[other] || [];
+				const otherDeps = dependencies[other] ?? [];
 
-				if (
-					dimDeps.length === otherDeps.length &&
-					dimDeps.every((d) => otherDeps.includes(d))
-				) {
+				if (this.hasSameDependencies(dimDeps, otherDeps)) {
 					group.push(other);
 					processed.add(other);
 				}
@@ -330,12 +429,34 @@ export class DependencyGraphManager {
 		return groups;
 	}
 
+	/**
+	 * Check if two dependency arrays are identical
+	 *
+	 * @param deps1 - First dependency array
+	 * @param deps2 - Second dependency array
+	 * @returns True if dependencies are the same
+	 */
+	private hasSameDependencies(deps1: string[], deps2: string[]): boolean {
+		return (
+			deps1.length === deps2.length &&
+			deps1.every((d) => deps2.includes(d))
+		);
+	}
+
+	/**
+	 * Find bottleneck dimensions (many dependents)
+	 *
+	 * @param graph - Dependency graph
+	 * @param dimensions - All dimension names
+	 * @returns Array of bottleneck dimension names, sorted by impact
+	 */
 	private findBottlenecks(graph: Graph, dimensions: string[]): string[] {
-		const bottlenecks: Array<{ dim: string; dependents: number }> = [];
+		const bottlenecks: Bottleneck[] = [];
+		const BOTTLENECK_THRESHOLD = 3;
 
 		dimensions.forEach((dim) => {
-			const successors = graph.successors(dim) || [];
-			if (successors.length >= 3) {
+			const successors = graph.successors(dim) ?? [];
+			if (successors.length >= BOTTLENECK_THRESHOLD) {
 				bottlenecks.push({ dim, dependents: successors.length });
 			}
 		});
@@ -345,3 +466,6 @@ export class DependencyGraphManager {
 			.map((b) => b.dim);
 	}
 }
+
+// Re-export ExecutionPlan from shared types
+export type { ExecutionPlan } from "./shared/types.ts";

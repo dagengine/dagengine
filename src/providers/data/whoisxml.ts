@@ -33,6 +33,10 @@ export class WhoisXMLProvider extends BaseProvider {
 		this.cacheTTL = (config.cacheTTL as number) || 86400000; // 24 hours
 	}
 
+	getNativeBaseUrl(): string {
+		return "";
+	}
+
 	async execute(
 		request: ProviderRequest,
 	): Promise<ProviderResponse<WhoisData[]>> {

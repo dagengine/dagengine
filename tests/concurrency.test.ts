@@ -1,8 +1,13 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	ProviderSelection,
+	ProviderRequest,
+	ProviderResponse,
+} from "../src/types.ts";
 
 describe("DagEngine - Concurrency Control", () => {
 	let mockProvider: MockAIProvider;
@@ -26,8 +31,8 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -35,10 +40,10 @@ describe("DagEngine - Concurrency Control", () => {
 		let currentActive = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			currentActive++;
 			activeCalls.push(currentActive);
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await new Promise<void>((resolve) => setTimeout(resolve, 50));
 			currentActive--;
 			return originalExecute(request);
 		};
@@ -70,8 +75,8 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -79,10 +84,10 @@ describe("DagEngine - Concurrency Control", () => {
 		let currentActive = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			currentActive++;
 			activeCalls.push(currentActive);
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await new Promise<void>((resolve) => setTimeout(resolve, 50));
 			currentActive--;
 			return originalExecute(request);
 		};
@@ -114,17 +119,17 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		const batchStarts: number[] = [];
 		const originalExecute = mockProvider.execute.bind(mockProvider);
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			batchStarts.push(Date.now());
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await new Promise<void>((resolve) => setTimeout(resolve, 100));
 			return originalExecute(request);
 		};
 
@@ -142,12 +147,14 @@ describe("DagEngine - Concurrency Control", () => {
 
 		// Should have 3 batches: 0-2, 3-5, 6-8
 		// Each batch starts ~100ms after the previous
-		const batch1Start = batchStarts[0]!;
-		const batch2Start = batchStarts[3]!;
-		const batch3Start = batchStarts[6]!;
+		const batch1Start = batchStarts[0];
+		const batch2Start = batchStarts[3];
+		const batch3Start = batchStarts[6];
 
-		expect(batch2Start - batch1Start).toBeGreaterThanOrEqual(90);
-		expect(batch3Start - batch2Start).toBeGreaterThanOrEqual(90);
+		if (batch1Start && batch2Start && batch3Start) {
+			expect(batch2Start - batch1Start).toBeGreaterThanOrEqual(90);
+			expect(batch3Start - batch2Start).toBeGreaterThanOrEqual(90);
+		}
 	});
 
 	test("should handle concurrency with errors", async () => {
@@ -161,14 +168,14 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		let sectionCount = 0;
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (_request: ProviderRequest): Promise<ProviderResponse> => {
 			sectionCount++;
 
 			// Make every even section fail (2nd, 4th, 6th)
@@ -198,10 +205,11 @@ describe("DagEngine - Concurrency Control", () => {
 
 		// Half should have errors (sections 2, 4, 6)
 		const errorCount = result.sections.filter(
-			(s) => s.results.test?.error,
+			(s) => s.results.test?.error !== undefined,
 		).length;
 		expect(errorCount).toBe(3);
 	}, 15000);
+
 	test("should handle varying section processing times", async () => {
 		class VaryingTimePlugin extends Plugin {
 			constructor() {
@@ -213,19 +221,19 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		const completionOrder: number[] = [];
-		let callIndex = 0; // Track calls separately
+		let callIndex = 0;
 
-		mockProvider.execute = async (request) => {
-			const currentIndex = callIndex++; // Capture and increment
+		mockProvider.execute = async (_request: ProviderRequest): Promise<ProviderResponse> => {
+			const currentIndex = callIndex++;
 			// Varying delays: 100ms, 50ms, 150ms, 50ms, etc.
 			const delay = currentIndex % 2 === 0 ? 100 : 50;
-			await new Promise((resolve) => setTimeout(resolve, delay));
+			await new Promise<void>((resolve) => setTimeout(resolve, delay));
 			completionOrder.push(currentIndex);
 			return { data: { result: "ok" } };
 		};
@@ -245,9 +253,7 @@ describe("DagEngine - Concurrency Control", () => {
 		// All sections should complete
 		expect(completionOrder).toHaveLength(6);
 
-		// Faster sections (odd indices with 50ms) should complete before slower ones (even indices with 100ms) in same batch
-		// Batch 1: indices 0(100ms), 1(50ms), 2(100ms) - 1 should complete first
-		// Batch 2: indices 3(50ms), 4(100ms), 5(50ms) - 3,5 should complete before 4
+		// Verify all indices are present
 		expect(completionOrder).toContain(0);
 		expect(completionOrder).toContain(1);
 		expect(completionOrder).toContain(2);
@@ -267,8 +273,8 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -276,10 +282,10 @@ describe("DagEngine - Concurrency Control", () => {
 		let currentConcurrent = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			currentConcurrent++;
 			maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
-			await new Promise((resolve) => setTimeout(resolve, 20));
+			await new Promise<void>((resolve) => setTimeout(resolve, 20));
 			currentConcurrent--;
 			return originalExecute(request);
 		};
@@ -311,8 +317,8 @@ describe("DagEngine - Concurrency Control", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -320,10 +326,10 @@ describe("DagEngine - Concurrency Control", () => {
 		let currentConcurrent = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			currentConcurrent++;
 			maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
-			await new Promise((resolve) => setTimeout(resolve, 30));
+			await new Promise<void>((resolve) => setTimeout(resolve, 30));
 			currentConcurrent--;
 			return originalExecute(request);
 		};

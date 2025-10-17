@@ -1,8 +1,20 @@
-import { DagEngine } from "../src";
+import { describe, test, expect, beforeEach } from "vitest";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { Plugin } from "../src/plugin.ts";
+import type {
+	PromptContext,
+	ProviderSelection,
+	DimensionDependencies,
+} from "../src/types.ts";
 
-import { MockAIProvider, createMockSection } from "./setup";
-import { ProviderRegistry } from "../src/providers/registry";
-import { Plugin } from "../src/plugin";
+/**
+ * First dimension result structure
+ */
+interface FirstDimensionResult {
+	result: string;
+}
 
 describe("DagEngine - Dependencies", () => {
 	let mockProvider: MockAIProvider;
@@ -23,13 +35,13 @@ describe("DagEngine - Dependencies", () => {
 				this.dimensions = ["base", "dependent", "final"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return `Process ${context.dimension}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -50,7 +62,7 @@ describe("DagEngine - Dependencies", () => {
 		expect(executionOrder).toEqual(["base", "dependent", "final"]);
 	});
 
-	test("should detect circular dependencies", () => {
+	test("should detect circular dependencies", async () => {
 		class CircularPlugin extends Plugin {
 			constructor() {
 				super("circular", "Circular", "Test circular deps");
@@ -61,8 +73,8 @@ describe("DagEngine - Dependencies", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -79,13 +91,13 @@ describe("DagEngine - Dependencies", () => {
 			registry,
 		});
 
-		expect(engine.process([createMockSection("Test")])).rejects.toThrow(
+		await expect(engine.process([createMockSection("Test")])).rejects.toThrow(
 			"Circular dependency",
 		);
 	});
 
 	test("should provide dependencies to dependent dimensions", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class DepsPlugin extends Plugin {
 			constructor() {
@@ -93,15 +105,15 @@ describe("DagEngine - Dependencies", () => {
 				this.dimensions = ["first", "second"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "second") {
 					receivedDeps = context.dependencies;
 				}
 				return `Process ${context.dimension}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -119,7 +131,12 @@ describe("DagEngine - Dependencies", () => {
 		await engine.process([createMockSection("Test")]);
 
 		expect(receivedDeps).toBeDefined();
-		expect(receivedDeps.first).toBeDefined();
-		expect(receivedDeps.first.data).toEqual({ result: "first result" });
+		expect(receivedDeps).not.toBeNull();
+
+		const firstDep = receivedDeps!.first;
+		expect(firstDep).toBeDefined();
+
+		const firstData = firstDep?.data as FirstDimensionResult | undefined;
+		expect(firstData).toEqual({ result: "first result" });
 	});
 });

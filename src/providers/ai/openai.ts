@@ -5,7 +5,7 @@ import {
 	type ProviderRequest,
 	type ProviderResponse,
 } from "../types";
-import { PortkeyAdapter } from "../gateway/portkey-adapter";
+import { PortkeyAdapter, OpenAIResponse } from "../gateway/portkey-adapter";
 
 export class OpenAIProvider extends BaseProvider {
 	private readonly apiKey: string;
@@ -81,7 +81,7 @@ export class OpenAIProvider extends BaseProvider {
 			throw new Error(`Portkey API error (${response.status}): ${error}`);
 		}
 
-		const data = await response.json();
+		const data = (await response.json()) as OpenAIResponse;
 
 		// Parse OpenAI format response
 		const parsedResponse = PortkeyAdapter.parseOpenAIResponse(data); // CHANGED

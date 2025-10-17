@@ -45,12 +45,19 @@
  */
 import type PQueue from "p-queue";
 import type { Plugin } from "../../plugin.ts";
-import { ProviderAdapter } from "../../providers/adapter.ts";
-import type { ProviderRegistry } from "../../providers/registry.ts";
-import type { SectionData, ProcessOptions, ProcessResult } from "../../types.ts";
+import {
+	ProviderAdapter,
+	type ProviderAdapterConfig,
+} from "../../providers/adapter.ts";
+import { ProviderRegistry } from "../../providers/registry.ts";
+import type {
+	SectionData,
+	ProcessOptions,
+	ProcessResult,
+} from "../../types.ts";
 
 import { PhaseExecutor } from "../execution/phase-executor.ts";
-import { createProcessState } from "./state-manager";
+import { createProcessState } from "./state-manager.ts";
 import {
 	type EngineConfig,
 	mergeExecutionConfig,
@@ -58,7 +65,7 @@ import {
 } from "./engine-config.ts";
 import { DependencyGraphManager } from "../analysis/graph-manager.ts";
 import { ConfigValidator } from "../validation/config-validator.ts";
-import type { GraphAnalytics } from "../graph-manager";
+import type { GraphAnalytics } from "../graph-manager.ts";
 import crypto from "crypto";
 import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.ts";
 
@@ -70,32 +77,61 @@ class ProviderInitializer {
 	 * Initializes provider adapter from config
 	 */
 	static initialize(config: EngineConfig): ProviderAdapter {
-		const adapter = config.providers
-			? ProviderInitializer.createFromProviders(config.providers)
-			: ProviderInitializer.createFromRegistry(config.registry!);
+		// Priority 1: providers field (multipurpose)
+		if (config.providers) {
+			const adapter = ProviderInitializer.createFromProviders(config.providers);
+			// Validate immediately after creation
+			ConfigValidator.validateProviderAdapter(adapter);
+			return adapter;
+		}
 
-		ConfigValidator.validateProviderAdapter(adapter);
-		return adapter;
+		// Priority 2: registry field (legacy)
+		if (config.registry) {
+			const adapter = ProviderInitializer.createFromRegistry(config.registry);
+			// Validate immediately after creation
+			ConfigValidator.validateProviderAdapter(adapter);
+			return adapter;
+		}
+
+		// No providers configured
+		throw new Error(
+			'DagEngine requires either "providers" or "registry" in configuration',
+		);
 	}
 
+	/**
+	 * Creates adapter from providers field (handles all three types)
+	 */
 	private static createFromProviders(
-		providers: ProviderAdapter | any,
+		providers: ProviderAdapter | ProviderAdapterConfig | ProviderRegistry,
 	): ProviderAdapter {
-		return providers instanceof ProviderAdapter
-			? providers
-			: new ProviderAdapter(providers);
+		// Case 1: Already a ProviderAdapter instance
+		if (providers instanceof ProviderAdapter) {
+			return providers;
+		}
+
+		// Case 2: ProviderRegistry instance
+		if (providers instanceof ProviderRegistry) {
+			return ProviderInitializer.createFromRegistry(providers);
+		}
+
+		// Case 3: ProviderAdapterConfig (plain object)
+		return new ProviderAdapter(providers);
 	}
 
+	/**
+	 * Creates adapter from registry
+	 */
 	private static createFromRegistry(
 		registry: ProviderRegistry,
 	): ProviderAdapter {
 		const adapter = new ProviderAdapter({});
 		const registryProviders = registry.list();
 
-		registryProviders.forEach((name) => {
+		for (const name of registryProviders) {
 			const provider = registry.get(name);
 			adapter.registerProvider(provider);
-		});
+		}
 
 		return adapter;
 	}
@@ -164,6 +200,8 @@ export class DagEngine {
 
 		// Store core dependencies
 		this.plugin = normalizedConfig.plugin;
+
+		// Initialize and validate adapter (validation happens inside initialize )
 		this.adapter = ProviderInitializer.initialize(normalizedConfig);
 
 		// Merge execution config with defaults
@@ -226,7 +264,7 @@ export class DagEngine {
 	): Promise<ProcessResult> {
 		// Route to Inngest if enabled
 		if (this.inngestOrchestrator) {
-			const processId = options.processId || crypto.randomUUID();
+			const processId = options.processId ?? crypto.randomUUID();
 			return await this.inngestOrchestrator.execute({
 				processId,
 				sections,
@@ -266,6 +304,24 @@ export class DagEngine {
 		}
 	}
 
+	/**
+	 * Process sections using Inngest orchestration
+	 *
+	 * Explicitly use Inngest for long-running workflows with automatic
+	 * checkpointing and resumption capabilities.
+	 *
+	 * @param sections - Sections to process
+	 * @param options - Process options for hooks and callbacks
+	 * @returns Process result with sections, global results, and costs
+	 * @throws {Error} If Inngest is not enabled
+	 *
+	 * @example
+	 * ```typescript
+	 * const result = await engine.processWithInngest(sections, {
+	 *   onDimensionStart: (dim) => console.log(`Starting ${dim}`)
+	 * });
+	 * ```
+	 */
 	async processWithInngest(
 		sections: SectionData[],
 		options: ProcessOptions = {},
@@ -273,7 +329,7 @@ export class DagEngine {
 		if (!this.inngestOrchestrator) {
 			throw new Error(
 				"Inngest orchestrator is not enabled. " +
-				"Initialize DagEngine with inngest: { enabled: true }"
+				"Initialize DagEngine with inngest: { enabled: true }",
 			);
 		}
 
@@ -423,6 +479,18 @@ export class DagEngine {
 		return this.phaseExecutor.getQueue();
 	}
 
+	/**
+	 * Gets the current execution configuration
+	 *
+	 * @returns Execution configuration
+	 *
+	 * @example
+	 * ```typescript
+	 * const config = engine.getExecutionConfig();
+	 * console.log('Concurrency:', config.concurrency);
+	 * console.log('Max retries:', config.maxRetries);
+	 * ```
+	 */
 	getExecutionConfig() {
 		return {
 			concurrency: this.phaseExecutor.config.concurrency,

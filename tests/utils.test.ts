@@ -1,3 +1,5 @@
+import {describe, test, expect} from 'vitest';
+
 import { parseJSON } from "../src/utils";
 
 describe("Utils", () => {

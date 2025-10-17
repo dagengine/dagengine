@@ -1,113 +1,90 @@
 /**
  * Inngest orchestration layer
  *
- * This is a PURE WRAPPER - it doesn't change any engine logic.
+ * Pure wrapper around Inngest that doesn't change any engine logic.
  * Creates and manages its own Inngest client internally.
+ *
+ * @module orchestration/inngest
  */
-import type { InngestConfig } from "../core/engine/engine-config";
+
+import type { InngestConfig } from "../core/engine/engine-config.ts";
 import type { PhaseExecutor } from "../core/execution/phase-executor.ts";
+import type { ProcessState } from "../core/shared/types.ts";
+import type { ExecutionPlan, SerializedProcessState } from "../core/shared/types.ts";
 import {
 	createProcessState,
 	serializeState,
 	deserializeState,
-} from "../core/engine/state-manager";
-import type { SectionData, ProcessOptions, ProcessResult } from "../types";
-import { Inngest } from 'inngest';
+} from "../core/engine/state-manager.ts";
+import type { SectionData, ProcessOptions, ProcessResult } from "../types.ts";
 
-// Extract types from Inngest
-type InngestClient = Inngest;
-type InngestStep = Parameters<Parameters<Inngest['createFunction']>[2]>[0]['step'];
-
-interface InngestFunctionContext {
-	event: {
-		data: {
-			processId: string;
-			sections: SectionData[];
-			options: ProcessOptions;
-		};
-	};
-	step: InngestStep;
+/**
+ * Workflow execution event data
+ */
+interface WorkflowEventData {
+	processId: string;
+	sections: SectionData[];
+	options: ProcessOptions;
 }
 
+/**
+ * Inngest orchestrator for distributed workflow execution
+ *
+ * Provides:
+ * - Automatic Inngest client creation
+ * - Checkpoint-based execution
+ * - Step-by-step workflow orchestration
+ * - State serialization/deserialization
+ *
+ * @note This module uses dynamic imports and types to support optional Inngest dependency
+ */
 export class InngestOrchestrator {
-	private readonly inngest: InngestClient;
+	private readonly inngest: unknown;
 	private readonly functionPrefix: string;
 
 	constructor(
 		private readonly phaseExecutor: PhaseExecutor,
 		private readonly config: InngestConfig,
 	) {
-		// ✅ Create Inngest client internally
 		this.inngest = this.createInngestClient(config);
-		this.functionPrefix = config.functionPrefix || "dagengine";
+		this.functionPrefix = config.functionPrefix ?? "dagengine";
 	}
 
 	/**
-	 * Create Inngest client from config
-	 * User doesn't need to import Inngest at all!
+	 * Get Inngest client instance
+	 *
+	 * @returns Inngest client for use with serve helpers
 	 */
-	private createInngestClient(config: InngestConfig) {
-		// Lazy import Inngest (only loaded if enabled)
-		let Inngest: any;
-
-		try {
-			// Dynamic import - only loads if user enables Inngest
-			Inngest = require("inngest").Inngest;
-		} catch (error) {
-			throw new Error(
-				"Inngest package not found. Install it with: npm install inngest\n" +
-					"Or disable Inngest: inngest: { enabled: false }",
-			);
-		}
-
-		// Create client with config
-		const clientConfig: any = {
-			id: config.functionPrefix || "dagengine",
-			name: "DAG-AI Workflow Engine",
-		};
-
-		// Add event key if provided (for production)
-		if (config.eventKey) {
-			clientConfig.eventKey = config.eventKey;
-		}
-
-		// Add signing key if provided (for webhook security)
-		if (config.signingKey) {
-			clientConfig.signingKey = config.signingKey;
-		}
-
-		// Add custom base URL if provided
-		if (config.baseUrl) {
-			clientConfig.baseUrl = config.baseUrl;
-		}
-
-		return new Inngest(clientConfig);
-	}
-
-	/**
-	 * Get Inngest client (for serve helper)
-	 */
-	getClient() {
+	getClient(): unknown {
 		return this.inngest;
 	}
 
 	/**
 	 * Get Inngest function definitions for registration
+	 *
+	 * @returns Array of Inngest functions
 	 */
-	getFunctions() {
+	getFunctions(): unknown[] {
 		return [this.createWorkflowFunction()];
 	}
 
 	/**
-	 * Execute workflow through Inngest
+	 * Execute workflow through Inngest (async)
+	 *
+	 * @param params - Workflow execution parameters
+	 * @returns Immediate acknowledgment (workflow runs async)
 	 */
-	async execute(params: {
-		processId: string;
-		sections: SectionData[];
-		options: ProcessOptions;
-	}): Promise<ProcessResult> {
+	async execute(params: WorkflowEventData): Promise<ProcessResult> {
+		const client = this.inngest as {
+			send: (event: {
+				name: string;
+				data: unknown;
+				id?: string;
+			}) => Promise<{ ids: string[] }>;
+		};
+
 		// Send event to Inngest
-		await this.inngest.send({
+		await client.send({
 			name: `${this.functionPrefix}/workflow.execute`,
 			data: params,
 			id: params.processId, // Idempotency key
@@ -127,97 +104,206 @@ export class InngestOrchestrator {
 	}
 
 	/**
-	 * Create the main workflow Inngest function
+	 * Create serve handler for HTTP endpoints
+	 *
+	 * @returns Serve handler for Next.js/Express
 	 */
-	private createWorkflowFunction() {
-		return this.inngest.createFunction(
+	createServeHandler(): unknown {
+		// Try Next.js serve adapter first
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			const { serve } = require("inngest/next");
+			return serve({
+				client: this.inngest,
+				functions: this.getFunctions(),
+			});
+		} catch {
+			// Fall back to Express adapter
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-require-imports
+				const { serve } = require("inngest/express");
+				return serve({
+					client: this.inngest,
+					functions: this.getFunctions(),
+				});
+			} catch {
+				throw new Error(
+					"Could not load Inngest serve adapter. " +
+					"Install inngest with Next.js or Express support.",
+				);
+			}
+		}
+	}
+
+	// ============================================================================
+	// PRIVATE METHODS
+	// ============================================================================
+
+	/**
+	 * Create Inngest client from configuration
+	 *
+	 * @param config - Inngest configuration
+	 * @returns Configured Inngest client
+	 * @throws Error if Inngest package not installed
+	 */
+	private createInngestClient(config: InngestConfig): unknown {
+		let InngestClass: {
+			new (config: { id: string; eventKey?: string }): unknown;
+		};
+
+		try {
+			// Dynamic import - only loads if user enables Inngest
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			InngestClass = require("inngest").Inngest;
+		} catch {
+			throw new Error(
+				"Inngest package not found. Install it with: npm install inngest\n" +
+				"Or disable Inngest: inngest: { enabled: false }",
+			);
+		}
+
+		// Build client configuration (Inngest v3 API)
+		const clientConfig: {
+			id: string;
+			eventKey?: string;
+		} = {
+			id: config.functionPrefix ?? "dagengine",
+		};
+
+		// Add event key if provided (for production)
+		if (config.eventKey) {
+			clientConfig.eventKey = config.eventKey;
+		}
+
+		return new InngestClass(clientConfig);
+	}
+
+	/**
+	 * Create the main workflow Inngest function
+	 *
+	 * @returns Inngest function definition
+	 */
+	private createWorkflowFunction(): unknown {
+		const client = this.inngest as {
+			createFunction: (
+				config: { id: string; name: string },
+				trigger: { event: string },
+				handler: (context: {
+					event: { data: WorkflowEventData };
+					step: {
+						run: <T>(id: string, fn: () => Promise<T> | T) => Promise<T>;
+					};
+				}) => Promise<ProcessResult>,
+			) => unknown;
+		};
+
+		return client.createFunction(
 			{
 				id: `${this.functionPrefix}/workflow`,
 				name: "DAG-AI Workflow",
 			},
 			{ event: `${this.functionPrefix}/workflow.execute` },
-			async ({ event, step }: any) => {
+			async ({ event, step }) => {
 				const { processId, sections, options } = event.data;
 
 				// STEP 1: Initialize state
-				const state = await step.run("initialize", async () => {
-					const state = createProcessState(sections, options.metadata);
-					return serializeState(state);
-				});
+				const serializedState = await step.run(
+					"initialize",
+					async (): Promise<SerializedProcessState> => {
+						const state = createProcessState(sections, options.metadata);
+						return serializeState(state);
+					},
+				);
 
 				// STEP 2: Pre-process
-				await step.run("pre-process", async () => {
-					const deserializedState = deserializeState(state);
-					await this.phaseExecutor.preProcess(deserializedState, options);
-					return serializeState(deserializedState);
-				});
+				await step.run(
+					"pre-process",
+					async (): Promise<SerializedProcessState> => {
+						const state = deserializeState(serializedState);
+						await this.phaseExecutor.preProcess(state, options);
+						return serializeState(state);
+					},
+				);
 
 				// STEP 3: Plan execution
-				const plan = await step.run("plan-execution", async () => {
-					const deserializedState = deserializeState(state);
-					return await this.phaseExecutor.planExecution(
-						deserializedState,
-						options,
-					);
-				});
+				const plan = await step.run(
+					"plan-execution",
+					async (): Promise<ExecutionPlan> => {
+						const state = deserializeState(serializedState);
+						return await this.phaseExecutor.planExecution(state, options);
+					},
+				);
 
 				// STEP 4: Execute dimensions (one step per group)
 				for (let i = 0; i < plan.executionGroups.length; i++) {
 					const group = plan.executionGroups[i];
+					if (!group) continue;
 
-					await step.run(`execute-group-${i}`, async () => {
-						const deserializedState = deserializeState(state);
+					await step.run(
+						`execute-group-${i}`,
+						async (): Promise<SerializedProcessState> => {
+							const state = deserializeState(serializedState);
 
-						// Execute just this group
-						await this.executeSingleGroup(
-							deserializedState,
-							group,
-							plan.dependencyGraph,
-							options,
-						);
+							// Execute just this group
+							await this.executeSingleGroup(
+								state,
+								group,
+								plan.dependencyGraph,
+								options,
+							);
 
-						return serializeState(deserializedState);
-					});
+							return serializeState(state);
+						},
+					);
 				}
 
 				// STEP 5: Finalize results
-				const result = await step.run("finalize", async () => {
-					const deserializedState = deserializeState(state);
-					return await this.phaseExecutor.finalizeResults(
-						deserializedState,
-						plan,
-						options,
-					);
-				});
+				const result = await step.run(
+					"finalize",
+					async (): Promise<ProcessResult> => {
+						const state = deserializeState(serializedState);
+						return await this.phaseExecutor.finalizeResults(state, plan, options);
+					},
+				);
 
 				// STEP 6: Post-process
-				return await step.run("post-process", async () => {
-					const deserializedState = deserializeState(state);
-					return await this.phaseExecutor.postProcess(
-						deserializedState,
-						result,
-						plan,
-						options,
-					);
-				});
+				return await step.run(
+					"post-process",
+					async (): Promise<ProcessResult> => {
+						const state = deserializeState(serializedState);
+						return await this.phaseExecutor.postProcess(
+							state,
+							result,
+							plan,
+							options,
+						);
+					},
+				);
 			},
 		);
 	}
 
 	/**
 	 * Execute a single dimension group
+	 *
+	 * @param state - Current process state
+	 * @param group - Dimension names to execute
+	 * @param dependencyGraph - Full dependency graph
+	 * @param options - Process options
 	 */
 	private async executeSingleGroup(
-		state: any,
+		state: ProcessState,
 		group: string[],
 		dependencyGraph: Record<string, string[]>,
 		options: ProcessOptions,
 	): Promise<void> {
 		const plugin = this.phaseExecutor.getPlugin();
 
+		// Separate global and section dimensions
 		const globalDims = group.filter((dim) => plugin.isGlobalDimension(dim));
 		const sectionDims = group.filter((dim) => !plugin.isGlobalDimension(dim));
 
+		// Execute global dimensions first
 		await this.phaseExecutor.executeGlobalDimensions(
 			globalDims,
 			state,
@@ -225,47 +311,12 @@ export class InngestOrchestrator {
 			options,
 		);
 
+		// Then execute section dimensions
 		await this.phaseExecutor.executeSectionDimensions(
 			sectionDims,
 			state,
 			dependencyGraph,
 			options,
 		);
-	}
-
-	private autoRegisterEndpoint(): void {
-		// Create a singleton serve handler
-		const serveHandler = this.createServeHandler();
-
-		// Register globally for auto-discovery
-		(global as any).__dagengine_inngest_serve = serveHandler;
-
-		// Provide helpful message
-		console.log(
-			"\n✅ Inngest ready! Create endpoint:\n\n" +
-				"   // app/api/inngest/route.ts (Next.js)\n" +
-				'   import { serveInngest } from "@dagengine/core/inngest";\n' +
-				"   export const { GET, POST, PUT } = serveInngest();\n",
-		);
-	}
-
-	private createServeHandler() {
-		let serve: any;
-
-		// Try to load appropriate serve function
-		try {
-			serve = require("inngest/next").serve;
-		} catch {
-			try {
-				serve = require("inngest/express").serve;
-			} catch {
-				throw new Error("Could not load Inngest serve adapter");
-			}
-		}
-
-		return serve({
-			client: this.inngest,
-			functions: this.getFunctions(),
-		});
 	}
 }

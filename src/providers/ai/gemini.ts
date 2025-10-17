@@ -5,7 +5,7 @@ import {
 	type ProviderResponse,
 } from "../types";
 import { parseJSON } from "../../utils";
-import { PortkeyAdapter } from "../gateway/portkey-adapter"; // CHANGED
+import { PortkeyAdapter, OpenAIResponse } from "../gateway/portkey-adapter"; // CHANGED
 
 /**
  * Gemini API Response Types
@@ -126,7 +126,7 @@ export class GeminiProvider extends BaseProvider {
 			throw new Error(`Portkey API error (${response.status}): ${error}`);
 		}
 
-		const data = await response.json();
+		const data = (await response.json()) as OpenAIResponse;
 
 		// Parse OpenAI format response
 		const parsedResponse = PortkeyAdapter.parseOpenAIResponse(data); // CHANGED

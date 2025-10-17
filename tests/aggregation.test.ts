@@ -1,8 +1,46 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine/dag-engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	PromptContext,
+	DimensionDependencies,
+	DimensionResult,
+	ProviderRequest,
+	ProviderResponse,
+} from "../src/types.ts";
+
+/**
+ * Aggregated section data structure
+ */
+interface AggregatedData {
+	aggregated: boolean;
+	sections: DimensionResult[];
+	totalSections: number;
+	[key: string]: unknown;
+}
+
+/**
+ * Section analysis result
+ */
+interface SectionAnalysisResult {
+	sentiment: string;
+}
+
+/**
+ * Global summary result
+ */
+interface GlobalSummaryResult {
+	summary: string;
+}
+
+/**
+ * Generic result structure
+ */
+interface GenericResult {
+	result: string;
+}
 
 describe("DagEngine - Section Aggregation", () => {
 	let mockProvider: MockAIProvider;
@@ -15,7 +53,7 @@ describe("DagEngine - Section Aggregation", () => {
 	});
 
 	test("should aggregate section results for global dimension", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class AggregationPlugin extends Plugin {
 			constructor() {
@@ -26,15 +64,15 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_summary") {
 					receivedDeps = context.dependencies;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -63,10 +101,14 @@ describe("DagEngine - Section Aggregation", () => {
 		await engine.process(sections);
 
 		expect(receivedDeps).toBeDefined();
-		expect(receivedDeps.section_analysis).toBeDefined();
-		expect(receivedDeps.section_analysis.data).toBeDefined();
-		expect(receivedDeps.section_analysis.data.aggregated).toBe(true);
-		expect(receivedDeps.section_analysis.data.sections).toHaveLength(3);
+
+		const sectionAnalysis = receivedDeps!.section_analysis;
+		expect(sectionAnalysis).toBeDefined();
+		expect(sectionAnalysis?.data).toBeDefined();
+
+		const data = sectionAnalysis?.data as AggregatedData;
+		expect(data.aggregated).toBe(true);
+		expect(data.sections).toHaveLength(3);
 	});
 
 	test("should provide correct totalSections count", async () => {
@@ -81,15 +123,17 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_dim") {
-					receivedTotal = context.dependencies.section_dim?.data?.totalSections;
+					const sectionDim = context.dependencies.section_dim;
+					const data = sectionDim?.data as AggregatedData | undefined;
+					receivedTotal = data?.totalSections ?? null;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -115,7 +159,7 @@ describe("DagEngine - Section Aggregation", () => {
 	});
 
 	test("should handle partial section results", async () => {
-		let receivedSections: any[] = [];
+		let receivedSections: DimensionResult[] = [];
 
 		class PartialPlugin extends Plugin {
 			constructor() {
@@ -126,16 +170,17 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_dim") {
-					receivedSections =
-						context.dependencies.section_dim?.data?.sections || [];
+					const sectionDim = context.dependencies.section_dim;
+					const data = sectionDim?.data as AggregatedData | undefined;
+					receivedSections = data?.sections ?? [];
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -144,7 +189,7 @@ describe("DagEngine - Section Aggregation", () => {
 		}
 
 		let callCount = 0;
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			callCount++;
 			if (callCount % 2 === 0) {
 				return { error: "Failed" };
@@ -172,7 +217,7 @@ describe("DagEngine - Section Aggregation", () => {
 	});
 
 	test("should handle empty section results", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class EmptyPlugin extends Plugin {
 			constructor() {
@@ -180,13 +225,13 @@ describe("DagEngine - Section Aggregation", () => {
 				this.dimensions = [{ name: "global_dim", scope: "global" as const }];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				receivedDeps = context.dependencies;
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -203,8 +248,10 @@ describe("DagEngine - Section Aggregation", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		expect(receivedDeps.nonexistent_section_dim).toBeDefined();
-		expect(receivedDeps.nonexistent_section_dim.error).toBeDefined();
+		expect(receivedDeps).not.toBeNull();
+		const nonexistentDim = receivedDeps!.nonexistent_section_dim;
+		expect(nonexistentDim).toBeDefined();
+		expect(nonexistentDim?.error).toBeDefined();
 	});
 
 	test("should mark aggregated results correctly", async () => {
@@ -219,15 +266,17 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_dim") {
-					isAggregated = context.dependencies.section_dim?.data?.aggregated;
+					const sectionDim = context.dependencies.section_dim;
+					const data = sectionDim?.data as AggregatedData | undefined;
+					isAggregated = data?.aggregated ?? null;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -252,7 +301,7 @@ describe("DagEngine - Section Aggregation", () => {
 	});
 
 	test("should handle mixed success/failure in aggregation", async () => {
-		let aggregatedResults: any[] = [];
+		let aggregatedResults: DimensionResult[] = [];
 
 		class MixedPlugin extends Plugin {
 			constructor() {
@@ -263,16 +312,17 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_dim") {
-					aggregatedResults =
-						context.dependencies.section_dim?.data?.sections || [];
+					const sectionDim = context.dependencies.section_dim;
+					const data = sectionDim?.data as AggregatedData | undefined;
+					aggregatedResults = data?.sections ?? [];
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -280,22 +330,20 @@ describe("DagEngine - Section Aggregation", () => {
 			}
 		}
 
-		const sectionCallCounts = new Map<number, number>();
+		let sectionCallCount = 0;
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			// The input is 'section_dim' for all section calls
 			if (request.input === "section_dim") {
-				// We need to track this differently - let's use a counter
-				const currentCount = (sectionCallCounts.get(0) || 0) + 1;
-				sectionCallCounts.set(0, currentCount);
+				sectionCallCount++;
 
 				// Make the 2nd section call fail
-				if (currentCount === 2) {
+				if (sectionCallCount === 2) {
 					return { error: "Section 2 failed" };
 				}
 			}
 
-			return { data: { result: `ok` } };
+			return { data: { result: "ok" } };
 		};
 
 		const engine = new DagEngine({
@@ -315,12 +363,12 @@ describe("DagEngine - Section Aggregation", () => {
 
 		expect(aggregatedResults).toHaveLength(3);
 
-		const errorResults = aggregatedResults.filter((r) => r.error);
+		const errorResults = aggregatedResults.filter((r) => r.error !== undefined);
 		expect(errorResults.length).toBeGreaterThan(0);
 	});
 
 	test("should aggregate multiple section dimensions", async () => {
-		let receivedDeps: any = null;
+		let receivedDeps: DimensionDependencies | null = null;
 
 		class MultiAggPlugin extends Plugin {
 			constructor() {
@@ -332,15 +380,15 @@ describe("DagEngine - Section Aggregation", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				if (context.dimension === "global_dim") {
 					receivedDeps = context.dependencies;
 				}
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -362,9 +410,18 @@ describe("DagEngine - Section Aggregation", () => {
 			createMockSection("Section 2"),
 		]);
 
-		expect(receivedDeps.section_dim1).toBeDefined();
-		expect(receivedDeps.section_dim2).toBeDefined();
-		expect(receivedDeps.section_dim1.data.aggregated).toBe(true);
-		expect(receivedDeps.section_dim2.data.aggregated).toBe(true);
+		expect(receivedDeps).not.toBeNull();
+
+		const dim1 = receivedDeps!.section_dim1;
+		const dim2 = receivedDeps!.section_dim2;
+
+		expect(dim1).toBeDefined();
+		expect(dim2).toBeDefined();
+
+		const data1 = dim1?.data as AggregatedData | undefined;
+		const data2 = dim2?.data as AggregatedData | undefined;
+
+		expect(data1?.aggregated).toBe(true);
+		expect(data2?.aggregated).toBe(true);
 	});
 });

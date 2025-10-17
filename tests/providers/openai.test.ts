@@ -3,6 +3,24 @@ import { OpenAIProvider } from "../../src/providers/ai/openai.ts";
 
 const originalFetch = global.fetch;
 
+/**
+ * Mock fetch options structure
+ */
+interface MockFetchOptions {
+	body?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Captured request body structure
+ */
+interface CapturedBody {
+	model?: string;
+	max_tokens?: number;
+	temperature?: number;
+	[key: string]: unknown;
+}
+
 describe("OpenAIProvider", () => {
 	afterEach(() => {
 		global.fetch = originalFetch;
@@ -59,10 +77,12 @@ describe("OpenAIProvider", () => {
 	});
 
 	test("should use default model gpt-4o", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({
@@ -81,10 +101,12 @@ describe("OpenAIProvider", () => {
 	});
 
 	test("should handle custom model", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({
@@ -103,10 +125,12 @@ describe("OpenAIProvider", () => {
 	});
 
 	test("should handle custom parameters", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({
@@ -148,10 +172,12 @@ describe("OpenAIProvider", () => {
 	});
 
 	test("should use default temperature 0.1", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => ({
@@ -224,5 +250,38 @@ describe("OpenAIProvider", () => {
 		expect(result.metadata?.tokens?.inputTokens).toBe(150);
 		expect(result.metadata?.tokens?.outputTokens).toBe(250);
 		expect(result.metadata?.tokens?.totalTokens).toBe(400);
+	});
+
+	test("should handle network errors", async () => {
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+
+		const provider = new OpenAIProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("Network error");
+	});
+
+	test("should handle malformed JSON responses", async () => {
+		const mockResponse = {
+			choices: [{ message: { content: "This is not valid JSON" } }],
+		};
+
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => mockResponse,
+		} as Response);
+
+		const provider = new OpenAIProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("No JSON found");
 	});
 });

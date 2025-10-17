@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type { ProviderSelection } from "../src/types.ts";
 
 describe("ProviderRegistry", () => {
 	test("should register and retrieve providers", () => {
@@ -40,7 +41,7 @@ describe("ProviderRegistry", () => {
 });
 
 // ============================================================================
-// tests/plugin.test.ts - Plugin Tests
+// Plugin Tests
 // ============================================================================
 
 describe("Plugin", () => {
@@ -58,8 +59,8 @@ describe("Plugin", () => {
 				return "";
 			}
 
-			selectProvider(): any {
-				return { provider: "test" };
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
 			}
 		}
 
@@ -83,8 +84,8 @@ describe("Plugin", () => {
 				return "";
 			}
 
-			selectProvider(): any {
-				return { provider: "test" };
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
 			}
 		}
 
@@ -105,13 +106,97 @@ describe("Plugin", () => {
 				return "";
 			}
 
-			selectProvider(): any {
-				return { provider: "test" };
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
 			}
 		}
 
 		const plugin = new TestPlugin();
 
 		expect(() => plugin.getDimensionConfig("unknown")).toThrow("not found");
+	});
+
+	test("should get dimension config", () => {
+		class TestPlugin extends Plugin {
+			constructor() {
+				super("test", "Test", "Test");
+				this.dimensions = [
+					"simple",
+					{ name: "complex", scope: "global" as const },
+				];
+			}
+
+			createPrompt(): string {
+				return "";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
+			}
+		}
+
+		const plugin = new TestPlugin();
+
+		const simpleConfig = plugin.getDimensionConfig("simple");
+		expect(simpleConfig.name).toBe("simple");
+		expect(simpleConfig.scope).toBe("section");
+
+		const complexConfig = plugin.getDimensionConfig("complex");
+		expect(complexConfig).toEqual({ name: "complex", scope: "global" });
+	});
+
+	test("should handle mixed dimension types", () => {
+		class TestPlugin extends Plugin {
+			constructor() {
+				super("test", "Test", "Test");
+				this.dimensions = [
+					"dim1",
+					{ name: "dim2", scope: "section" as const },
+					{ name: "dim3", scope: "global" as const },
+					"dim4",
+				];
+			}
+
+			createPrompt(): string {
+				return "";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
+			}
+		}
+
+		const plugin = new TestPlugin();
+		const names = plugin.getDimensionNames();
+
+		expect(names).toEqual(["dim1", "dim2", "dim3", "dim4"]);
+		expect(plugin.isGlobalDimension("dim1")).toBe(false);
+		expect(plugin.isGlobalDimension("dim2")).toBe(false);
+		expect(plugin.isGlobalDimension("dim3")).toBe(true);
+		expect(plugin.isGlobalDimension("dim4")).toBe(false);
+	});
+
+	test("should validate plugin properties", () => {
+		class TestPlugin extends Plugin {
+			constructor() {
+				super("my-plugin", "My Plugin", "A test plugin");
+				this.dimensions = ["test"];
+			}
+
+			createPrompt(): string {
+				return "test prompt";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "test", options: {} };
+			}
+		}
+
+		const plugin = new TestPlugin();
+
+		expect(plugin.id).toBe("my-plugin");
+		expect(plugin.name).toBe("My Plugin");
+		expect(plugin.description).toBe("A test plugin");
+		expect(plugin.dimensions).toHaveLength(1);
 	});
 });

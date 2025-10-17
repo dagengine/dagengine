@@ -1,21 +1,37 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
-import { DagEngine } from "../../src/core/engine";
-import { Plugin } from "../../src/plugin";
-import { ProviderAdapter } from "../../src/providers/adapter";
-import type { SectionData, SectionDimensionContext } from "../../src/types";
+import { DagEngine } from "../../src/core/engine/dag-engine.ts";
+import { Plugin } from "../../src/plugin.ts";
+import { ProviderAdapter } from "../../src/providers/adapter.ts";
+import type {
+	SectionData,
+	SectionDimensionContext,
+	ProviderResponse,
+	PromptContext,
+	ProviderSelection,
+} from "../../src/types.ts";
 
-// Mock provider that tracks calls
+/**
+ * Call log entry structure
+ */
+interface CallLogEntry {
+	dimension: string;
+	content: string;
+}
+
+/**
+ * Mock provider that tracks calls
+ */
 class MockProvider {
 	name = "mock";
-	callLog: Array<{ dimension: string; content: string }> = [];
+	callLog: CallLogEntry[] = [];
 
 	async execute(request: {
 		input: string | string[];
 		options?: Record<string, unknown>;
 		dimension?: string;
 		isGlobal?: boolean;
-	}) {
-		const dimension = request.dimension || "unknown";
+	}): Promise<ProviderResponse | void> {
+		const dimension = request.dimension ?? "unknown";
 		const input = Array.isArray(request.input)
 			? request.input[0]
 			: request.input;
@@ -41,7 +57,7 @@ class MockProvider {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.callLog = [];
 	}
 
@@ -61,7 +77,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should process all dimensions when shouldSkipDimension is not defined", async () => {
@@ -71,15 +87,13 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				this.dimensions = ["dim1", "dim2", "dim3"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
-
-			// No shouldSkipDimension method
 		}
 
 		const plugin = new NoSkipPlugin();
@@ -88,10 +102,9 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test content", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test content", metadata: {} }];
 		await engine.process(sections);
 
-		// All 3 dimensions should be called
 		expect(mockProvider.getTotalCalls()).toBe(3);
 		expect(mockProvider.getDimensionCallCount("dim1")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(1);
@@ -105,17 +118,16 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				this.dimensions = ["dim1", "dim2", "dim3"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
-				return context.dimension === "dim2"; // Skip only dim2
+				return context.dimension === "dim2";
 			}
 		}
 
@@ -125,16 +137,14 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test content", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test content", metadata: {} }];
 		const result = await engine.process(sections);
 
-		// Only dim1 and dim3 should be called (dim2 skipped)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 		expect(mockProvider.getDimensionCallCount("dim1")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(0);
 		expect(mockProvider.getDimensionCallCount("dim3")).toBe(1);
 
-		// Verify skipped dimension is marked in results
 		const sectionResults = result.sections[0]?.results;
 		expect(sectionResults?.dim2?.data).toEqual({
 			skipped: true,
@@ -149,18 +159,16 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				this.dimensions = ["dim1", "dim2", "dim3", "dim4"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension } = context;
-				// Skip dim2 and dim4
 				return dimension === "dim2" || dimension === "dim4";
 			}
 		}
@@ -171,10 +179,9 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test content", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test content", metadata: {} }];
 		await engine.process(sections);
 
-		// Only dim1 and dim3 should be called
 		expect(mockProvider.getTotalCalls()).toBe(2);
 		expect(mockProvider.getDimensionCallCount("dim1")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(0);
@@ -189,17 +196,16 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				this.dimensions = ["dim1", "dim2"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
-				return false; // Never skip
+			shouldSkipDimension(_context: SectionDimensionContext): boolean {
+				return false;
 			}
 		}
 
@@ -209,10 +215,9 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 		await engine.process(sections);
 
-		// Both dimensions should be called
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 });
@@ -224,7 +229,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should skip dimension based on section content", async () => {
@@ -238,30 +243,26 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const content = section.content.toLowerCase();
 
 				if (dimension === "extract_code") {
-					// Only process if content has code markers
 					return !/```|function|class|def |import |const /.test(content);
 				}
 
 				if (dimension === "analyze_sentiment") {
-					// Only process if content looks like a review
 					return !/review|opinion|feedback|rating/i.test(content);
 				}
 
-				// Always process general_summary
 				return false;
 			}
 		}
@@ -272,7 +273,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "This is a great product! Review: 5 stars", metadata: {} },
 			{ content: 'function hello() { return "world"; }', metadata: {} },
 			{ content: "Just some random text about nothing special", metadata: {} },
@@ -281,16 +282,10 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1 (review): analyze_sentiment + general_summary (2 calls)
-		// Section 2 (code): extract_code + general_summary (2 calls)
-		// Section 3 (random): only general_summary (1 call)
-		// Total: 5 calls
 		expect(mockProvider.getTotalCalls()).toBe(5);
-
-		// Verify specific calls
-		expect(mockProvider.getDimensionCallCount("extract_code")).toBe(1); // Only section 2
-		expect(mockProvider.getDimensionCallCount("analyze_sentiment")).toBe(1); // Only section 1
-		expect(mockProvider.getDimensionCallCount("general_summary")).toBe(3); // All sections
+		expect(mockProvider.getDimensionCallCount("extract_code")).toBe(1);
+		expect(mockProvider.getDimensionCallCount("analyze_sentiment")).toBe(1);
+		expect(mockProvider.getDimensionCallCount("general_summary")).toBe(3);
 	});
 
 	test("should skip dimension based on content length", async () => {
@@ -300,25 +295,22 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				this.dimensions = ["quick_summary", "deep_analysis"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 
 				if (dimension === "deep_analysis") {
-					// Only do deep analysis for content > 100 chars
 					return section.content.length < 100;
 				}
 
 				if (dimension === "quick_summary") {
-					// Skip quick summary for very short content
 					return section.content.length < 20;
 				}
 
@@ -332,19 +324,15 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
-			{ content: "Hi", metadata: {} }, // Too short for both
-			{ content: "This is medium length content", metadata: {} }, // Only quick_summary
-			{ content: "x".repeat(150), metadata: {} }, // Both dimensions
+		const sections: SectionData[] = [
+			{ content: "Hi", metadata: {} },
+			{ content: "This is medium length content", metadata: {} },
+			{ content: "x".repeat(150), metadata: {} },
 		];
 
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1: 0 calls (too short)
-		// Section 2: 1 call (quick_summary only)
-		// Section 3: 2 calls (both)
-		// Total: 3 calls
 		expect(mockProvider.getTotalCalls()).toBe(3);
 	});
 
@@ -355,29 +343,28 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				this.dimensions = ["extract_emails", "extract_urls", "extract_phone"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const content = section.content;
 
 				if (dimension === "extract_emails") {
-					return !/@/.test(content); // Skip if no @ symbol
+					return !/@/.test(content);
 				}
 
 				if (dimension === "extract_urls") {
-					return !/https?:\/\//.test(content); // Skip if no URLs
+					return !/https?:\/\//.test(content);
 				}
 
 				if (dimension === "extract_phone") {
-					return !/\d{3}[-.]?\d{3}[-.]?\d{4}/.test(content); // Skip if no phone pattern
+					return !/\d{3}[-.]?\d{3}[-.]?\d{4}/.test(content);
 				}
 
 				return false;
@@ -390,7 +377,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Contact me at user@example.com", metadata: {} },
 			{ content: "Visit https://example.com for more info", metadata: {} },
 			{ content: "Call 555-123-4567 or 555.987.6543", metadata: {} },
@@ -400,11 +387,6 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1: extract_emails only (1 call)
-		// Section 2: extract_urls only (1 call)
-		// Section 3: extract_phone only (1 call)
-		// Section 4: 0 calls
-		// Total: 3 calls
 		expect(mockProvider.getTotalCalls()).toBe(3);
 		expect(mockProvider.getDimensionCallCount("extract_emails")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("extract_urls")).toBe(1);
@@ -419,7 +401,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should skip dimension based on section metadata", async () => {
@@ -429,20 +411,18 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				this.dimensions = ["expensive_analysis", "cheap_analysis"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 
 				if (dimension === "expensive_analysis") {
-					// Only run if explicitly enabled
 					return section.metadata.runExpensiveAnalysis !== true;
 				}
 				return false;
@@ -455,7 +435,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Content 1", metadata: { runExpensiveAnalysis: true } },
 			{ content: "Content 2", metadata: {} },
 			{ content: "Content 3", metadata: { runExpensiveAnalysis: false } },
@@ -464,10 +444,6 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1: Both dimensions (2 calls)
-		// Section 2: Only cheap_analysis (1 call)
-		// Section 3: Only cheap_analysis (1 call)
-		// Total: 4 calls
 		expect(mockProvider.getTotalCalls()).toBe(4);
 		expect(mockProvider.getDimensionCallCount("expensive_analysis")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("cheap_analysis")).toBe(3);
@@ -480,15 +456,14 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				this.dimensions = ["extract_code", "extract_text", "analyze_image"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const fileType = section.metadata.fileType as string | undefined;
@@ -515,7 +490,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "function() {}", metadata: { fileType: "code" } },
 			{ content: "Plain text", metadata: { fileType: "text" } },
 			{ content: "image data", metadata: { fileType: "image" } },
@@ -524,8 +499,6 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Each section should only call its matching dimension (1 call each)
-		// Total: 3 calls
 		expect(mockProvider.getTotalCalls()).toBe(3);
 		expect(mockProvider.getDimensionCallCount("extract_code")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("extract_text")).toBe(1);
@@ -543,15 +516,14 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const priority = section.metadata.priority as string | undefined;
@@ -564,7 +536,6 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 					return priority === "low";
 				}
 
-				// basic_check always runs
 				return false;
 			}
 		}
@@ -575,7 +546,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "High priority", metadata: { priority: "high" } },
 			{ content: "Medium priority", metadata: { priority: "medium" } },
 			{ content: "Low priority", metadata: { priority: "low" } },
@@ -584,10 +555,6 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1 (high): All 3 dimensions (3 calls)
-		// Section 2 (medium): basic_check + standard_analysis (2 calls)
-		// Section 3 (low): Only basic_check (1 call)
-		// Total: 6 calls
 		expect(mockProvider.getTotalCalls()).toBe(6);
 		expect(mockProvider.getDimensionCallCount("basic_check")).toBe(3);
 		expect(mockProvider.getDimensionCallCount("standard_analysis")).toBe(2);
@@ -602,7 +569,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should handle async shouldSkipDimension returning Promise<true>", async () => {
@@ -612,20 +579,18 @@ describe("shouldSkipDimension - Async Routing", () => {
 				this.dimensions = ["dim1", "dim2", "dim3"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			async shouldSkipDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
-				// Simulate async operation
-				await new Promise((resolve) => setTimeout(resolve, 10));
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
 				return context.dimension === "dim2";
 			}
 		}
@@ -636,10 +601,9 @@ describe("shouldSkipDimension - Async Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 		await engine.process(sections);
 
-		// Only dim1 and dim3 should be called (dim2 skipped)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 		expect(mockProvider.getDimensionCallCount("dim1")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(0);
@@ -647,7 +611,6 @@ describe("shouldSkipDimension - Async Routing", () => {
 	});
 
 	test("should handle async cache lookup to skip already processed dimensions", async () => {
-		// Simulate a cache
 		const processedCache = new Set<string>(["analysis:doc2", "analysis:doc4"]);
 
 		class CachedPlugin extends Plugin {
@@ -656,21 +619,19 @@ describe("shouldSkipDimension - Async Routing", () => {
 				this.dimensions = ["analysis"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			async shouldSkipDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				const { dimension, section } = context;
-				// Simulate async cache check
-				await new Promise((resolve) => setTimeout(resolve, 5));
+				await new Promise<void>((resolve) => setTimeout(resolve, 5));
 				const cacheKey = `${dimension}:${section.metadata.id}`;
 				return processedCache.has(cacheKey);
 			}
@@ -682,7 +643,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Doc 1", metadata: { id: "doc1" } },
 			{ content: "Doc 2", metadata: { id: "doc2" } },
 			{ content: "Doc 3", metadata: { id: "doc3" } },
@@ -692,18 +653,15 @@ describe("shouldSkipDimension - Async Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Should process doc1 and doc3 only (doc2 and doc4 cached)
-		// Total: 2 calls
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
 	test("should handle async API check to determine skip", async () => {
-		// Simulate external API that says skip even-numbered docs
 		const externalAPI = {
 			async shouldProcess(documentId: string): Promise<boolean> {
-				await new Promise((resolve) => setTimeout(resolve, 5));
+				await new Promise<void>((resolve) => setTimeout(resolve, 5));
 				const id = parseInt(documentId.replace("doc", ""));
-				return id % 2 !== 0; // Process only odd IDs
+				return id % 2 !== 0;
 			},
 		};
 
@@ -713,15 +671,14 @@ describe("shouldSkipDimension - Async Routing", () => {
 				this.dimensions = ["processing"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			async shouldSkipDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
@@ -739,7 +696,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Doc 1", metadata: { id: "doc1" } },
 			{ content: "Doc 2", metadata: { id: "doc2" } },
 			{ content: "Doc 3", metadata: { id: "doc3" } },
@@ -749,7 +706,6 @@ describe("shouldSkipDimension - Async Routing", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Should process doc1 and doc3 only (odd IDs)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
@@ -760,28 +716,25 @@ describe("shouldSkipDimension - Async Routing", () => {
 				this.dimensions = ["quick_check", "deep_analysis"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			async shouldSkipDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				const { dimension, section } = context;
 
-				// Quick sync check first
 				if (section.content.length < 10) {
-					return true; // Skip short content immediately
+					return true;
 				}
 
-				// Async check for expensive dimension
 				if (dimension === "deep_analysis") {
-					await new Promise((resolve) => setTimeout(resolve, 5));
+					await new Promise<void>((resolve) => setTimeout(resolve, 5));
 					return section.metadata.priority !== "high";
 				}
 
@@ -795,19 +748,15 @@ describe("shouldSkipDimension - Async Routing", () => {
 			providers: adapter,
 		});
 
-		const sections = [
-			{ content: "Hi", metadata: {} }, // Too short
-			{ content: "Medium length content", metadata: { priority: "low" } }, // Skip deep_analysis
-			{ content: "Another medium content", metadata: { priority: "high" } }, // Process both
+		const sections: SectionData[] = [
+			{ content: "Hi", metadata: {} },
+			{ content: "Medium length content", metadata: { priority: "low" } },
+			{ content: "Another medium content", metadata: { priority: "high" } },
 		];
 
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1: 0 calls (too short)
-		// Section 2: 1 call (quick_check only)
-		// Section 3: 2 calls (both)
-		// Total: 3 calls
 		expect(mockProvider.getTotalCalls()).toBe(3);
 	});
 });
@@ -819,7 +768,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should apply skip logic independently to each section", async () => {
@@ -833,18 +782,16 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				this.dimensions = ["dimension1"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
-				// Skip sections with "skip" in content
 				return section.content.includes("skip");
 			}
 		}
@@ -855,7 +802,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 			providers: adapter,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Process this", metadata: {} },
 			{ content: "skip this one", metadata: {} },
 			{ content: "Process this too", metadata: {} },
@@ -865,7 +812,6 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Only sections 1 and 3 should be processed (2 calls)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
@@ -876,30 +822,29 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				this.dimensions = ["extract", "analyze", "summarize"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const isShort = section.content.length < 50;
 				const hasCode = /```|function/.test(section.content);
 
 				if (dimension === "extract") {
-					return !hasCode; // Only extract if has code
+					return !hasCode;
 				}
 
 				if (dimension === "analyze") {
-					return isShort; // Skip if short
+					return isShort;
 				}
 
 				if (dimension === "summarize") {
-					return isShort; // Skip if short
+					return isShort;
 				}
 
 				return false;
@@ -912,19 +857,15 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 			providers: adapter,
 		});
 
-		const sections = [
-			{ content: "Hi", metadata: {} }, // Short, no code
-			{ content: "function test() {}", metadata: {} }, // Has code, short
-			{ content: "x".repeat(100), metadata: {} }, // Long, no code
+		const sections: SectionData[] = [
+			{ content: "Hi", metadata: {} },
+			{ content: "function test() {}", metadata: {} },
+			{ content: "x".repeat(100), metadata: {} },
 		];
 
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Section 1: 0 calls (all skipped)
-		// Section 2: 1 call (only extract)
-		// Section 3: 2 calls (analyze + summarize, no extract)
-		// Total: 3 calls
 		expect(mockProvider.getTotalCalls()).toBe(3);
 		expect(mockProvider.getDimensionCallCount("extract")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("analyze")).toBe(1);
@@ -938,18 +879,16 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				this.dimensions = ["process"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
-				// Skip every other section
 				return (section.metadata.index as number) % 2 === 1;
 			}
 		}
@@ -958,10 +897,10 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 		const engine = new DagEngine({
 			plugin,
 			providers: adapter,
-			concurrency: 10, // High concurrency
+			concurrency: 10,
 		});
 
-		const sections = Array.from({ length: 20 }, (_, i) => ({
+		const sections: SectionData[] = Array.from({ length: 20 }, (_, i) => ({
 			content: `Section ${i}`,
 			metadata: { index: i },
 		}));
@@ -969,7 +908,6 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 		mockProvider.reset();
 		await engine.process(sections);
 
-		// Should process 10 sections (even indices: 0, 2, 4, ..., 18)
 		expect(mockProvider.getTotalCalls()).toBe(10);
 	});
 });
@@ -977,12 +915,12 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 describe("shouldSkipDimension - Error Handling", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: any;
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 	});
 
@@ -997,15 +935,14 @@ describe("shouldSkipDimension - Error Handling", () => {
 				this.dimensions = ["dim1", "dim2"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature (but still throws error)
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				if (context.dimension === "dim2") {
 					throw new Error("shouldSkipDimension threw an error");
@@ -1020,15 +957,12 @@ describe("shouldSkipDimension - Error Handling", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 
-		// Should not throw - should continue processing
 		await expect(engine.process(sections)).resolves.toBeDefined();
 
-		// Should log error
 		expect(consoleErrorSpy).toHaveBeenCalled();
 
-		// Should still process dim2 (default to false on error)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 		expect(mockProvider.getDimensionCallCount("dim1")).toBe(1);
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(1);
@@ -1041,19 +975,18 @@ describe("shouldSkipDimension - Error Handling", () => {
 				this.dimensions = ["dim1", "dim2"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			async shouldSkipDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
-				await new Promise((resolve) => setTimeout(resolve, 5));
+				await new Promise<void>((resolve) => setTimeout(resolve, 5));
 
 				if (context.dimension === "dim2") {
 					throw new Error("Async error in shouldSkipDimension");
@@ -1069,15 +1002,12 @@ describe("shouldSkipDimension - Error Handling", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 
-		// Should not throw
 		await expect(engine.process(sections)).resolves.toBeDefined();
 
-		// Should log error
 		expect(consoleErrorSpy).toHaveBeenCalled();
 
-		// Should still process both dimensions (default to false on error)
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
@@ -1088,16 +1018,15 @@ describe("shouldSkipDimension - Error Handling", () => {
 				this.dimensions = ["dim1"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Still returns rejected promise but signature is correct
-			shouldSkipDimension(context: SectionDimensionContext): Promise<boolean> {
+			shouldSkipDimension(_context: SectionDimensionContext): Promise<boolean> {
 				return Promise.reject(new Error("Promise rejected"));
 			}
 		}
@@ -1108,15 +1037,12 @@ describe("shouldSkipDimension - Error Handling", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 
-		// Should not throw
 		await expect(engine.process(sections)).resolves.toBeDefined();
 
-		// Should log error
 		expect(consoleErrorSpy).toHaveBeenCalled();
 
-		// Should still process dimension (default to false on error)
 		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 
@@ -1127,17 +1053,16 @@ describe("shouldSkipDimension - Error Handling", () => {
 				this.dimensions = ["dim1"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Signature correct, return value is null
-			shouldSkipDimension(context: SectionDimensionContext): any {
-				return null; // Invalid return type
+			shouldSkipDimension(_context: SectionDimensionContext): boolean {
+				return null as unknown as boolean;
 			}
 		}
 
@@ -1147,9 +1072,8 @@ describe("shouldSkipDimension - Error Handling", () => {
 			providers: adapter,
 		});
 
-		const sections = [{ content: "Test", metadata: {} }];
+		const sections: SectionData[] = [{ content: "Test", metadata: {} }];
 
-		// Should process (treat falsy as false)
 		await engine.process(sections);
 
 		expect(mockProvider.getTotalCalls()).toBe(1);
@@ -1163,7 +1087,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should work correctly with dependencies", async () => {
@@ -1173,25 +1097,23 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				this.dimensions = ["extract", "analyze", "summarize"];
 			}
 
-			defineDependencies() {
+			defineDependencies(): Record<string, string[]> {
 				return {
 					analyze: ["extract"],
 					summarize: ["analyze"],
 				};
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
-				// Skip extract for some sections
 				if (dimension === "extract") {
 					return section.content.includes("no-extract");
 				}
@@ -1206,7 +1128,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 			continueOnError: true,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Process all", metadata: {} },
 			{ content: "no-extract flag here", metadata: {} },
 		];
@@ -1214,9 +1136,6 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		mockProvider.reset();
 		const result = await engine.process(sections);
 
-		// Section 1: All 3 dimensions (extract, analyze, summarize)
-		// Section 2: analyze and summarize still run (extract skipped)
-		// Verify results exist for all dimensions
 		expect(result.sections).toHaveLength(2);
 	});
 
@@ -1227,18 +1146,16 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				this.dimensions = ["cheap", "expensive"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
-				// Skip expensive for most sections
 				return (
 					dimension === "expensive" && section.metadata.allowExpensive !== true
 				);
@@ -1256,34 +1173,31 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 			},
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Section 1", metadata: {} },
 			{ content: "Section 2", metadata: { allowExpensive: true } },
 		];
 
 		const result = await engine.process(sections);
 
-		// Costs should only include executed dimensions
 		expect(result.costs).toBeDefined();
 		expect(result.costs!.byDimension).toHaveProperty("cheap");
 		expect(result.costs!.totalCost).toBeGreaterThan(0);
 
-		// expensive dimension should have fewer tokens (only 1 section)
 		if (result.costs!.byDimension.expensive) {
 			expect(
 				result.costs!.byDimension.expensive.tokens.totalTokens,
 			).toBeLessThan(
-				result.costs!.byDimension.cheap?.tokens.totalTokens || Infinity,
+				result.costs!.byDimension.cheap?.tokens.totalTokens ?? Infinity,
 			);
 		}
 	});
 
 	test("should work with provider fallback", async () => {
-		// Provider that fails first time
 		let failCount = 0;
 		const unreliableProvider = {
 			name: "unreliable",
-			async execute() {
+			async execute(): Promise<ProviderResponse> {
 				failCount++;
 				if (failCount <= 2) {
 					throw new Error("Provider temporarily unavailable");
@@ -1301,7 +1215,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 
 		const fallbackProvider = {
 			name: "fallback",
-			async execute() {
+			async execute(): Promise<ProviderResponse> {
 				return {
 					data: { result: "fallback result" },
 					metadata: {
@@ -1314,8 +1228,8 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		};
 
 		const adapter = new ProviderAdapter({});
-		adapter.registerProvider(unreliableProvider as any);
-		adapter.registerProvider(fallbackProvider as any);
+		adapter.registerProvider(unreliableProvider as never);
+		adapter.registerProvider(fallbackProvider as never);
 
 		class FallbackPlugin extends Plugin {
 			constructor() {
@@ -1323,11 +1237,11 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				this.dimensions = ["process"];
 			}
 
-			createPrompt(context: any) {
+			createPrompt(context: PromptContext): string {
 				return `[DIMENSION: ${context.dimension}] test prompt`;
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return {
 					provider: "unreliable",
 					options: {},
@@ -1335,7 +1249,6 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				};
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				return section.metadata.skip === true;
@@ -1346,10 +1259,10 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		const engine = new DagEngine({
 			plugin,
 			providers: adapter,
-			maxRetries: 0, // Fail fast to test fallback
+			maxRetries: 0,
 		});
 
-		const sections = [
+		const sections: SectionData[] = [
 			{ content: "Process", metadata: {} },
 			{ content: "Skip", metadata: { skip: true } },
 		];
@@ -1357,8 +1270,6 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		failCount = 0;
 		const result = await engine.process(sections);
 
-		// First section should use fallback provider
-		// Second section should be skipped
 		expect(result.sections).toHaveLength(2);
 		expect(result.sections[0]?.results.process?.data).toBeDefined();
 		expect(result.sections[1]?.results.process?.data).toEqual({

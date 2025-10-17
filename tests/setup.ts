@@ -3,13 +3,16 @@ import {
 	type ProviderConfig,
 	type ProviderRequest,
 	type ProviderResponse,
-} from "../src/providers/types";
+} from "../src/providers/types.ts";
+import type { SectionData } from "../src/types.ts";
 
-// Mock AI Provider
+/**
+ * Mock AI Provider for testing
+ */
 export class MockAIProvider extends BaseProvider {
 	public callCount = 0;
 	public lastRequest: ProviderRequest | null = null;
-	public mockResponses: Map<string, any> = new Map();
+	public mockResponses: Map<string, unknown> = new Map();
 	public shouldFail = false;
 	public delay = 0;
 
@@ -17,16 +20,22 @@ export class MockAIProvider extends BaseProvider {
 		super("mock-ai", config);
 	}
 
-	setMockResponse(input: string, response: any): void {
+	/**
+	 * Set a mock response for a specific input
+	 */
+	setMockResponse(input: string, response: unknown): void {
 		this.mockResponses.set(input, response);
 	}
 
+	/**
+	 * Execute the mock request
+	 */
 	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		this.callCount++;
 		this.lastRequest = request;
 
 		if (this.delay > 0) {
-			await new Promise((resolve) => setTimeout(resolve, this.delay));
+			await new Promise<void>((resolve) => setTimeout(resolve, this.delay));
 		}
 
 		if (this.shouldFail) {
@@ -39,6 +48,9 @@ export class MockAIProvider extends BaseProvider {
 		return { data: response };
 	}
 
+	/**
+	 * Reset the mock provider state
+	 */
 	reset(): void {
 		this.callCount = 0;
 		this.lastRequest = null;
@@ -46,16 +58,27 @@ export class MockAIProvider extends BaseProvider {
 		this.delay = 0;
 	}
 
-	getNativeBaseUrl() {
-		return '';
+	/**
+	 * Get the native base URL (not used for mock provider)
+	 */
+	protected getNativeBaseUrl(): string {
+		return "";
 	}
 }
 
-// Test utilities
-export function createMockSection(content: string, metadata = {}): any {
+/**
+ * Create a mock section for testing
+ */
+export function createMockSection(
+	content: string,
+	metadata: Record<string, unknown> = {},
+): SectionData {
 	return { content, metadata };
 }
 
+/**
+ * Sleep utility for testing
+ */
 export function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+	return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }

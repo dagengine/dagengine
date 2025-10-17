@@ -16,15 +16,39 @@ import type {
 	DimensionResult,
 	DimensionDependencies,
 	ProviderRequest,
+	ProviderResponse,
 	DimensionContext,
 	SectionDimensionContext,
 	ProviderContext,
 	RetryContext,
 	FallbackContext,
 	FailureContext,
+	RetryResponse,
+	FallbackResponse,
 } from "../../types.ts";
 import type { ProviderAttempt, AttemptRecord } from "../shared/types.ts";
 import { ProviderNotFoundError, AllProvidersFailed } from "../shared/errors.ts";
+
+/**
+ * Provider selection configuration
+ */
+interface ProviderConfig {
+	provider: string;
+	options: Record<string, unknown>;
+	fallbacks?: Array<{
+		provider: string;
+		options: Record<string, unknown>;
+		retryAfter?: number;
+	}>;
+}
+
+/**
+ * Internal retry result
+ */
+interface RetryResult {
+	shouldContinue: boolean;
+	modifiedRequest?: ProviderRequest;
+}
 
 /**
  * Handles provider execution with retry and fallback logic
@@ -72,7 +96,12 @@ export class ProviderExecutor {
 		);
 
 		// Get provider configuration (use first section, should always exist at this point)
-		const providerConfig = await this.selectProvider(dimension, sections[0]!);
+		const firstSection = sections[0];
+		if (!firstSection) {
+			throw new Error(`No sections provided for dimension "${dimension}"`);
+		}
+
+		const providerConfig = await this.selectProvider(dimension, firstSection);
 
 		// Build list of providers to try (primary + fallbacks)
 		const providersToTry = this.buildProviderChain(providerConfig);
@@ -88,8 +117,13 @@ export class ProviderExecutor {
 		);
 	}
 
-	// ===== PRIVATE METHODS =====
+	// ============================================================================
+	// PRIVATE METHODS
+	// ============================================================================
 
+	/**
+	 * Create prompt for dimension execution
+	 */
 	private async createPrompt(
 		dimension: string,
 		sections: SectionData[],
@@ -111,22 +145,40 @@ export class ProviderExecutor {
 		}
 	}
 
-	private async selectProvider(dimension: string, section: SectionData) {
+	/**
+	 * Select provider for dimension
+	 */
+	private async selectProvider(
+		dimension: string,
+		section: SectionData,
+	): Promise<ProviderConfig> {
 		return await Promise.resolve(
 			this.plugin.selectProvider(dimension, section),
 		);
 	}
 
-	private buildProviderChain(providerConfig: any): ProviderAttempt[] {
+	/**
+	 * Build chain of providers to try (primary + fallbacks)
+	 */
+	private buildProviderChain(providerConfig: ProviderConfig): ProviderAttempt[] {
+		const fallbacks = providerConfig.fallbacks ?? [];
+
 		return [
 			{
 				provider: providerConfig.provider,
 				options: providerConfig.options,
 			},
-			...(providerConfig.fallbacks || []),
+			...fallbacks.map(f => ({
+				provider: f.provider,
+				options: f.options,
+				retryAfter: f.retryAfter,
+			})),
 		];
 	}
 
+	/**
+	 * Execute with fallback logic (gateway vs direct mode)
+	 */
 	private async executeWithFallbacks(
 		dimension: string,
 		prompt: string,
@@ -136,7 +188,11 @@ export class ProviderExecutor {
 		dimensionContext: DimensionContext | SectionDimensionContext,
 	): Promise<DimensionResult> {
 		// Check if using gateway
-		const primaryProvider = providersToTry[0]!;
+		const primaryProvider = providersToTry[0];
+		if (!primaryProvider) {
+			throw new Error(`No providers available for dimension "${dimension}"`);
+		}
+
 		const provider = this.adapter.getProvider(primaryProvider.provider);
 
 		if (provider.isUsingGateway?.()) {
@@ -269,7 +325,8 @@ export class ProviderExecutor {
 			providerIdx < providersToTry.length;
 			providerIdx++
 		) {
-			const currentProvider = providersToTry[providerIdx]!;
+			const currentProvider = providersToTry[providerIdx];
+			if (!currentProvider) continue;
 
 			// Validate provider exists
 			if (!this.adapter.hasProvider(currentProvider.provider)) {
@@ -341,7 +398,8 @@ export class ProviderExecutor {
 
 				// Try fallback if available
 				if (providerIdx < providersToTry.length - 1) {
-					const nextProvider = providersToTry[providerIdx + 1]!;
+					const nextProvider = providersToTry[providerIdx + 1];
+					if (!nextProvider) continue;
 
 					// Execute handleProviderFallback hook
 					const shouldContinue = await this.handleFallback(
@@ -359,7 +417,7 @@ export class ProviderExecutor {
 
 					console.warn(
 						`Provider "${currentProvider.provider}" failed for dimension "${dimension}". ` +
-							`Trying fallback provider "${nextProvider.provider}"...`,
+						`Trying fallback provider "${nextProvider.provider}"...`,
 					);
 				}
 			}
@@ -367,13 +425,13 @@ export class ProviderExecutor {
 
 		// All providers failed - try dimension failure hook
 		const fallbackResult = await this.handleDimensionFailure(
-			lastProviderContext || {
+			lastProviderContext ?? {
 				...dimensionContext,
 				request: currentRequest,
 				provider: "unknown",
 				providerOptions: {},
 			},
-			lastError!,
+			lastError ?? new Error("Unknown error"),
 			previousAttempts,
 			providersToTry.map((p) => p.provider),
 		);
@@ -386,17 +444,20 @@ export class ProviderExecutor {
 		throw new AllProvidersFailed(
 			dimension,
 			providersToTry.map((p) => p.provider),
-			lastError || new Error("Unknown error"),
+			lastError ?? new Error("Unknown error"),
 		);
 	}
 
+	/**
+	 * Execute provider with retry logic
+	 */
 	private async executeWithRetries(
 		provider: ProviderAttempt,
 		request: ProviderRequest,
 		providerContext: ProviderContext,
 		previousAttempts: AttemptRecord[],
 		dimension: string,
-	) {
+	): Promise<ProviderResponse> {
 		// Track the current request, which may be modified by retry hook
 		let currentRequest = request;
 
@@ -456,20 +517,23 @@ export class ProviderExecutor {
 				onFailedAttempt: (error) => {
 					console.warn(
 						`Attempt ${error.attemptNumber} failed for dimension "${dimension}" ` +
-							`with provider "${provider.provider}". ${error.retriesLeft} retries left.`,
+						`with provider "${provider.provider}". ${error.retriesLeft} retries left.`,
 					);
 				},
 			},
 		);
 	}
 
+	/**
+	 * Handle retry hook execution
+	 */
 	private async handleRetry(
 		providerContext: ProviderContext,
 		error: Error,
 		attemptNumber: number,
 		previousAttempts: AttemptRecord[],
 		currentProvider: ProviderAttempt,
-	): Promise<{ shouldContinue: boolean; modifiedRequest?: ProviderRequest }> {
+	): Promise<RetryResult> {
 		const retryContext: RetryContext = {
 			...providerContext,
 			error,
@@ -478,7 +542,8 @@ export class ProviderExecutor {
 			previousAttempts: [...previousAttempts],
 		};
 
-		const retryResponse = await this.hookExecutor.handleRetry(retryContext);
+		const retryResponse: RetryResponse =
+			await this.hookExecutor.handleRetry(retryContext);
 
 		if (retryResponse.shouldRetry === false) {
 			return { shouldContinue: false };
@@ -492,11 +557,8 @@ export class ProviderExecutor {
 			currentProvider.provider = retryResponse.modifiedProvider;
 		}
 
-		// Build return object, only including modifiedRequest if it exists
-		const result: {
-			shouldContinue: boolean;
-			modifiedRequest?: ProviderRequest;
-		} = {
+		// Build return object
+		const result: RetryResult = {
 			shouldContinue: true,
 		};
 
@@ -507,6 +569,9 @@ export class ProviderExecutor {
 		return result;
 	}
 
+	/**
+	 * Handle fallback hook execution
+	 */
 	private async handleFallback(
 		providerContext: ProviderContext,
 		error: Error,
@@ -526,7 +591,7 @@ export class ProviderExecutor {
 			fallbackOptions: nextProvider.options,
 		};
 
-		const fallbackResponse =
+		const fallbackResponse: FallbackResponse =
 			await this.hookExecutor.handleFallback(fallbackContext);
 
 		if (fallbackResponse.shouldFallback === false) {
@@ -548,6 +613,9 @@ export class ProviderExecutor {
 		return true;
 	}
 
+	/**
+	 * Handle dimension failure hook execution
+	 */
 	private async handleDimensionFailure(
 		providerContext: ProviderContext,
 		error: Error,
@@ -567,6 +635,9 @@ export class ProviderExecutor {
 		return await this.hookExecutor.handleDimensionFailure(failureContext);
 	}
 
+	/**
+	 * Create provider request object
+	 */
 	private createProviderRequest(
 		prompt: string,
 		dimension: string,
@@ -585,6 +656,9 @@ export class ProviderExecutor {
 		};
 	}
 
+	/**
+	 * Delay execution for specified milliseconds
+	 */
 	private delay(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}

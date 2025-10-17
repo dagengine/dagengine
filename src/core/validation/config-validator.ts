@@ -8,31 +8,15 @@
  */
 
 import type { Plugin } from "../../plugin.ts";
-import type { ProviderAdapter } from "../../providers/adapter.ts";
+import type { ProviderAdapter, ProviderAdapterConfig } from "../../providers/adapter.ts";
 import type { ProviderRegistry } from "../../providers/registry.ts";
+import type { PricingConfig } from "../../types.ts";
 import {
 	ConfigurationError,
 	NoProvidersError,
 	ValidationError,
 } from "../shared/errors.ts";
 import { VALIDATION } from "../shared/constants.ts";
-
-/**
- * Engine configuration interface (duplicated here to avoid circular deps)
- */
-interface EngineConfig {
-	plugin: Plugin;
-	providers?: ProviderAdapter | any;
-	registry?: ProviderRegistry;
-	execution?: ExecutionConfig;
-	concurrency?: number;
-	maxRetries?: number;
-	retryDelay?: number;
-	continueOnError?: boolean;
-	timeout?: number;
-	dimensionTimeouts?: Record<string, number>;
-	pricing?: any;
-}
 
 /**
  * Execution configuration interface
@@ -44,6 +28,33 @@ interface ExecutionConfig {
 	continueOnError?: boolean;
 	timeout?: number;
 	dimensionTimeouts?: Record<string, number>;
+}
+
+/**
+ * Engine configuration interface
+ */
+interface EngineConfig {
+	plugin: Plugin;
+	providers?: ProviderAdapter | ProviderAdapterConfig | ProviderRegistry;
+	registry?: ProviderRegistry;
+	execution?: ExecutionConfig;
+	concurrency?: number;
+	maxRetries?: number;
+	retryDelay?: number;
+	continueOnError?: boolean;
+	timeout?: number;
+	dimensionTimeouts?: Record<string, number>;
+	pricing?: PricingConfig;
+}
+
+/**
+ * Validation context for better error messages
+ */
+interface ValidationContext {
+	field: string;
+	provided: unknown;
+	minimum?: number;
+	maximum?: number;
 }
 
 /**
@@ -73,11 +84,28 @@ export class ConfigValidator {
 	 * ```
 	 */
 	static validate(config: EngineConfig): void {
-		ConfigValidator.validateRequired(config);
-		ConfigValidator.validateProviders(config);
-		ConfigValidator.validateNumericConstraints(config);
-		ConfigValidator.validateTimeouts(config);
+		this.validateRequired(config);
+		this.validateProviders(config);
+		this.validateNumericConstraints(config);
+		this.validateTimeouts(config);
 	}
+
+	/**
+	 * Validates that an adapter has at least one provider
+	 *
+	 * @param adapter - Provider adapter to validate
+	 * @throws {NoProvidersError} If no providers are configured
+	 */
+	static validateProviderAdapter(adapter: ProviderAdapter): void {
+		const availableProviders = adapter.listProviders();
+		if (availableProviders.length === 0) {
+			throw new NoProvidersError();
+		}
+	}
+
+	// ============================================================================
+	// PRIVATE VALIDATION METHODS
+	// ============================================================================
 
 	/**
 	 * Validates required fields
@@ -99,40 +127,43 @@ export class ConfigValidator {
 
 	/**
 	 * Validates provider configuration
+	 *
+	 * Note: Provider validation happens during initialization.
+	 * This is a placeholder for future provider-specific validation.
 	 */
 	private static validateProviders(config: EngineConfig): void {
-		// Provider validation happens during initialization
-		// This is a placeholder for future provider-specific validation
+		// Future: Validate provider configuration structure
+		// For now, provider validation happens during adapter initialization
 	}
 
 	/**
-	 * Validates numeric constraints
+	 * Validates numeric constraints (concurrency, retries, delays)
 	 */
 	private static validateNumericConstraints(config: EngineConfig): void {
-		// Get concurrency from multiple possible locations
+		// Validate concurrency
 		const concurrency = config.execution?.concurrency ?? config.concurrency;
-
 		if (concurrency !== undefined) {
-			ConfigValidator.validateConcurrency(concurrency);
+			this.validateConcurrency(concurrency);
 		}
 
-		// Get retries from multiple possible locations
+		// Validate retries
 		const maxRetries = config.execution?.maxRetries ?? config.maxRetries;
-
 		if (maxRetries !== undefined) {
-			ConfigValidator.validateRetries(maxRetries);
+			this.validateRetries(maxRetries);
 		}
 
 		// Validate retry delay
 		const retryDelay = config.execution?.retryDelay ?? config.retryDelay;
-
 		if (retryDelay !== undefined) {
-			ConfigValidator.validateRetryDelay(retryDelay);
+			this.validateRetryDelay(retryDelay);
 		}
 	}
 
 	/**
 	 * Validates concurrency setting
+	 *
+	 * @param concurrency - Concurrency value to validate
+	 * @throws {ValidationError} If concurrency is invalid
 	 */
 	private static validateConcurrency(concurrency: number): void {
 		if (!Number.isInteger(concurrency)) {
@@ -168,6 +199,9 @@ export class ConfigValidator {
 
 	/**
 	 * Validates retry attempts
+	 *
+	 * @param maxRetries - Max retry value to validate
+	 * @throws {ValidationError} If retries setting is invalid
 	 */
 	private static validateRetries(maxRetries: number): void {
 		if (!Number.isInteger(maxRetries)) {
@@ -203,11 +237,22 @@ export class ConfigValidator {
 
 	/**
 	 * Validates retry delay
+	 *
+	 * @param retryDelay - Retry delay to validate
+	 * @throws {ValidationError} If retry delay is invalid
 	 */
 	private static validateRetryDelay(retryDelay: number): void {
 		if (typeof retryDelay !== "number" || retryDelay < 0) {
 			throw new ValidationError(
 				"Retry delay must be a non-negative number",
+				"retryDelay",
+				{ provided: retryDelay },
+			);
+		}
+
+		if (!Number.isFinite(retryDelay)) {
+			throw new ValidationError(
+				"Retry delay must be a finite number",
 				"retryDelay",
 				{ provided: retryDelay },
 			);
@@ -220,9 +265,8 @@ export class ConfigValidator {
 	private static validateTimeouts(config: EngineConfig): void {
 		// Validate default timeout
 		const timeout = config.execution?.timeout ?? config.timeout;
-
 		if (timeout !== undefined) {
-			ConfigValidator.validateTimeout(timeout, "timeout");
+			this.validateTimeout(timeout, "timeout");
 		}
 
 		// Validate dimension-specific timeouts
@@ -230,17 +274,42 @@ export class ConfigValidator {
 			config.execution?.dimensionTimeouts ?? config.dimensionTimeouts;
 
 		if (dimensionTimeouts) {
-			Object.entries(dimensionTimeouts).forEach(([dimension, timeout]) => {
-				ConfigValidator.validateTimeout(timeout, `dimensionTimeouts.${dimension}`);
-			});
+			for (const [dimension, dimensionTimeout] of Object.entries(
+				dimensionTimeouts,
+			)) {
+				this.validateTimeout(
+					dimensionTimeout,
+					`dimensionTimeouts.${dimension}`,
+				);
+			}
 		}
 	}
 
 	/**
 	 * Validates a single timeout value
+	 *
+	 * @param timeout - Timeout value in milliseconds
+	 * @param field - Field name for error messages
+	 * @throws {ValidationError} If timeout is invalid
 	 */
 	private static validateTimeout(timeout: number, field: string): void {
-		if (typeof timeout !== "number" || timeout < VALIDATION.MIN_TIMEOUT) {
+		if (typeof timeout !== "number") {
+			throw new ValidationError(
+				"Timeout must be a number",
+				field,
+				{ provided: timeout },
+			);
+		}
+
+		if (!Number.isFinite(timeout)) {
+			throw new ValidationError(
+				"Timeout must be a finite number",
+				field,
+				{ provided: timeout },
+			);
+		}
+
+		if (timeout < VALIDATION.MIN_TIMEOUT) {
 			throw new ValidationError(
 				`Timeout must be at least ${VALIDATION.MIN_TIMEOUT}ms`,
 				field,
@@ -260,19 +329,6 @@ export class ConfigValidator {
 					maximum: VALIDATION.MAX_TIMEOUT,
 				},
 			);
-		}
-	}
-
-	/**
-	 * Validates that an adapter has at least one provider
-	 *
-	 * @param adapter - Provider adapter to validate
-	 * @throws {NoProvidersError} If no providers are configured
-	 */
-	static validateProviderAdapter(adapter: ProviderAdapter): void {
-		const availableProviders = adapter.listProviders();
-		if (availableProviders.length === 0) {
-			throw new NoProvidersError();
 		}
 	}
 }

@@ -3,7 +3,7 @@ import { DagEngine } from "../src/core/engine";
 import { Plugin, type PromptContext, type ProviderSelection } from "../src/plugin";
 import { ProviderRegistry } from "../src/providers/registry";
 import { MockAIProvider, createMockSection } from "./setup";
-import { SectionData, type DimensionResult } from "../src/types";
+import { type FinalizeContext, type DimensionResult } from "../src/types";
 
 describe("DagEngine - Full Async Integration", () => {
 	let mockProvider: MockAIProvider;
@@ -37,22 +37,22 @@ describe("DagEngine - Full Async Integration", () => {
 
 			async createPrompt(context: PromptContext): Promise<string> {
 				executionLog.push(`createPrompt-${context.dimension}`);
-				await new Promise((resolve) => setTimeout(resolve, 10));
-				return `${context.dimension}: ${context.sections[0]?.content}`;
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
+				return `${context.dimension}: ${context.sections[0]?.content ?? ""}`;
 			}
 
-			async selectProvider(dimension: string): Promise<ProviderSelection> {
-				executionLog.push(`selectProvider-${dimension}`);
-				await new Promise((resolve) => setTimeout(resolve, 10));
+			async selectProvider(_dimension: string): Promise<ProviderSelection> {
+				executionLog.push(`selectProvider-${_dimension}`);
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
 				return { provider: "mock-ai", options: {} };
 			}
 
 			async finalizeResults(
-				results: Record<string, DimensionResult>,
+				context: FinalizeContext,
 			): Promise<Record<string, DimensionResult>> {
 				executionLog.push("finalizeResults");
-				await new Promise((resolve) => setTimeout(resolve, 10));
-				return results;
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
+				return context.results;
 			}
 		}
 

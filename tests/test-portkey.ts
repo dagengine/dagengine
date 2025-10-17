@@ -1,5 +1,11 @@
 import "dotenv/config";
-import { Plugin, type PromptContext, type ProviderSelection, DagEngine } from "../src";
+import {
+	Plugin,
+	DagEngine,
+	type PromptContext,
+	type ProviderSelection,
+	type ProviderConfig,
+} from "../src/index.ts";
 
 /**
  * Simple test plugin that implements only the required methods
@@ -20,14 +26,14 @@ class TestPlugin extends Plugin {
 	/**
 	 * REQUIRED: Create prompt for the dimension
 	 */
-	async createPrompt(context: PromptContext): Promise<string> {
+	async createPrompt(_context: PromptContext): Promise<string> {
 		return 'Respond with a JSON object containing a greeting: {"greeting": "Hello!", "status": "success"}';
 	}
 
 	/**
 	 * REQUIRED: Select provider (we'll test with anthropic)
 	 */
-	async selectProvider(dimension: string): Promise<ProviderSelection> {
+	async selectProvider(_dimension: string): Promise<ProviderSelection> {
 		return {
 			provider: "anthropic",
 			options: {
@@ -51,14 +57,26 @@ async function testProvider(
 		`\n${withGateway ? "🟢" : "🔵"} Testing ${providerName.toUpperCase()} ${gatewayLabel}...`,
 	);
 
+	// Get API key from environment
+	const apiKey = process.env[`${providerName.toUpperCase()}_API_KEY`];
+
+	if (!apiKey) {
+		throw new Error(`Missing API key for ${providerName}`);
+	}
+
 	// Build provider config
-	const providerConfig: any = {
-		apiKey: process.env[`${providerName.toUpperCase()}_API_KEY`],
+	const providerConfig: ProviderConfig = {
+		apiKey,
 	};
 
 	if (withGateway) {
+		const portkeyApiKey = process.env.PORTKEY_API_KEY;
+		if (!portkeyApiKey) {
+			throw new Error("Missing PORTKEY_API_KEY");
+		}
+
 		providerConfig.gateway = "portkey";
-		providerConfig.gatewayApiKey = process.env.PORTKEY_API_KEY;
+		providerConfig.gatewayApiKey = portkeyApiKey;
 	}
 
 	// Create engine with test plugin
@@ -91,16 +109,23 @@ async function testProvider(
 }
 
 /**
+ * Check if an environment variable is set
+ */
+function hasEnvVar(name: string): boolean {
+	return !!process.env[name];
+}
+
+/**
  * Main test runner
  */
-async function main() {
+async function main(): Promise<void> {
 	console.log("🚀 Starting Portkey Integration Tests");
 	console.log("=".repeat(70));
 
-	const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
-	const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-	const hasGeminiKey = !!process.env.GEMINI_API_KEY;
-	const hasPortkeyKey = !!process.env.PORTKEY_API_KEY;
+	const hasAnthropicKey = hasEnvVar("ANTHROPIC_API_KEY");
+	const hasOpenAIKey = hasEnvVar("OPENAI_API_KEY");
+	const hasGeminiKey = hasEnvVar("GEMINI_API_KEY");
+	const hasPortkeyKey = hasEnvVar("PORTKEY_API_KEY");
 
 	if (!hasAnthropicKey && !hasOpenAIKey && !hasGeminiKey) {
 		console.error("\n❌ No provider API keys found!");
@@ -168,4 +193,7 @@ async function main() {
 }
 
 // Run tests
-main();
+main().catch((error) => {
+	console.error("Fatal error:", error);
+	process.exit(1);
+});

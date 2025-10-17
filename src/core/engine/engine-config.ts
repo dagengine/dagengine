@@ -104,8 +104,19 @@ export interface ExecutionConfig {
 // ============================================================================
 // MAIN ENGINE CONFIGURATION
 // ============================================================================
-
-// ADD THIS (Lines 179-200)
+/**
+ * Inngest orchestration configuration
+ */
+export interface InngestConfig {
+	/** Enable Inngest orchestration */
+	enabled: boolean;
+	/** Inngest event key (for production) */
+	eventKey?: string;
+	/** Function prefix for Inngest function names */
+	functionPrefix?: string;
+	/** Custom base URL for Inngest API */
+	baseUrl?: string;
+}
 
 /**
  * Inngest orchestration configuration
@@ -151,11 +162,33 @@ export interface InngestConfig {
 /**
  * Main configuration interface for the DagEngine
  *
- * @example Basic configuration
+ * @example Basic configuration with plain object
  * ```typescript
  * const config: EngineConfig = {
  *   plugin: myPlugin,
- *   providers: myAdapter
+ *   providers: {
+ *     openai: { apiKey: 'sk-...' },
+ *     anthropic: { apiKey: 'sk-ant-...' }
+ *   }
+ * };
+ * ```
+ *
+ * @example With pre-configured adapter
+ * ```typescript
+ * const adapter = new ProviderAdapter({ ... });
+ * const config: EngineConfig = {
+ *   plugin: myPlugin,
+ *   providers: adapter
+ * };
+ * ```
+ *
+ * @example With registry
+ * ```typescript
+ * const registry = new ProviderRegistry();
+ * registry.register(new OpenAIProvider({ ... }));
+ * const config: EngineConfig = {
+ *   plugin: myPlugin,
+ *   providers: registry
  * };
  * ```
  *
@@ -163,7 +196,9 @@ export interface InngestConfig {
  * ```typescript
  * const config: EngineConfig = {
  *   plugin: myPlugin,
- *   providers: myAdapter,
+ *   providers: {
+ *     openai: { apiKey: 'sk-...' }
+ *   },
  *   execution: {
  *     concurrency: 10,
  *     maxRetries: 5,
@@ -176,6 +211,10 @@ export interface InngestConfig {
  *     models: {
  *       'gpt-4': { inputPer1M: 30, outputPer1M: 60 }
  *     }
+ *   },
+ *   inngest: {
+ *     enabled: true,
+ *     eventKey: 'evt_...'
  *   }
  * };
  * ```
@@ -193,17 +232,38 @@ export interface EngineConfig {
 	plugin: Plugin;
 
 	/**
-	 * Provider adapter or configuration
+	 * Provider configuration - accepts multiple formats for flexibility
 	 *
-	 * Provide either a ProviderAdapter instance or a configuration
-	 * object that will be used to create one.
+	 * You can provide:
+	 * 1. **Plain object config** (ProviderAdapterConfig):
+	 *    ```typescript
+	 *    providers: {
+	 *      openai: { apiKey: 'sk-...' },
+	 *      anthropic: { apiKey: 'sk-ant-...' }
+	 *    }
+	 *    ```
 	 *
-	 * REQUIRED unless `registry` is provided.
+	 * 2. **Pre-configured adapter** (ProviderAdapter):
+	 *    ```typescript
+	 *    const adapter = new ProviderAdapter({ ... });
+	 *    providers: adapter
+	 *    ```
+	 *
+	 * 3. **Provider registry** (ProviderRegistry):
+	 *    ```typescript
+	 *    const registry = new ProviderRegistry();
+	 *    registry.register(new OpenAIProvider({ ... }));
+	 *    providers: registry
+	 *    ```
+	 *
+	 * REQUIRED unless `registry` is provided (legacy).
 	 */
-	providers?: ProviderAdapter | ProviderAdapterConfig;
+	providers?: ProviderAdapter | ProviderAdapterConfig | ProviderRegistry;
 
 	/**
-	 * Provider registry
+	 * Provider registry (legacy)
+	 *
+	 * @deprecated Use `providers` field instead
 	 *
 	 * Alternative to `providers`. Provide a registry of available providers
 	 * that will be used to create a ProviderAdapter.
@@ -217,6 +277,22 @@ export interface EngineConfig {
 	 *
 	 * Controls concurrency, retries, timeouts, and error handling.
 	 * Recommended way to configure execution behavior.
+	 *
+	 * @example
+	 * ```typescript
+	 * {
+	 *   execution: {
+	 *     concurrency: 10,
+	 *     maxRetries: 5,
+	 *     retryDelay: 2000,
+	 *     timeout: 30000,
+	 *     continueOnError: false,
+	 *     dimensionTimeouts: {
+	 *       'slow-task': 120000
+	 *     }
+	 *   }
+	 * }
+	 * ```
 	 */
 	execution?: ExecutionConfig;
 
@@ -239,39 +315,70 @@ export interface EngineConfig {
 	 */
 	pricing?: PricingConfig;
 
+	/**
+	 * Inngest orchestration configuration
+	 *
+	 * Enable serverless orchestration for long-running workflows with
+	 * automatic checkpointing and resumption.
+	 *
+	 * @example
+	 * ```typescript
+	 * {
+	 *   inngest: {
+	 *     enabled: true,
+	 *     eventKey: 'evt_...',        // Production event key
+	 *     signingKey: 'signkey_...',  // Webhook security
+	 *     functionPrefix: 'myapp',
+	 *     checkpointFrequency: 5      // Checkpoint every 5 dimensions
+	 *   }
+	 * }
+	 * ```
+	 */
+	inngest?: InngestConfig;
+
 	// ===== Legacy Fields (Deprecated - use execution instead) =====
 
 	/**
-	 * @deprecated Use execution.concurrency instead
+	 * @deprecated Use `execution.concurrency` instead
+	 *
+	 * Maximum number of dimensions to execute concurrently.
 	 */
 	concurrency?: number;
 
 	/**
-	 * @deprecated Use execution.maxRetries instead
+	 * @deprecated Use `execution.maxRetries` instead
+	 *
+	 * Maximum number of retry attempts for failed operations.
 	 */
 	maxRetries?: number;
 
 	/**
-	 * @deprecated Use execution.retryDelay instead
+	 * @deprecated Use `execution.retryDelay` instead
+	 *
+	 * Delay between retry attempts in milliseconds.
 	 */
 	retryDelay?: number;
 
 	/**
-	 * @deprecated Use execution.continueOnError instead
+	 * @deprecated Use `execution.continueOnError` instead
+	 *
+	 * Whether to continue execution when a dimension fails.
 	 */
 	continueOnError?: boolean;
 
 	/**
-	 * @deprecated Use execution.timeout instead
+	 * @deprecated Use `execution.timeout` instead
+	 *
+	 * Default timeout for dimension execution in milliseconds.
 	 */
 	timeout?: number;
 
 	/**
-	 * @deprecated Use execution.dimensionTimeouts instead
+	 * @deprecated Use `execution.dimensionTimeouts` instead
+	 *
+	 * Dimension-specific timeout overrides in milliseconds.
 	 */
 	dimensionTimeouts?: Record<string, number>;
-
-	inngest?: InngestConfig; // ← ADD THIS
 }
 
 // ============================================================================

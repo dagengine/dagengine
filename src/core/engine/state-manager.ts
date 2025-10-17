@@ -9,8 +9,10 @@
 
 import crypto from "crypto";
 import type { SectionData, DimensionResult } from "../../types.ts";
-import type { ProcessState } from "../shared/types.ts";
+import type { ProcessState, SerializedProcessState } from "../shared/types.ts";
 import { resetSectionResultsMap } from "../shared/utils.ts";
+
+export type { SerializedProcessState };
 
 /**
  * Creates a new process state
@@ -81,35 +83,6 @@ export function getSectionResults(
 	return state.sectionResultsMap.get(sectionIndex) ?? {};
 }
 
-export function serializeState(state: ProcessState): SerializedProcessState {
-	return {
-		...state,
-		sectionResultsMap: Array.from(state.sectionResultsMap.entries()),
-	};
-}
-
-/**
- * Deserialize state from Inngest checkpoint
- */
-export function deserializeState(
-	serialized: SerializedProcessState,
-): ProcessState {
-	return {
-		...serialized,
-		sectionResultsMap: new Map(serialized.sectionResultsMap),
-	};
-}
-
-// Type for serialized state
-export interface SerializedProcessState {
-	id: string;
-	startTime: number;
-	metadata?: unknown;
-	sections: SectionData[];
-	globalResults: Record<string, DimensionResult>;
-	sectionResultsMap: Array<[number, Record<string, DimensionResult>]>;
-}
-
 /**
  * Sets section result safely
  *
@@ -129,4 +102,36 @@ export function setSectionResult(
 	const sectionResults = state.sectionResultsMap.get(sectionIndex) ?? {};
 	sectionResults[dimension] = result;
 	state.sectionResultsMap.set(sectionIndex, sectionResults);
+}
+
+/**
+ * Serialize state for storage/transmission
+ *
+ * Converts Map to array for JSON serialization
+ *
+ * @param state - Process state to serialize
+ * @returns Serialized state
+ */
+export function serializeState(state: ProcessState): SerializedProcessState {
+	return {
+		...state,
+		sectionResultsMap: Array.from(state.sectionResultsMap.entries()),
+	};
+}
+
+/**
+ * Deserialize state from storage/transmission
+ *
+ * Converts array back to Map
+ *
+ * @param serialized - Serialized state
+ * @returns Process state
+ */
+export function deserializeState(
+	serialized: SerializedProcessState,
+): ProcessState {
+	return {
+		...serialized,
+		sectionResultsMap: new Map(serialized.sectionResultsMap),
+	};
 }

@@ -1,8 +1,20 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	SectionData,
+	DimensionResult,
+} from "../src/types.ts";
+
+/**
+ * Transform function type
+ */
+type TransformFunction = (
+	result: DimensionResult,
+	sections: SectionData[],
+) => SectionData[] | Promise<SectionData[]>;
 
 describe("DagEngine - Advanced Transformations", () => {
 	let mockProvider: MockAIProvider;
@@ -16,6 +28,38 @@ describe("DagEngine - Advanced Transformations", () => {
 	});
 
 	test("should handle multiple transformations in sequence", async () => {
+		const mergeTransform: TransformFunction = (
+			_result,
+			sections,
+		): SectionData[] => {
+			// Merge every 2 sections into 1
+			// Example: ['A', 'B', 'C', 'D'] → ['A-B', 'C-D']
+			const merged: SectionData[] = [];
+			for (let i = 0; i < sections.length; i += 2) {
+				const first = sections[i]?.content ?? "";
+				const second = sections[i + 1]?.content ?? "";
+				merged.push({
+					content: `${first}-${second}`,
+					metadata: { merged: true },
+				});
+			}
+			return merged;
+		};
+
+		const splitTransform: TransformFunction = (
+			_result,
+			sections,
+		): SectionData[] => {
+			// Split each section by '-' separator
+			// Example: ['A-B', 'C-D'] → ['A', 'B', 'C', 'D']
+			return sections.flatMap((s) =>
+				s.content.split("-").map((word) => ({
+					content: word,
+					metadata: { ...s.metadata, split: true },
+				})),
+			);
+		};
+
 		class MultiTransformPlugin extends Plugin {
 			constructor() {
 				super("multi-transform", "Multi Transform", "Test");
@@ -23,34 +67,12 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "merge_transform",
 						scope: "global" as const,
-						transform: (result, sections) => {
-							// Merge every 2 sections into 1
-							// Example: ['A', 'B', 'C', 'D'] → ['A-B', 'C-D']
-							const merged = [];
-							for (let i = 0; i < sections.length; i += 2) {
-								const first = sections[i]?.content || "";
-								const second = sections[i + 1]?.content || "";
-								merged.push({
-									content: `${first}-${second}`, // Use '-' as separator
-									metadata: { merged: true },
-								});
-							}
-							return merged;
-						},
+						transform: mergeTransform,
 					},
 					{
 						name: "split_transform",
 						scope: "global" as const,
-						transform: (result, sections) => {
-							// Split each section by '-' separator
-							// Example: ['A-B', 'C-D'] → ['A', 'B', 'C', 'D']
-							return sections.flatMap((s) =>
-								s.content.split("-").map((word) => ({
-									content: word,
-									metadata: { ...s.metadata, split: true },
-								})),
-							);
-						},
+						transform: splitTransform,
 					},
 					"final_analysis",
 				];
@@ -60,8 +82,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -99,7 +121,10 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "bad_transform",
 						scope: "global" as const,
-						transform: () => null as any, // Invalid return
+						transform: (): SectionData[] => {
+							// Return null (invalid) - will be caught by engine
+							return null as unknown as SectionData[];
+						},
 					},
 					"analysis",
 				];
@@ -109,8 +134,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -134,7 +159,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "failing_transform",
 						scope: "global" as const,
-						transform: () => {
+						transform: (): SectionData[] => {
 							throw new Error("Transform failed");
 						},
 					},
@@ -146,8 +171,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -165,6 +190,13 @@ describe("DagEngine - Advanced Transformations", () => {
 	});
 
 	test("should preserve metadata during transformation", async () => {
+		interface SectionMetadata {
+			id?: number;
+			tag?: string;
+			transformed?: boolean;
+			originalLength?: number;
+		}
+
 		class MetadataTransformPlugin extends Plugin {
 			constructor() {
 				super("metadata", "Metadata", "Test");
@@ -172,7 +204,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "transform",
 						scope: "global" as const,
-						transform: (result, sections) => {
+						transform: (_result, sections): SectionData[] => {
 							return sections.map((s) => ({
 								content: s.content.toUpperCase(),
 								metadata: {
@@ -190,8 +222,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -204,9 +236,11 @@ describe("DagEngine - Advanced Transformations", () => {
 			createMockSection("test", { id: 1, tag: "important" }),
 		]);
 
-		expect(result.transformedSections[0]?.metadata.id).toBe(1);
-		expect(result.transformedSections[0]?.metadata.tag).toBe("important");
-		expect(result.transformedSections[0]?.metadata.transformed).toBe(true);
+		const metadata = result.transformedSections[0]?.metadata as SectionMetadata;
+		expect(metadata.id).toBe(1);
+		expect(metadata.tag).toBe("important");
+		expect(metadata.transformed).toBe(true);
+		expect(metadata.originalLength).toBe(4);
 	});
 
 	test("should handle transformation that returns empty array", async () => {
@@ -217,7 +251,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "filter_all",
 						scope: "global" as const,
-						transform: () => [],
+						transform: (): SectionData[] => [],
 					},
 					"analysis",
 				];
@@ -227,8 +261,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -251,7 +285,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "expand",
 						scope: "global" as const,
-						transform: (result, sections) => {
+						transform: (_result, sections): SectionData[] => {
 							// Duplicate each section 3 times
 							return sections.flatMap((s) => [
 								{ ...s },
@@ -268,8 +302,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -296,7 +330,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "split",
 						scope: "global" as const,
-						transform: (result, sections) => {
+						transform: (_result, sections): SectionData[] => {
 							return sections.flatMap((s) =>
 								s.content
 									.split(".")
@@ -316,8 +350,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -344,7 +378,7 @@ describe("DagEngine - Advanced Transformations", () => {
 					{
 						name: "reorder",
 						scope: "global" as const,
-						transform: (result, sections) => {
+						transform: (_result, sections): SectionData[] => {
 							// Reverse order
 							return [...sections].reverse();
 						},
@@ -357,8 +391,8 @@ describe("DagEngine - Advanced Transformations", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 

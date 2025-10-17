@@ -1,8 +1,22 @@
-import { DagEngine } from "../src";
+import { describe, test, expect, beforeEach } from "vitest";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { Plugin } from "../src/plugin.ts";
+import type {
+	PromptContext,
+	ProviderSelection,
+	ProviderRequest,
+	ProviderResponse,
+} from "../src/types.ts";
 
-import { MockAIProvider, createMockSection } from "./setup";
-import { ProviderRegistry } from "../src/providers/registry";
-import { Plugin } from "../src/plugin";
+/**
+ * Error tracking structure
+ */
+interface ErrorEntry {
+	context: string;
+	error: Error;
+}
 
 describe("DagEngine - Error Handling", () => {
 	let mockProvider: MockAIProvider;
@@ -21,16 +35,18 @@ describe("DagEngine - Error Handling", () => {
 				this.dimensions = ["failing", "succeeding"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (
+			request: ProviderRequest,
+		): Promise<ProviderResponse> => {
 			if (request.input === "failing") {
 				return { error: "Failing dimension error" };
 			}
@@ -46,32 +62,33 @@ describe("DagEngine - Error Handling", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result?.sections?.[0]?.results?.failing?.error).toBeDefined();
-		expect(result?.sections?.[0]?.results?.succeeding?.data).toBeDefined();
+		expect(result.sections[0]?.results.failing?.error).toBeDefined();
+		expect(result.sections[0]?.results.succeeding?.data).toBeDefined();
 	}, 15000);
 
 	test("should call onError callback", async () => {
-		const errors: Array<{ context: string; error: Error }> = [];
+		const errors: ErrorEntry[] = [];
 
 		class ErrorPlugin extends Plugin {
 			constructor() {
 				super("error", "Error", "Test");
-				this.dimensions = ["failing", "succeeding"]; // ✅ ADD: Add a succeeding dimension
+				this.dimensions = ["failing", "succeeding"];
 			}
 
-			createPrompt(context: any): string {
-				return context.dimension; // ✅ CHANGE: Return dimension name
+			createPrompt(context: PromptContext): string {
+				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
-		// ✅ FIX: Mock execute directly with per-dimension behavior
-		mockProvider.execute = async (request) => {
+		mockProvider.execute = async (
+			request: ProviderRequest,
+		): Promise<ProviderResponse> => {
 			if (request.input === "failing") {
-				return { error: "Intentional failure" }; // ✅ Return error (like real API)
+				return { error: "Intentional failure" };
 			}
 			return { data: { result: "ok" } };
 		};
@@ -80,17 +97,17 @@ describe("DagEngine - Error Handling", () => {
 			plugin: new ErrorPlugin(),
 			registry,
 			continueOnError: true,
-			maxRetries: 0, // ✅ ADD: Disable retries so error happens immediately
+			maxRetries: 0,
 		});
 
 		await engine.process([createMockSection("Test")], {
-			onError: (context, error) => {
+			onError: (context: string, error: Error) => {
 				errors.push({ context, error });
 			},
 		});
 
 		expect(errors.length).toBeGreaterThan(0);
-		expect(errors?.[0]?.context).toContain("failing");
+		expect(errors[0]?.context).toContain("failing");
 	}, 15000);
 
 	test("should handle missing provider error", async () => {
@@ -104,8 +121,8 @@ describe("DagEngine - Error Handling", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "nonexistent" };
+			selectProvider(): ProviderSelection {
+				return { provider: "nonexistent", options: {} };
 			}
 		}
 
@@ -117,9 +134,91 @@ describe("DagEngine - Error Handling", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		const error = result?.sections?.[0]?.results?.test?.error;
+		const error = result.sections[0]?.results.test?.error;
 
+		expect(error).toBeDefined();
 		expect(error).toContain('Provider "nonexistent" not found');
 		expect(error).toContain("Available:");
+	});
+
+	test("should throw when continueOnError is false", async () => {
+		class FailPlugin extends Plugin {
+			constructor() {
+				super("fail", "Fail", "Test");
+				this.dimensions = ["failing"];
+			}
+
+			createPrompt(): string {
+				return "test";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
+			}
+		}
+
+		mockProvider.execute = async (): Promise<ProviderResponse> => {
+			return { error: "Critical failure" };
+		};
+
+		const engine = new DagEngine({
+			plugin: new FailPlugin(),
+			registry,
+			continueOnError: false,
+			maxRetries: 0,
+		});
+
+		await expect(engine.process([createMockSection("Test")])).rejects.toThrow();
+	});
+
+	test("should handle errors in multiple sections independently", async () => {
+		class MultiSectionErrorPlugin extends Plugin {
+			constructor() {
+				super("multi-error", "Multi Error", "Test");
+				this.dimensions = ["test"];
+			}
+
+			createPrompt(): string {
+				return "test";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
+			}
+		}
+
+		let sectionCount = 0;
+		mockProvider.execute = async (): Promise<ProviderResponse> => {
+			sectionCount++;
+			// Fail on even sections
+			if (sectionCount % 2 === 0) {
+				return { error: "Even section error" };
+			}
+			return { data: { result: "ok" } };
+		};
+
+		const engine = new DagEngine({
+			plugin: new MultiSectionErrorPlugin(),
+			registry,
+			continueOnError: true,
+			maxRetries: 0,
+		});
+
+		const sections = [
+			createMockSection("Section 1"),
+			createMockSection("Section 2"),
+			createMockSection("Section 3"),
+			createMockSection("Section 4"),
+		];
+
+		const result = await engine.process(sections);
+
+		// Sections 1 and 3 should succeed
+		expect(result.sections[0]?.results.test?.data).toBeDefined();
+		expect(result.sections[2]?.results.test?.data).toBeDefined();
+
+		// Sections 2 and 4 should have errors
+		expect(result.sections[1]?.results.test?.error).toBeDefined();
+		expect(result.sections[3]?.results.test?.error).toBeDefined();
 	});
 });

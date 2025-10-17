@@ -1,8 +1,44 @@
 import { describe, test, expect } from "vitest";
-import { DagEngine } from "../../src/core/engine";
-import { Plugin } from "../../src/plugin";
-import { ProviderAdapter } from "../../src/providers/adapter";
-import type { SectionData, SectionDimensionContext } from "../../src/types";
+import { DagEngine } from "../../src/core/engine/dag-engine.ts";
+import { Plugin } from "../../src/plugin.ts";
+import { ProviderAdapter } from "../../src/providers/adapter.ts";
+import type {
+	SectionData,
+	SectionDimensionContext,
+	PromptContext,
+	ProviderSelection,
+	ProviderResponse,
+} from "../../src/types.ts";
+
+/**
+ * Mock provider call log entry
+ */
+interface CallLogEntry {
+	dimension: string;
+	content: string;
+}
+
+/**
+ * Mock provider with call tracking
+ */
+interface MockProviderWithTracking {
+	name: string;
+	callLog: CallLogEntry[];
+	execute(options: {
+		input?: string;
+		[key: string]: unknown;
+	}): Promise<ProviderResponse>;
+	getDimensionCallCount(dimension: string): number;
+}
+
+/**
+ * Mock provider with call counting
+ */
+interface MockProviderWithCount {
+	name: string;
+	callCount: number;
+	execute(): Promise<ProviderResponse>;
+}
 
 describe("Routing - Real-World Document Processing", () => {
 	class DocumentProcessingPlugin extends Plugin {
@@ -22,11 +58,11 @@ describe("Routing - Real-World Document Processing", () => {
 			];
 		}
 
-		createPrompt(context: any) {
-			return `[DIMENSION: ${context.dimension}] Process: ${context.sections[0]?.content.slice(0, 50) || ""}`;
+		createPrompt(context: PromptContext): string {
+			return `[DIMENSION: ${context.dimension}] Process: ${context.sections[0]?.content.slice(0, 50) ?? ""}`;
 		}
 
-		selectProvider() {
+		selectProvider(): ProviderSelection {
 			return { provider: "mock", options: {} };
 		}
 
@@ -65,13 +101,16 @@ describe("Routing - Real-World Document Processing", () => {
 	}
 
 	test("should efficiently process mixed document types with smart routing", async () => {
-		const mockProvider = {
+		const mockProvider: MockProviderWithTracking = {
 			name: "mock",
-			callLog: [] as Array<{ dimension: string; content: string }>,
-			async execute(options: any) {
-				const input = options.input || "";
+			callLog: [],
+			async execute(options: {
+				input?: string;
+				[key: string]: unknown;
+			}): Promise<ProviderResponse> {
+				const input = options.input ?? "";
 				const match = input.match(/\[DIMENSION: ([^\]]+)\]/);
-				const dimension = match ? match[1] : "unknown";
+				const dimension = match?.[1] ?? "unknown";
 
 				this.callLog.push({ dimension, content: input.slice(0, 50) });
 
@@ -90,7 +129,7 @@ describe("Routing - Real-World Document Processing", () => {
 		};
 
 		const adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 
 		const plugin = new DocumentProcessingPlugin();
 		const engine = new DagEngine({
@@ -175,10 +214,10 @@ describe("Routing - Real-World Document Processing", () => {
 	});
 
 	test("should demonstrate cost savings with smart routing", async () => {
-		const mockProvider = {
+		const mockProvider: MockProviderWithCount = {
 			name: "mock",
 			callCount: 0,
-			async execute() {
+			async execute(): Promise<ProviderResponse> {
 				this.callCount++;
 				return {
 					data: { result: "processed" },
@@ -192,7 +231,7 @@ describe("Routing - Real-World Document Processing", () => {
 		};
 
 		const adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 
 		const plugin = new DocumentProcessingPlugin();
 		const engine = new DagEngine({

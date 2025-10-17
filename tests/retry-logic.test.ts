@@ -1,8 +1,20 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	PromptContext,
+	ProviderRequest,
+	ProviderResponse,
+} from "../src/types.ts";
+
+/**
+ * Attempt tracking for retry tests
+ */
+interface AttemptTracking {
+	[dimension: string]: number;
+}
 
 describe("DagEngine - Retry Logic", () => {
 	let mockProvider: MockAIProvider;
@@ -25,14 +37,15 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		let attemptCount = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
+
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			attemptCount++;
 			if (attemptCount < 3) {
 				throw new Error("Simulated failure");
@@ -50,7 +63,7 @@ describe("DagEngine - Retry Logic", () => {
 		const result = await engine.process([createMockSection("Test")]);
 
 		expect(attemptCount).toBe(3);
-		expect(result.sections[0]?.results?.test?.data).toBeDefined();
+		expect(result.sections[0]?.results.test?.data).toBeDefined();
 	});
 
 	test("should use exponential backoff", async () => {
@@ -64,15 +77,16 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		const timestamps: number[] = [];
 		let attemptCount = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
+
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			timestamps.push(Date.now());
 			attemptCount++;
 			if (attemptCount < 3) {
@@ -92,11 +106,17 @@ describe("DagEngine - Retry Logic", () => {
 		await engine.process([createMockSection("Test")]);
 
 		// Check exponential backoff: delays should be ~100ms, ~200ms
-		const delay1 = timestamps[1]! - timestamps[0]!;
-		const delay2 = timestamps[2]! - timestamps[1]!;
+		const firstTimestamp = timestamps[0];
+		const secondTimestamp = timestamps[1];
+		const thirdTimestamp = timestamps[2];
 
-		expect(delay1).toBeGreaterThanOrEqual(90); // ~100ms
-		expect(delay2).toBeGreaterThanOrEqual(180); // ~200ms (2^1 * 100)
+		if (firstTimestamp && secondTimestamp && thirdTimestamp) {
+			const delay1 = secondTimestamp - firstTimestamp;
+			const delay2 = thirdTimestamp - secondTimestamp;
+
+			expect(delay1).toBeGreaterThanOrEqual(90); // ~100ms
+			expect(delay2).toBeGreaterThanOrEqual(180); // ~200ms (2^1 * 100)
+		}
 	});
 
 	test("should respect custom retryDelay", async () => {
@@ -110,15 +130,16 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		const timestamps: number[] = [];
 		let attemptCount = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
+
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			timestamps.push(Date.now());
 			attemptCount++;
 			if (attemptCount < 2) {
@@ -137,8 +158,13 @@ describe("DagEngine - Retry Logic", () => {
 
 		await engine.process([createMockSection("Test")]);
 
-		const delay = timestamps[1]! - timestamps[0]!;
-		expect(delay).toBeGreaterThanOrEqual(450); // ~500ms
+		const firstTimestamp = timestamps[0];
+		const secondTimestamp = timestamps[1];
+
+		if (firstTimestamp && secondTimestamp) {
+			const delay = secondTimestamp - firstTimestamp;
+			expect(delay).toBeGreaterThanOrEqual(450); // ~500ms
+		}
 	});
 
 	test("should succeed on final retry attempt", async () => {
@@ -152,14 +178,15 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		let attemptCount = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
+
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			attemptCount++;
 			if (attemptCount <= 3) {
 				// Fail 3 times, succeed on 4th
@@ -181,7 +208,7 @@ describe("DagEngine - Retry Logic", () => {
 		const result = await engine.process([createMockSection("Test")]);
 
 		expect(attemptCount).toBe(4);
-		expect(result.sections[0]?.results?.test?.data).toEqual({ success: true });
+		expect(result.sections[0]?.results.test?.data).toEqual({ success: true });
 	});
 
 	test("should throw error after max retries exhausted", async () => {
@@ -195,12 +222,12 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
-		mockProvider.execute = async () => {
+		mockProvider.execute = async (): Promise<ProviderResponse> => {
 			throw new Error("Persistent failure");
 		};
 
@@ -214,8 +241,9 @@ describe("DagEngine - Retry Logic", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.test?.error).toBeDefined();
-		expect(result.sections[0]?.results?.test?.error).toContain(
+		const testResult = result.sections[0]?.results.test;
+		expect(testResult?.error).toBeDefined();
+		expect(testResult?.error).toContain(
 			'All providers failed for dimension "test". Tried: mock-ai',
 		);
 	});
@@ -231,14 +259,15 @@ describe("DagEngine - Retry Logic", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
 		let attemptCount = 0;
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
+
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
 			attemptCount++;
 			return originalExecute(request);
 		};
@@ -264,25 +293,26 @@ describe("DagEngine - Retry Logic", () => {
 				this.dimensions = ["dim1", "dim2"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider() {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
-		const attempts: Record<string, number> = { dim1: 0, dim2: 0 };
+		const attempts: AttemptTracking = { dim1: 0, dim2: 0 };
 		const originalExecute = mockProvider.execute.bind(mockProvider);
-		mockProvider.execute = async (request) => {
-			const dim = request.input as string;
-			attempts[dim] = (attempts[dim] || 0) + 1;
 
-			if (dim === "dim1" && attempts[dim] < 2) {
+		mockProvider.execute = async (request: ProviderRequest): Promise<ProviderResponse> => {
+			const dim = request.input as string;
+			attempts[dim] = (attempts[dim] ?? 0) + 1;
+
+			if (dim === "dim1" && attempts[dim]! < 2) {
 				throw new Error("Fail dim1");
 			}
-			if (dim === "dim2" && attempts[dim] < 3) {
+			if (dim === "dim2" && attempts[dim]! < 3) {
 				throw new Error("Fail dim2");
 			}
 

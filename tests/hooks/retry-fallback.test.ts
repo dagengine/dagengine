@@ -1,18 +1,28 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
-import { DagEngine } from "../../src/core/engine";
-import { TestPlugin } from "../helpers/test-plugin";
-import { ProviderAdapter } from "../../src/providers/adapter";
+import { DagEngine } from "../../src/core/engine/dag-engine.ts";
+import { TestPlugin } from "../helpers/test-plugin.ts";
+import { ProviderAdapter } from "../../src/providers/adapter.ts";
 import type {
 	TransformSectionsContext,
 	FinalizeContext,
 	SectionData,
 	DimensionResult,
-} from "../../src/types";
+	ProviderResponse,
+	PromptContext,
+	ProviderSelection,
+} from "../../src/types.ts";
 
+/**
+ * Mock provider for testing
+ */
 class MockProvider {
 	name = "mock";
 
-	async execute(request: any) {
+	async execute(request: {
+		dimension?: string;
+		input?: string;
+		[key: string]: unknown;
+	}): Promise<ProviderResponse> {
 		return {
 			data: { result: `result-${request.dimension}`, input: request.input },
 			metadata: {
@@ -27,12 +37,12 @@ class MockProvider {
 describe("Transformation Hooks", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: any;
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 	});
 
@@ -50,11 +60,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "summarize", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -88,11 +98,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "enhance", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -121,7 +131,10 @@ describe("Transformation Hooks", () => {
 			expect(result.transformedSections[1]?.content).toBe(
 				"Enhanced: Section 2",
 			);
-			expect(result.transformedSections[0]?.metadata.enhanced).toBe(true);
+
+			const metadata0 = result.transformedSections[0]
+				?.metadata as { enhanced?: boolean };
+			expect(metadata0?.enhanced).toBe(true);
 		});
 
 		test("should split sections", async () => {
@@ -131,11 +144,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "splitter", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -172,7 +185,9 @@ describe("Transformation Hooks", () => {
 
 			expect(result.transformedSections.length).toBeGreaterThan(1);
 			expect(
-				result.transformedSections.every((s) => s.metadata.split === true),
+				result.transformedSections.every(
+					(s) => (s.metadata as { split?: boolean }).split === true,
+				),
 			).toBe(true);
 		});
 
@@ -183,11 +198,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "merger", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -222,7 +237,10 @@ describe("Transformation Hooks", () => {
 			expect(result.transformedSections).toHaveLength(1);
 			expect(result.transformedSections[0]?.content).toContain("Section 1");
 			expect(result.transformedSections[0]?.content).toContain("Section 2");
-			expect(result.transformedSections[0]?.metadata.originalCount).toBe(3);
+
+			const metadata = result.transformedSections[0]
+				?.metadata as { originalCount?: number };
+			expect(metadata?.originalCount).toBe(3);
 		});
 
 		test("should filter sections", async () => {
@@ -232,11 +250,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "filter", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -273,18 +291,18 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "process", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
 				async transformSections(
 					context: TransformSectionsContext,
 				): Promise<SectionData[]> {
-					await new Promise((resolve) => setTimeout(resolve, 50));
+					await new Promise<void>((resolve) => setTimeout(resolve, 50));
 					asyncCompleted = true;
 					return context.currentSections;
 				}
@@ -309,11 +327,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "process", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -346,11 +364,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = [{ name: "process", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -365,10 +383,9 @@ describe("Transformation Hooks", () => {
 			});
 
 			const result = await engine.process([{ content: "Test", metadata: {} }], {
-				onError: (context, error) => errors.push(error.message),
+				onError: (_context: string, error: Error) => errors.push(error.message),
 			});
 
-			// Should preserve original sections
 			expect(result.transformedSections).toHaveLength(1);
 			expect(consoleErrorSpy).toHaveBeenCalled();
 			expect(errors.some((e) => e.includes("transformSections"))).toBe(true);
@@ -386,11 +403,11 @@ describe("Transformation Hooks", () => {
 					];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -430,11 +447,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = ["dim1", "dim2"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -468,8 +485,14 @@ describe("Transformation Hooks", () => {
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
 			expect(finalizeCalled).toBe(true);
-			expect(result.sections[0]?.results.dim1?.metadata?.finalized).toBe(true);
-			expect(result.sections[0]?.results.dim2?.metadata?.finalized).toBe(true);
+
+			const dim1Metadata = result.sections[0]?.results.dim1
+				?.metadata as { finalized?: boolean };
+			const dim2Metadata = result.sections[0]?.results.dim2
+				?.metadata as { finalized?: boolean };
+
+			expect(dim1Metadata?.finalized).toBe(true);
+			expect(dim2Metadata?.finalized).toBe(true);
 		});
 
 		test("should aggregate section results in finalize", async () => {
@@ -479,11 +502,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = ["analyze"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -494,12 +517,10 @@ describe("Transformation Hooks", () => {
 						...context.results,
 					};
 
-					// Count how many sections were processed
 					const sectionKeys = Object.keys(context.results).filter((k) =>
 						k.startsWith("analyze_section_"),
 					);
 
-					// Add aggregate data
 					finalized["aggregate_summary"] = {
 						data: {
 							totalSections: sectionKeys.length,
@@ -521,7 +542,6 @@ describe("Transformation Hooks", () => {
 				{ content: "Section 2", metadata: {} },
 			]);
 
-			// Check if aggregate was added (would be in global results or similar)
 			expect(result).toBeDefined();
 		});
 
@@ -534,11 +554,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -575,18 +595,18 @@ describe("Transformation Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
 				async finalizeResults(
 					context: FinalizeContext,
 				): Promise<Record<string, DimensionResult>> {
-					await new Promise((resolve) => setTimeout(resolve, 50));
+					await new Promise<void>((resolve) => setTimeout(resolve, 50));
 					asyncCompleted = true;
 					return context.results;
 				}
@@ -611,11 +631,11 @@ describe("Transformation Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -630,10 +650,9 @@ describe("Transformation Hooks", () => {
 			});
 
 			const result = await engine.process([{ content: "Test", metadata: {} }], {
-				onError: (context, error) => errors.push(error.message),
+				onError: (_context: string, error: Error) => errors.push(error.message),
 			});
 
-			// Should return non-finalized results
 			expect(result.sections[0]?.results.test).toBeDefined();
 			expect(consoleErrorSpy).toHaveBeenCalled();
 			expect(errors).toContain("finalizeResults error");
@@ -649,11 +668,11 @@ describe("Transformation Hooks", () => {
 					];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -684,10 +703,13 @@ describe("Transformation Hooks", () => {
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-			expect(result.sections[0]?.results.section_dim?.metadata?.scope).toBe(
-				"section",
-			);
-			expect(result.globalResults.global_dim?.metadata?.scope).toBe("global");
+			const sectionMetadata = result.sections[0]?.results.section_dim
+				?.metadata as { scope?: string };
+			const globalMetadata = result.globalResults.global_dim
+				?.metadata as { scope?: string };
+
+			expect(sectionMetadata?.scope).toBe("section");
+			expect(globalMetadata?.scope).toBe("global");
 		});
 	});
 });

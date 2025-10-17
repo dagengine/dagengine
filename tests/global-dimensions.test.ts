@@ -1,8 +1,35 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type {
+	PromptContext,
+	ProviderSelection,
+	SectionData,
+	DimensionResult,
+} from "../src/types.ts";
+
+/**
+ * Global analysis result structure
+ */
+interface GlobalAnalysisResult {
+	themes: string[];
+}
+
+/**
+ * Section analysis result structure
+ */
+interface SectionAnalysisResult {
+	result: string;
+}
+
+/**
+ * Generic test result structure
+ */
+interface GenericTestResult {
+	result: string;
+}
 
 describe("DagEngine - Global Dimensions", () => {
 	let mockProvider: MockAIProvider;
@@ -24,12 +51,12 @@ describe("DagEngine - Global Dimensions", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return `Analyze ${context.dimension}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -51,7 +78,10 @@ describe("DagEngine - Global Dimensions", () => {
 		]);
 
 		expect(result.globalResults.global_analysis).toBeDefined();
-		expect(result.globalResults.global_analysis?.data).toEqual({
+
+		const globalData = result.globalResults.global_analysis
+			?.data as GlobalAnalysisResult | undefined;
+		expect(globalData).toEqual({
 			themes: ["theme1"],
 		});
 	});
@@ -68,13 +98,13 @@ describe("DagEngine - Global Dimensions", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				executionOrder.push(context.dimension);
 				return `Process ${context.dimension}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -106,7 +136,7 @@ describe("DagEngine - Global Dimensions", () => {
 					{
 						name: "merger",
 						scope: "global" as const,
-						transform: (result: any, sections: any[]) => {
+						transform: (_result: DimensionResult, sections: SectionData[]): SectionData[] => {
 							// Merge all sections into one
 							return [
 								{
@@ -124,8 +154,8 @@ describe("DagEngine - Global Dimensions", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -146,12 +176,13 @@ describe("DagEngine - Global Dimensions", () => {
 		expect(result.transformedSections[0]?.content).toBe(
 			"Section 1 Section 2 Section 3",
 		);
-		expect(result.transformedSections[0]?.metadata.merged).toBe(true);
+
+		const metadata = result.transformedSections[0]?.metadata as { merged?: boolean } | undefined;
+		expect(metadata?.merged).toBe(true);
 	});
 
 	test("should process parallel independent global dimensions", async () => {
 		const startTimes: Record<string, number> = {};
-		const endTimes: Record<string, number> = {};
 
 		class ParallelGlobalPlugin extends Plugin {
 			constructor() {
@@ -163,13 +194,13 @@ describe("DagEngine - Global Dimensions", () => {
 				];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				startTimes[context.dimension] = Date.now();
 				return `Process ${context.dimension}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -186,5 +217,134 @@ describe("DagEngine - Global Dimensions", () => {
 
 		// If truly parallel, should take ~100ms, not 300ms
 		expect(totalTime).toBeLessThan(250); // Some buffer for overhead
+	});
+
+	test("should handle global dimension with no dependencies", async () => {
+		class IndependentGlobalPlugin extends Plugin {
+			constructor() {
+				super("independent", "Independent", "Test");
+				this.dimensions = [
+					{ name: "global_independent", scope: "global" as const },
+				];
+			}
+
+			createPrompt(): string {
+				return "test";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
+			}
+		}
+
+		mockProvider.setMockResponse("test", { result: "ok" });
+
+		const engine = new DagEngine({
+			plugin: new IndependentGlobalPlugin(),
+			registry,
+		});
+
+		const result = await engine.process([createMockSection("Test")]);
+
+		expect(result.globalResults.global_independent).toBeDefined();
+
+		const globalData = result.globalResults.global_independent
+			?.data as GenericTestResult | undefined;
+		expect(globalData?.result).toBe("ok");
+	});
+
+	test("should handle transformation that returns empty array", async () => {
+		class EmptyTransformPlugin extends Plugin {
+			constructor() {
+				super("empty-transform", "Empty Transform", "Test");
+				this.dimensions = [
+					{
+						name: "filter_all",
+						scope: "global" as const,
+						transform: (): SectionData[] => {
+							return [];
+						},
+					},
+					"analysis",
+				];
+			}
+
+			createPrompt(): string {
+				return "test";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
+			}
+		}
+
+		mockProvider.setMockResponse("test", { result: "ok" });
+
+		const engine = new DagEngine({
+			plugin: new EmptyTransformPlugin(),
+			registry,
+		});
+
+		const result = await engine.process([
+			createMockSection("Section 1"),
+			createMockSection("Section 2"),
+		]);
+
+		// Should preserve original sections if transform returns empty
+		expect(result.transformedSections.length).toBeGreaterThan(0);
+	});
+
+	test("should handle multiple global dimensions with transformations", async () => {
+		class MultiGlobalTransformPlugin extends Plugin {
+			constructor() {
+				super("multi-global", "Multi Global", "Test");
+				this.dimensions = [
+					{
+						name: "global1",
+						scope: "global" as const,
+						transform: (_result: DimensionResult, sections: SectionData[]): SectionData[] => {
+							return sections.slice(0, 2);
+						},
+					},
+					{
+						name: "global2",
+						scope: "global" as const,
+						transform: (_result: DimensionResult, sections: SectionData[]): SectionData[] => {
+							return sections.map((s) => ({
+								...s,
+								content: s.content.toUpperCase(),
+							}));
+						},
+					},
+				];
+			}
+
+			createPrompt(): string {
+				return "test";
+			}
+
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
+			}
+		}
+
+		mockProvider.setMockResponse("test", { result: "ok" });
+
+		const engine = new DagEngine({
+			plugin: new MultiGlobalTransformPlugin(),
+			registry,
+		});
+
+		const result = await engine.process([
+			createMockSection("section 1"),
+			createMockSection("section 2"),
+			createMockSection("section 3"),
+		]);
+
+		// After first transform: 2 sections
+		// After second transform: uppercase content
+		expect(result.transformedSections).toHaveLength(2);
+		expect(result.transformedSections[0]?.content).toBe("SECTION 1");
+		expect(result.transformedSections[1]?.content).toBe("SECTION 2");
 	});
 });

@@ -3,6 +3,23 @@ import { TavilyProvider } from "../../src/providers/search/tavily.ts";
 
 const originalFetch = global.fetch;
 
+/**
+ * Mock fetch options structure
+ */
+interface MockFetchOptions {
+	body?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Captured request body structure
+ */
+interface CapturedBody {
+	max_results?: number;
+	search_depth?: string;
+	[key: string]: unknown;
+}
+
 describe("TavilyProvider", () => {
 	afterEach(() => {
 		global.fetch = originalFetch;
@@ -50,8 +67,16 @@ describe("TavilyProvider", () => {
 		});
 
 		expect(result.data).toHaveLength(2);
-		expect(result.data?.[0]?.title).toBe("Result 1");
-		expect(result.data?.[1]?.title).toBe("Result 2");
+
+		const data = result.data as Array<{
+			title?: string;
+			url?: string;
+			content?: string;
+			score?: number;
+		}>;
+
+		expect(data[0]?.title).toBe("Result 1");
+		expect(data[1]?.title).toBe("Result 2");
 	});
 
 	test("should handle batch queries", async () => {
@@ -77,17 +102,20 @@ describe("TavilyProvider", () => {
 			options: {},
 		});
 
-		expect(result.data).toHaveLength(2); // 1 result per query
+		expect(Array.isArray(result.data)).toBe(true);
+		expect(result.data).toHaveLength(2);
 		expect(global.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	test("should handle maxResults parameter", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
 		const mockResponse = { results: [] };
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -104,12 +132,14 @@ describe("TavilyProvider", () => {
 	});
 
 	test("should handle searchDepth parameter", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
 		const mockResponse = { results: [] };
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -126,12 +156,14 @@ describe("TavilyProvider", () => {
 	});
 
 	test("should use default searchDepth advanced", async () => {
-		let capturedBody: any;
+		let capturedBody: CapturedBody = {};
 
 		const mockResponse = { results: [] };
 
-		global.fetch = vi.fn().mockImplementation(async (url, options) => {
-			capturedBody = JSON.parse(options?.body as string);
+		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
+			if (options?.body) {
+				capturedBody = JSON.parse(options.body) as CapturedBody;
+			}
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -194,8 +226,14 @@ describe("TavilyProvider", () => {
 		});
 
 		expect(result.metadata).toBeDefined();
-		expect(result.metadata?.totalQueries).toBe(1);
-		expect(result.metadata?.totalResults).toBe(2);
+
+		const metadata = result.metadata as {
+			totalQueries?: number;
+			totalResults?: number;
+		};
+
+		expect(metadata.totalQueries).toBe(1);
+		expect(metadata.totalResults).toBe(2);
 	});
 
 	test("should handle empty results", async () => {
@@ -214,17 +252,22 @@ describe("TavilyProvider", () => {
 			options: {},
 		});
 
+		expect(Array.isArray(result.data)).toBe(true);
 		expect(result.data).toHaveLength(0);
-		expect(result.metadata?.totalResults).toBe(0);
+
+		const metadata = result.metadata as {
+			totalResults?: number;
+		};
+		expect(metadata?.totalResults).toBe(0);
 	});
 
 	test("should handle custom endpoint", async () => {
-		let capturedUrl: string = "";
+		let capturedUrl = "";
 
 		const mockResponse = { results: [] };
 
-		global.fetch = vi.fn().mockImplementation(async (url) => {
-			capturedUrl = url as string;
+		global.fetch = vi.fn().mockImplementation(async (url: string | URL | Request) => {
+			capturedUrl = url.toString();
 			return {
 				ok: true,
 				json: async () => mockResponse,
@@ -273,8 +316,50 @@ describe("TavilyProvider", () => {
 			options: {},
 		});
 
+		expect(Array.isArray(result.data)).toBe(true);
 		expect(result.data).toHaveLength(2);
-		expect(result.metadata?.totalQueries).toBe(2);
-		expect(result.metadata?.totalResults).toBe(2);
+
+		const metadata = result.metadata as {
+			totalQueries?: number;
+			totalResults?: number;
+		};
+
+		expect(metadata?.totalQueries).toBe(2);
+		expect(metadata?.totalResults).toBe(2);
+	});
+
+	test("should handle network errors", async () => {
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+
+		const provider = new TavilyProvider({ apiKey: "test-key" });
+		const result = await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("Network error");
+	});
+
+	test("should use correct default endpoint", async () => {
+		let capturedUrl = "";
+
+		const mockResponse = { results: [] };
+
+		global.fetch = vi.fn().mockImplementation(async (url: string | URL | Request) => {
+			capturedUrl = url.toString();
+			return {
+				ok: true,
+				json: async () => mockResponse,
+			} as Response;
+		});
+
+		const provider = new TavilyProvider({ apiKey: "test-key" });
+		await provider.execute({
+			input: "test",
+			options: {},
+		});
+
+		expect(capturedUrl).toContain("tavily");
 	});
 });

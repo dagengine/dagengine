@@ -3,9 +3,9 @@ import {
 	type ProviderConfig,
 	type ProviderRequest,
 	type ProviderResponse,
-} from "../types";
-import { parseJSON } from "../../utils";
-import { PortkeyAdapter } from "../gateway/portkey-adapter";
+} from "../types.ts";
+import { parseJSON } from "../../utils.ts";
+import { PortkeyAdapter, OpenAIResponse } from "../gateway/portkey-adapter.ts";
 
 export class AnthropicProvider extends BaseProvider {
 	private readonly apiKey: string;
@@ -28,7 +28,7 @@ export class AnthropicProvider extends BaseProvider {
 		try {
 			// Route through Portkey or direct to Anthropic
 			if (this.isUsingGateway()) {
-				return await this.executeViaPortkey(request); // CHANGED
+				return await this.executeViaPortkey(request);
 			}
 
 			return await this.executeDirect(request);
@@ -45,7 +45,6 @@ export class AnthropicProvider extends BaseProvider {
 	private async executeViaPortkey(
 		request: ProviderRequest,
 	): Promise<ProviderResponse> {
-		// CHANGED
 		const gatewayApiKey = this.getGatewayApiKey();
 
 		if (!gatewayApiKey) {
@@ -53,12 +52,12 @@ export class AnthropicProvider extends BaseProvider {
 		}
 
 		// Convert to OpenAI format
-		const openAIRequest = PortkeyAdapter.anthropicToOpenAI(request); // CHANGED
+		const openAIRequest = PortkeyAdapter.anthropicToOpenAI(request);
 
 		// Portkey uses different headers
 		const headers: Record<string, string> = {
-			"x-portkey-api-key": gatewayApiKey, // CHANGED
-			"x-portkey-provider": "anthropic", // NEW: Tell Portkey which provider
+			"x-portkey-api-key": gatewayApiKey,
+			"x-portkey-provider": "anthropic",
 			"Content-Type": "application/json",
 			Authorization: `Bearer ${this.apiKey}`,
 		};
@@ -70,7 +69,6 @@ export class AnthropicProvider extends BaseProvider {
 		}
 
 		const response = await fetch("https://api.portkey.ai/v1/chat/completions", {
-			// CHANGED
 			method: "POST",
 			headers,
 			body: JSON.stringify(openAIRequest),
@@ -85,10 +83,10 @@ export class AnthropicProvider extends BaseProvider {
 			throw new Error(`Portkey API error (${response.status}): ${error}`);
 		}
 
-		const data = await response.json();
+		const data = (await response.json()) as OpenAIResponse;
 
 		// Parse OpenAI format response
-		const parsedResponse = PortkeyAdapter.parseOpenAIResponse(data); // CHANGED
+		const parsedResponse = PortkeyAdapter.parseOpenAIResponse(data);
 
 		// Parse JSON from content if needed
 		if (parsedResponse.data && typeof parsedResponse.data === "string") {

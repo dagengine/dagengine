@@ -1,8 +1,9 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
-import { ProviderRegistry } from "../src/providers/registry";
-import { MockAIProvider, createMockSection } from "./setup";
+import { DagEngine } from "../src/core/engine/dag-engine.ts";
+import { Plugin } from "../src/plugin.ts";
+import { ProviderRegistry } from "../src/providers/registry.ts";
+import { MockAIProvider, createMockSection } from "./setup.ts";
+import type { PromptContext, ProviderSelection } from "../src/types.ts";
 
 describe("DagEngine - Edge Cases", () => {
 	let mockProvider: MockAIProvider;
@@ -26,8 +27,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -56,12 +57,12 @@ describe("DagEngine - Edge Cases", () => {
 				this.dimensions = ["analysis"];
 			}
 
-			createPrompt(context: any): string {
-				return context.sections[0]?.content.substring(0, 100);
+			createPrompt(context: PromptContext): string {
+				return context.sections[0]?.content.substring(0, 100) ?? "";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -74,7 +75,7 @@ describe("DagEngine - Edge Cases", () => {
 		const longContent = "A".repeat(10 * 1024 * 1024);
 		const result = await engine.process([createMockSection(longContent)]);
 
-		expect(result.sections[0]?.results?.analysis).toBeDefined();
+		expect(result.sections[0]?.results.analysis).toBeDefined();
 	});
 
 	test("should handle special characters in content", async () => {
@@ -84,12 +85,12 @@ describe("DagEngine - Edge Cases", () => {
 				this.dimensions = ["analysis"];
 			}
 
-			createPrompt(context: any): string {
-				return context.sections[0]?.content;
+			createPrompt(context: PromptContext): string {
+				return context.sections[0]?.content ?? "";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -111,12 +112,12 @@ describe("DagEngine - Edge Cases", () => {
 				this.dimensions = ["analysis"];
 			}
 
-			createPrompt(context: any): string {
-				return context.sections[0]?.content;
+			createPrompt(context: PromptContext): string {
+				return context.sections[0]?.content ?? "";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -142,8 +143,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -155,7 +156,7 @@ describe("DagEngine - Edge Cases", () => {
 		const result = await engine.process([createMockSection("")]);
 
 		expect(result.sections[0]?.section.content).toBe("");
-		expect(result.sections[0]?.results?.analysis).toBeDefined();
+		expect(result.sections[0]?.results.analysis).toBeDefined();
 	});
 
 	test("should handle null/undefined metadata", async () => {
@@ -169,8 +170,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -180,8 +181,11 @@ describe("DagEngine - Edge Cases", () => {
 		});
 
 		const sections = [
-			{ content: "Test 1", metadata: null as any },
-			{ content: "Test 2", metadata: undefined as any },
+			{ content: "Test 1", metadata: null as unknown as Record<string, unknown> },
+			{
+				content: "Test 2",
+				metadata: undefined as unknown as Record<string, unknown>,
+			},
 			{ content: "Test 3", metadata: {} },
 		];
 
@@ -201,8 +205,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -211,12 +215,19 @@ describe("DagEngine - Edge Cases", () => {
 			registry,
 		});
 
-		const metadata: any = { a: 1 };
+		interface CircularMetadata extends Record<string, unknown> {
+			a: number;
+			self?: CircularMetadata;
+		}
+
+		const metadata: CircularMetadata = { a: 1 };
 		metadata.self = metadata; // Circular reference
 
 		const result = await engine.process([{ content: "Test", metadata }]);
 
-		expect(result.sections[0]?.section.metadata.a).toBe(1);
+		const sectionMetadata = result.sections[0]?.section
+			.metadata as unknown as CircularMetadata;
+		expect(sectionMetadata.a).toBe(1);
 	});
 
 	test("should handle very deep dependency chains (10+ levels)", async () => {
@@ -226,12 +237,12 @@ describe("DagEngine - Edge Cases", () => {
 				this.dimensions = Array.from({ length: 15 }, (_, i) => `level${i}`);
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -250,7 +261,7 @@ describe("DagEngine - Edge Cases", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(Object.keys(result.sections[0]?.results || {})).toHaveLength(15);
+		expect(Object.keys(result.sections[0]?.results ?? {})).toHaveLength(15);
 	});
 
 	test("should handle whitespace-only content", async () => {
@@ -260,12 +271,12 @@ describe("DagEngine - Edge Cases", () => {
 				this.dimensions = ["analysis"];
 			}
 
-			createPrompt(context: any): string {
-				return `Content length: ${context.sections[0]?.content.length}`;
+			createPrompt(context: PromptContext): string {
+				return `Content length: ${context.sections[0]?.content.length ?? 0}`;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -290,8 +301,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -316,8 +327,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -326,13 +337,19 @@ describe("DagEngine - Edge Cases", () => {
 			registry,
 		});
 
-		let deepMeta: any = { level: 0 };
+		interface NestedMetadata extends Record<string, unknown> {
+			level: number;
+			nested?: NestedMetadata;
+		}
+
+		let deepMeta: NestedMetadata = { level: 0 };
+		const root = deepMeta;
 		for (let i = 1; i < 50; i++) {
 			deepMeta.nested = { level: i };
 			deepMeta = deepMeta.nested;
 		}
 
-		const result = await engine.process([createMockSection("Test", deepMeta)]);
+		const result = await engine.process([createMockSection("Test", root)]);
 
 		expect(result.sections[0]?.section.metadata).toBeDefined();
 	});
@@ -348,8 +365,8 @@ describe("DagEngine - Edge Cases", () => {
 				return "test";
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 		}
 
@@ -358,7 +375,19 @@ describe("DagEngine - Edge Cases", () => {
 			registry,
 		});
 
-		const mixedMetadata = {
+		interface MixedMetadata extends Record<string, unknown> {
+			string: string;
+			number: number;
+			boolean: boolean;
+			null: null;
+			undefined: undefined;
+			array: number[];
+			object: { nested: string };
+			date: Date;
+			regex: RegExp;
+		}
+
+		const mixedMetadata: MixedMetadata = {
 			string: "value",
 			number: 123,
 			boolean: true,
@@ -374,7 +403,8 @@ describe("DagEngine - Edge Cases", () => {
 			createMockSection("Test", mixedMetadata),
 		]);
 
-		expect(result.sections[0]?.section.metadata.string).toBe("value");
-		expect(result.sections[0]?.section.metadata.number).toBe(123);
+		const metadata = result.sections[0]?.section.metadata as unknown as MixedMetadata;
+		expect(metadata.string).toBe("value");
+		expect(metadata.number).toBe(123);
 	});
 });

@@ -1,4 +1,7 @@
+export type{ PromptContext, ProviderSelection } from './plugin';
+
 export interface SectionData {
+
 	content: string;
 	metadata: Record<string, unknown>;
 }

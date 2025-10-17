@@ -1,14 +1,21 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
-import { DagEngine } from "../../src/core/engine";
-import { Plugin } from "../../src/plugin";
-import { ProviderAdapter } from "../../src/providers/adapter";
-import type { SectionDimensionContext } from "../../src/types";
+import { DagEngine } from "../../src/core/engine/dag-engine.ts";
+import { Plugin } from "../../src/plugin.ts";
+import { ProviderAdapter } from "../../src/providers/adapter.ts";
+import type {
+	SectionDimensionContext,
+	ProviderResponse,
+	ProviderSelection,
+} from "../../src/types.ts";
 
+/**
+ * Mock provider for testing
+ */
 class MockProvider {
 	name = "mock";
 	callLog: string[] = [];
 
-	async execute(options: any) {
+	async execute(_options: { [key: string]: unknown }): Promise<ProviderResponse> {
 		this.callLog.push("called");
 		return {
 			data: { result: "mock result" },
@@ -20,7 +27,7 @@ class MockProvider {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.callLog = [];
 	}
 
@@ -36,7 +43,7 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should process global dimension when shouldSkipGlobalDimension not defined", async () => {
@@ -46,15 +53,13 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				this.dimensions = [{ name: "global_summary", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
-
-			// No shouldSkipGlobalDimension method
 		}
 
 		const plugin = new NoSkipGlobalPlugin();
@@ -67,7 +72,6 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 		await engine.process(sections);
 
-		// Global dimension should be processed
 		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 
@@ -81,18 +85,16 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
 			shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
 				const { dimension } = context;
-
-				// Skip global_analysis
 				return dimension === "global_analysis";
 			}
 		}
@@ -108,10 +110,8 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		mockProvider.reset();
 		const result = await engine.process(sections);
 
-		// Only global_summary should be called (global_analysis skipped)
 		expect(mockProvider.getTotalCalls()).toBe(1);
 
-		// Verify skipped dimension is marked
 		expect(result.globalResults.global_analysis?.data).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
@@ -125,11 +125,11 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				this.dimensions = [{ name: "overall_summary", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -137,7 +137,6 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				const { dimension, sections } = context;
 
 				if (dimension === "overall_summary") {
-					// Skip if ALL sections are too short
 					return sections.every((s) => s.content.length < 50);
 				}
 				return false;
@@ -147,21 +146,19 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		const plugin = new LengthBasedGlobalPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Test 1: All short sections - should skip
 		mockProvider.reset();
 		await engine.process([
 			{ content: "Short", metadata: {} },
 			{ content: "Also short", metadata: {} },
 		]);
-		expect(mockProvider.getTotalCalls()).toBe(0); // Skipped
+		expect(mockProvider.getTotalCalls()).toBe(0);
 
-		// Test 2: At least one long section - should process
 		mockProvider.reset();
 		await engine.process([
 			{ content: "Short", metadata: {} },
 			{ content: "x".repeat(100), metadata: {} },
 		]);
-		expect(mockProvider.getTotalCalls()).toBe(1); // Processed
+		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 
 	test("should skip global dimension based on section count", async () => {
@@ -171,18 +168,17 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				this.dimensions = [{ name: "cross_reference", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
 			shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
 				const { dimension, sections } = context;
 				if (dimension === "cross_reference") {
-					// Need at least 3 sections to cross-reference
 					return sections.length < 3;
 				}
 				return false;
@@ -192,7 +188,6 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		const plugin = new CountBasedGlobalPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Test 1: Only 2 sections - skip
 		mockProvider.reset();
 		await engine.process([
 			{ content: "Section 1", metadata: {} },
@@ -200,7 +195,6 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		]);
 		expect(mockProvider.getTotalCalls()).toBe(0);
 
-		// Test 2: 3 sections - process
 		mockProvider.reset();
 		await engine.process([
 			{ content: "Section 1", metadata: {} },
@@ -217,11 +211,11 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				this.dimensions = [{ name: "expensive_global", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -229,8 +223,10 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				const { dimension, sections } = context;
 
 				if (dimension === "expensive_global") {
-					// Skip if any section has skipExpensive flag
-					return sections.some((s) => s.metadata.skipExpensive === true);
+					return sections.some(
+						(s) =>
+							(s.metadata as { skipExpensive?: boolean }).skipExpensive === true,
+					);
 				}
 				return false;
 			}
@@ -239,12 +235,10 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		const plugin = new MetadataBasedGlobalPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Test 1: No skip flag - process
 		mockProvider.reset();
 		await engine.process([{ content: "Test", metadata: {} }]);
 		expect(mockProvider.getTotalCalls()).toBe(1);
 
-		// Test 2: Has skip flag - skip
 		mockProvider.reset();
 		await engine.process([
 			{ content: "Test", metadata: {} },
@@ -260,11 +254,11 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				this.dimensions = [{ name: "global_dim", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -273,8 +267,7 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 			): Promise<boolean> {
 				const { sections } = context;
 
-				// Simulate async check (e.g., database query)
-				await new Promise((resolve) => setTimeout(resolve, 10));
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
 				return sections.length < 2;
 			}
 		}
@@ -284,7 +277,7 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 		mockProvider.reset();
 		await engine.process([{ content: "Only one", metadata: {} }]);
-		expect(mockProvider.getTotalCalls()).toBe(0); // Skipped
+		expect(mockProvider.getTotalCalls()).toBe(0);
 	});
 
 	test("should work with both section and global skip logic", async () => {
@@ -297,11 +290,11 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -312,7 +305,6 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 			shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
 				const { sections } = context;
-
 				return sections.length < 2;
 			}
 		}
@@ -322,13 +314,10 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 		mockProvider.reset();
 		await engine.process([
-			{ content: "Hi", metadata: {} }, // Too short for section_dim
+			{ content: "Hi", metadata: {} },
 			{ content: "Long enough content", metadata: {} },
 		]);
 
-		// section_dim: 1 call (skipped for first section, processed for second)
-		// global_dim: 1 call (2 sections, so not skipped)
-		// Total: 2 calls
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
@@ -343,16 +332,16 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
+
 			shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
 				const { dimension } = context;
-				// Skip global_A and global_C
 				return dimension === "global_A" || dimension === "global_C";
 			}
 		}
@@ -363,10 +352,8 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 		mockProvider.reset();
 		const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-		// Only global_B should be processed
 		expect(mockProvider.getTotalCalls()).toBe(1);
 
-		// Verify skipped dimensions are marked
 		expect(result.globalResults.global_A?.data).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
@@ -385,7 +372,7 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should skip based on aggregate statistics", async () => {
@@ -395,11 +382,11 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 				this.dimensions = [{ name: "statistical_analysis", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -407,7 +394,6 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 				const { sections, dimension } = context;
 
 				if (dimension === "statistical_analysis") {
-					// Skip if average section length < 100
 					const avgLength =
 						sections.reduce((sum, s) => sum + s.content.length, 0) /
 						sections.length;
@@ -420,7 +406,6 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 		const plugin = new AggregateBasedPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Test 1: Low average - skip
 		mockProvider.reset();
 		await engine.process([
 			{ content: "x".repeat(50), metadata: {} },
@@ -428,7 +413,6 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 		]);
 		expect(mockProvider.getTotalCalls()).toBe(0);
 
-		// Test 2: High average - process
 		mockProvider.reset();
 		await engine.process([
 			{ content: "x".repeat(150), metadata: {} },
@@ -448,11 +432,11 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 				this.dimensions = [{ name: "code_summary", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -460,7 +444,6 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 				const { sections, dimension } = context;
 
 				if (dimension === "code_summary") {
-					// Skip if less than 50% of sections contain code
 					const codeCount = sections.filter((s) =>
 						/function|class/.test(s.content),
 					).length;
@@ -473,35 +456,33 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 		const plugin = new DistributionBasedPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Test 1: Low code percentage - skip
 		mockProvider.reset();
 		await engine.process([
 			{ content: "function test() {}", metadata: {} },
 			{ content: "plain text", metadata: {} },
 			{ content: "more text", metadata: {} },
 		]);
-		expect(mockProvider.getTotalCalls()).toBe(0); // 33% < 50%
+		expect(mockProvider.getTotalCalls()).toBe(0);
 
-		// Test 2: High code percentage - process
 		mockProvider.reset();
 		await engine.process([
 			{ content: "function test() {}", metadata: {} },
 			{ content: "class MyClass {}", metadata: {} },
 			{ content: "plain text", metadata: {} },
 		]);
-		expect(mockProvider.getTotalCalls()).toBe(1); // 66% >= 50%
+		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 });
 
 describe("shouldSkipGlobalDimension - Error Handling", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: any;
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 	});
 
@@ -516,11 +497,11 @@ describe("shouldSkipGlobalDimension - Error Handling", () => {
 				this.dimensions = [{ name: "global_dim", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -532,15 +513,11 @@ describe("shouldSkipGlobalDimension - Error Handling", () => {
 		const plugin = new ErrorGlobalPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Should not throw
 		await expect(
 			engine.process([{ content: "Test", metadata: {} }]),
 		).resolves.toBeDefined();
 
-		// Should log error
 		expect(consoleErrorSpy).toHaveBeenCalled();
-
-		// Should still process (default to false on error)
 		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 
@@ -555,16 +532,16 @@ describe("shouldSkipGlobalDimension - Error Handling", () => {
 				this.dimensions = [{ name: "global_dim", scope: "global" }];
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
 			async shouldSkipGlobalDimension(): Promise<boolean> {
-				await new Promise((resolve) => setTimeout(resolve, 5));
+				await new Promise<void>((resolve) => setTimeout(resolve, 5));
 				throw new Error("Async error");
 			}
 		}
@@ -572,15 +549,11 @@ describe("shouldSkipGlobalDimension - Error Handling", () => {
 		const plugin = new AsyncErrorGlobalPlugin();
 		const engine = new DagEngine({ plugin, providers: adapter });
 
-		// Should not throw
 		await expect(
 			engine.process([{ content: "Test", metadata: {} }]),
 		).resolves.toBeDefined();
 
-		// Should log error
 		expect(consoleErrorSpy).toHaveBeenCalled();
-
-		// Should still process (default to false on error)
 		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 });
@@ -592,7 +565,7 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as never);
 	});
 
 	test("should work with cost tracking for global dimensions", async () => {
@@ -604,11 +577,12 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 					{ name: "cheap_global", scope: "global" },
 				];
 			}
-			createPrompt() {
+
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
@@ -616,8 +590,10 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 				const { sections, dimension } = context;
 
 				if (dimension === "expensive_global") {
-					// Skip if any section has skip flag
-					return sections.some((s) => s.metadata.skipExpensive === true);
+					return sections.some(
+						(s) =>
+							(s.metadata as { skipExpensive?: boolean }).skipExpensive === true,
+					);
 				}
 				return false;
 			}
@@ -641,7 +617,6 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 
 		const result = await engine.process(sections);
 
-		// Should track costs only for processed dimension
 		expect(result.costs).toBeDefined();
 		expect(result.costs!.byDimension).toHaveProperty("cheap_global");
 		expect(result.costs!.byDimension).not.toHaveProperty("expensive_global");
@@ -657,24 +632,22 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 				];
 			}
 
-			defineDependencies() {
+			defineDependencies(): Record<string, string[]> {
 				return {
 					global_B: ["global_A"],
 				};
 			}
 
-			createPrompt() {
+			createPrompt(): string {
 				return "test prompt";
 			}
 
-			selectProvider() {
+			selectProvider(): ProviderSelection {
 				return { provider: "mock", options: {} };
 			}
 
 			shouldSkipGlobalDimension(context: SectionDimensionContext): boolean {
 				const { dimension } = context;
-
-				// Skip global_A
 				return dimension === "global_A";
 			}
 		}
@@ -688,13 +661,11 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 
 		const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-		// global_A should be skipped
 		expect(result.globalResults.global_A?.data).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});
 
-		// global_B should still attempt to process
 		expect(result.globalResults.global_B).toBeDefined();
 	});
 });
