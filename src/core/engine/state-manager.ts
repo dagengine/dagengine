@@ -81,6 +81,33 @@ export function getSectionResults(
     return state.sectionResultsMap.get(sectionIndex) ?? {};
 }
 
+export function serializeState(state: ProcessState): SerializedProcessState {
+    return {
+        ...state,
+        sectionResultsMap: Array.from(state.sectionResultsMap.entries())
+    };
+}
+
+/**
+ * Deserialize state from Inngest checkpoint
+ */
+export function deserializeState(serialized: SerializedProcessState): ProcessState {
+    return {
+        ...serialized,
+        sectionResultsMap: new Map(serialized.sectionResultsMap)
+    };
+}
+
+// Type for serialized state
+export interface SerializedProcessState {
+    id: string;
+    startTime: number;
+    metadata?: unknown;
+    sections: SectionData[];
+    globalResults: Record<string, DimensionResult>;
+    sectionResultsMap: Array<[number, Record<string, DimensionResult>]>;
+}
+
 /**
  * Sets section result safely
  *

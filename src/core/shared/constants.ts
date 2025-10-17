@@ -223,7 +223,7 @@ export const VALIDATION = {
     MAX_RETRIES: 10,
 
     /** Minimum allowed timeout */
-    MIN_TIMEOUT: 1000, // 1 second
+    MIN_TIMEOUT: 100, // 1 second
 
     /** Maximum allowed timeout */
     MAX_TIMEOUT: 600000, // 10 minutes

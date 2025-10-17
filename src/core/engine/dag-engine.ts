@@ -55,6 +55,8 @@ import { EngineConfig, mergeExecutionConfig, normalizeEngineConfig } from './eng
 import { DependencyGraphManager } from '../analysis/graph-manager.ts';
 import { ConfigValidator } from '../validation/config-validator.ts';
 import { GraphAnalytics } from '../graph-manager';
+import crypto from 'crypto';
+import { InngestOrchestrator } from '../../orchestration/inngest-orchestrator.ts';
 
 /**
  * Provider initializer utility
@@ -121,6 +123,7 @@ export class DagEngine {
     private readonly adapter: ProviderAdapter;
     private readonly phaseExecutor: PhaseExecutor;
     private readonly graphManager: DependencyGraphManager;
+    private readonly inngestOrchestrator?: InngestOrchestrator;
 
     // Cached dependency graph for analytics
     private cachedDependencyGraph?: Record<string, string[]>;
@@ -166,7 +169,15 @@ export class DagEngine {
             executionConfig,
             normalizedConfig.pricing
         );
+
+        if (config.inngest?.enabled) {
+            this.inngestOrchestrator = new InngestOrchestrator(
+                this.phaseExecutor,
+                config.inngest
+            );
+        }
     }
+
 
     /**
      * Processes sections through all dimensions
@@ -206,41 +217,44 @@ export class DagEngine {
         sections: SectionData[],
         options: ProcessOptions = {}
     ): Promise<ProcessResult> {
+        // Route to Inngest if enabled
+        if (this.inngestOrchestrator) {
+            const processId = options.processId || crypto.randomUUID();
+            return await this.inngestOrchestrator.execute({
+                processId,
+                sections,
+                options
+            });
+        }
+
+        // Original direct execution (unchanged)
         const stateManager = createProcessState(sections);
-
         try {
-            // Phase 1: Pre-process
             await this.phaseExecutor.preProcess(stateManager, options);
-
-            // Phase 2: Planning
             const plan = await this.phaseExecutor.planExecution(stateManager, options);
+
             this.cachedDependencyGraph = plan.dependencyGraph;
 
-            // Phase 3: Execution
             await this.phaseExecutor.executeDimensions(stateManager, plan, options);
-
-            // Phase 4: Finalization
-            const result = await this.phaseExecutor.finalizeResults(
-                stateManager,
-                plan,
-                options
-            );
-
-            // Phase 5: Post-process
-            return await this.phaseExecutor.postProcess(
-                stateManager,
-                result,
-                plan,
-                options
-            );
+            const result = await this.phaseExecutor.finalizeResults(stateManager, plan, options);
+            return await this.phaseExecutor.postProcess(stateManager, result, plan, options);
         } catch (error) {
-            // Handle failure with partial results
-            return await this.phaseExecutor.handleFailure(
-                stateManager,
-                error,
-                options
-            );
+            return await this.phaseExecutor.handleFailure(stateManager, error, options);
         }
+    }
+
+    async processWithInngest(
+        sections: SectionData[],
+        options: ProcessOptions = {}
+    ): Promise<ProcessResult> {
+        const processId = options.processId || crypto.randomUUID();
+
+        // Delegate to Inngest orchestrator
+        return await this.inngestOrchestrator.execute({
+            processId,
+            sections,
+            options
+        });
     }
 
     // ============================================================================
@@ -377,5 +391,16 @@ export class DagEngine {
      */
     getQueue() {
         return this.phaseExecutor.getQueue();
+    }
+
+    getExecutionConfig() {
+        return {
+            concurrency: this.phaseExecutor.config.concurrency,
+            maxRetries: this.phaseExecutor.config.maxRetries,
+            retryDelay: this.phaseExecutor.config.retryDelay,
+            timeout: this.phaseExecutor.config.timeout,
+            continueOnError: this.phaseExecutor.config.continueOnError,
+            dimensionTimeouts: { ...this.phaseExecutor.config.dimensionTimeouts },
+        };
     }
 }

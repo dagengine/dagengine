@@ -102,6 +102,49 @@ export interface ExecutionConfig {
 // MAIN ENGINE CONFIGURATION
 // ============================================================================
 
+// ADD THIS (Lines 179-200)
+
+/**
+ * Inngest orchestration configuration
+ */
+export interface InngestConfig {
+    /**
+     * Enable Inngest orchestration
+     * @default false
+     */
+    enabled: boolean;
+
+    /**
+     * Inngest event key (from inngest.com dashboard)
+     * If not provided, uses local dev server (http://localhost:8288)
+     */
+    eventKey?: string;
+
+    /**
+     * Inngest signing key (for webhook security in production)
+     * Optional - only needed for production webhooks
+     */
+    signingKey?: string;
+
+    /**
+     * Custom Inngest base URL
+     * @default Uses Inngest cloud or local dev server
+     */
+    baseUrl?: string;
+
+    /**
+     * Function name prefix
+     * @default 'dagengine'
+     */
+    functionPrefix?: string;
+
+    /**
+     * Checkpoint every N dimensions (for fine-grained control)
+     * @default 1 (checkpoint after each dimension)
+     */
+    checkpointFrequency?: number;
+}
+
 /**
  * Main configuration interface for the DagEngine
  *
@@ -224,6 +267,8 @@ export interface EngineConfig {
      * @deprecated Use execution.dimensionTimeouts instead
      */
     dimensionTimeouts?: Record<string, number>;
+
+    inngest?: InngestConfig;  // ← ADD THIS
 }
 
 // ============================================================================

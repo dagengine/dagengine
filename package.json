@@ -87,6 +87,7 @@
   "dependencies": {
     "@dagrejs/graphlib": "^2.2.4",
     "dotenv": "^17.2.3",
+    "inngest": "^3.44.3",
     "jsonrepair": "^3.13.1",
     "p-queue": "^9.0.0",
     "p-retry": "^7.1.0"

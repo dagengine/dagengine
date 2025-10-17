@@ -50,7 +50,7 @@ interface ExecutionConfig {
 export class PhaseExecutor {
     private readonly plugin: Plugin;
     private readonly adapter: ProviderAdapter;
-    private readonly config: ExecutionConfig;
+    public readonly config: ExecutionConfig;
     private readonly graphManager: DependencyGraphManager;
     private readonly costCalculator?: CostCalculator;
     private readonly queue: PQueue;
@@ -87,6 +87,9 @@ export class PhaseExecutor {
         this.queue = new PQueue({ concurrency: config.concurrency });
     }
 
+    getPlugin(): Plugin {
+        return this.plugin;
+    }
     // ============================================================================
     // PHASE 1: PRE-PROCESS
     // ============================================================================
@@ -196,7 +199,7 @@ export class PhaseExecutor {
     /**
      * Executes global dimensions in parallel
      */
-    private async executeGlobalDimensions(
+    public async executeGlobalDimensions(
         dimensions: string[],
         state: ProcessState,
         dependencyGraph: Record<string, string[]>,
@@ -237,7 +240,7 @@ export class PhaseExecutor {
     /**
      * Executes section dimensions across all sections
      */
-    private async executeSectionDimensions(
+    public async executeSectionDimensions(
         dimensions: string[],
         state: ProcessState,
         dependencyGraph: Record<string, string[]>,
@@ -251,6 +254,17 @@ export class PhaseExecutor {
                 options
             );
         }
+    }
+
+    public async executeGroup(
+        globalDims: string[],
+        sectionDims: string[],
+        state: ProcessState,
+        dependencyGraph: Record<string, string[]>,
+        options: ProcessOptions
+    ): Promise<void> {
+        await this.executeGlobalDimensions(globalDims, state, dependencyGraph, options);
+        await this.executeSectionDimensions(sectionDims, state, dependencyGraph, options);
     }
 
     // ============================================================================

@@ -1,5 +1,7 @@
+// tests/engine-edge-cases.test.ts
+
 import { describe, test, expect, beforeEach } from 'vitest';
-import { DagEngine } from '../src/core/engine.ts';
+import { DagEngine } from '../src/core/engine/dag-engine';  // ✅ Fixed import
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';
 import { MockAIProvider, createMockSection } from './setup';
@@ -26,14 +28,15 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
             selectProvider(): any { return { provider: 'mock-ai' }; }
         }
 
-        // @ts-expect-error - test
         const engine = new DagEngine({
             plugin: new SimplePlugin(),
             registry,
             dimensionTimeouts: undefined  // Explicitly undefined to test fallback
         });
 
-        expect((engine as any).dimensionTimeouts).toEqual({});
+        // ✅ Fixed: Use getter instead of private property access
+        const config = engine.getExecutionConfig();
+        expect(config.dimensionTimeouts).toEqual({});
     });
 
     // Lines 151-152: Transformation error in parallel group with onError not defined
@@ -231,7 +234,7 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
         expect(result.sections[0]?.results.test?.data).toEqual({ result: 'ok' });
     });
 
-    // Lines 511-514: Topological sort with already visited dimension
+    // Lines 511-514: Topological sort with shared dependencies
     test('should handle topological sort with shared dependencies', async () => {
         class SharedDepPlugin extends Plugin {
             constructor() {
@@ -292,7 +295,6 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
     });
 
     // Test provider not found scenario
-// tests/engine-edge-cases.test.ts
     test('should throw error when provider not found', async () => {
         class MissingProviderPlugin extends Plugin {
             constructor() {
@@ -319,7 +321,6 @@ describe('DagEngine - Edge Cases for 100% Coverage', () => {
         expect(error).toContain('Available:');
     });
 
-// tests/error-handling.test.ts
     test('should handle missing provider error', async () => {
         class MissingProviderPlugin extends Plugin {
             constructor() {

@@ -1,5 +1,7 @@
+// tests/engine-config.test.ts
+
 import { describe, test, expect } from 'vitest';
-import { DagEngine } from '../src/core/engine.ts';
+import { DagEngine } from '../src/core/engine/dag-engine';
 import { Plugin } from '../src/plugin';
 import { ProviderRegistry } from '../src/providers/registry';
 import { ProviderAdapter } from '../src/providers/adapter';
@@ -37,7 +39,6 @@ describe('DagEngine - Configuration Validation', () => {
         expect(() => {
             new DagEngine({
                 plugin: new TestPlugin()
-                // No providers or registry
             });
         }).toThrow('requires either "providers" or "registry"');
     });
@@ -58,7 +59,7 @@ describe('DagEngine - Configuration Validation', () => {
         expect(() => {
             new DagEngine({
                 plugin: new TestPlugin(),
-                providers: new ProviderAdapter({})  // Empty!
+                providers: new ProviderAdapter({})
             });
         }).toThrow('at least one provider');
     });
@@ -84,8 +85,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        // Access private field for testing
-        expect((engine as any).concurrency).toBe(5);
+        const config = engine.getExecutionConfig();
+        expect(config.concurrency).toBe(5);
     });
 
     test('should accept custom concurrency', () => {
@@ -98,7 +99,8 @@ describe('DagEngine - Configuration Validation', () => {
             concurrency: 15
         });
 
-        expect((engine as any).concurrency).toBe(15);
+        const config = engine.getExecutionConfig();
+        expect(config.concurrency).toBe(15);
     });
 
     test('should use default maxRetries value', () => {
@@ -110,7 +112,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        expect((engine as any).maxRetries).toBe(3);
+        const config = engine.getExecutionConfig();
+        expect(config.maxRetries).toBe(3);
     });
 
     test('should accept custom maxRetries', () => {
@@ -123,7 +126,8 @@ describe('DagEngine - Configuration Validation', () => {
             maxRetries: 10
         });
 
-        expect((engine as any).maxRetries).toBe(10);
+        const config = engine.getExecutionConfig();
+        expect(config.maxRetries).toBe(10);
     });
 
     test('should use default retryDelay value', () => {
@@ -135,7 +139,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        expect((engine as any).retryDelay).toBe(1000);
+        const config = engine.getExecutionConfig();
+        expect(config.retryDelay).toBe(1000);
     });
 
     test('should accept custom retryDelay', () => {
@@ -148,7 +153,8 @@ describe('DagEngine - Configuration Validation', () => {
             retryDelay: 500
         });
 
-        expect((engine as any).retryDelay).toBe(500);
+        const config = engine.getExecutionConfig();
+        expect(config.retryDelay).toBe(500);
     });
 
     test('should use default timeout value', () => {
@@ -160,7 +166,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        expect((engine as any).timeout).toBe(60000);
+        const config = engine.getExecutionConfig();
+        expect(config.timeout).toBe(60000);
     });
 
     test('should accept custom timeout', () => {
@@ -173,7 +180,8 @@ describe('DagEngine - Configuration Validation', () => {
             timeout: 30000
         });
 
-        expect((engine as any).timeout).toBe(30000);
+        const config = engine.getExecutionConfig();
+        expect(config.timeout).toBe(30000);
     });
 
     test('should use default continueOnError value', () => {
@@ -185,7 +193,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        expect((engine as any).continueOnError).toBe(true);
+        const config = engine.getExecutionConfig();
+        expect(config.continueOnError).toBe(true);
     });
 
     test('should accept custom continueOnError', () => {
@@ -198,7 +207,8 @@ describe('DagEngine - Configuration Validation', () => {
             continueOnError: false
         });
 
-        expect((engine as any).continueOnError).toBe(false);
+        const config = engine.getExecutionConfig();
+        expect(config.continueOnError).toBe(false);
     });
 
     test('should accept dimensionTimeouts', () => {
@@ -214,7 +224,8 @@ describe('DagEngine - Configuration Validation', () => {
             }
         });
 
-        expect((engine as any).dimensionTimeouts).toEqual({
+        const config = engine.getExecutionConfig();
+        expect(config.dimensionTimeouts).toEqual({
             dim1: 5000,
             dim2: 10000
         });
@@ -229,7 +240,8 @@ describe('DagEngine - Configuration Validation', () => {
             registry
         });
 
-        expect((engine as any).dimensionTimeouts).toEqual({});
+        const config = engine.getExecutionConfig();
+        expect(config.dimensionTimeouts).toEqual({});
     });
 
     test('should throw error when no providers available', () => {
@@ -279,7 +291,8 @@ describe('DagEngine - Configuration Validation', () => {
             maxRetries: 0
         });
 
-        expect((engine as any).maxRetries).toBe(0);
+        const config = engine.getExecutionConfig();
+        expect(config.maxRetries).toBe(0);
     });
 
     test('should get adapter from engine', () => {
