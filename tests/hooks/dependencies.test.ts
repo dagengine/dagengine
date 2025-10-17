@@ -7,13 +7,35 @@ import type {
 	DimensionContext,
 	SectionDimensionContext,
 	DimensionDependencies,
+	ProviderRequest,
+	ProviderResponse,
 } from "../../src/types";
 
+// ============================================================================
+// TEST TYPES & HELPERS
+// ============================================================================
+
+interface TestData {
+	result?: string;
+	transformed?: boolean;
+	sections?: unknown[];
+	aggregated?: boolean;
+	count?: number;
+	externalData?: {
+		apiKey?: string;
+		config?: { timeout: number };
+	};
+	[key: string]: unknown;
+}
+
+/**
+ * Mock provider that implements the minimum interface needed
+ */
 class MockProvider {
 	name = "mock";
 	callLog: string[] = [];
 
-	async execute(request: any) {
+	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		this.callLog.push(request.dimension || "unknown");
 		return {
 			data: { result: `result-${request.dimension}` },
@@ -25,10 +47,35 @@ class MockProvider {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.callLog = [];
 	}
+
+	// Stub methods required by BaseProvider interface
+	getGatewayApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getGatewayConfig() {
+		return undefined;
+	}
+
+	getProviderApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getBaseUrl(): string | undefined {
+		return undefined;
+	}
+
+	get config() {
+		return {};
+	}
 }
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("Dependency Hooks", () => {
 	let mockProvider: MockProvider;
@@ -37,7 +84,7 @@ describe("Dependency Hooks", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as unknown as import("../../src/providers/types").BaseProvider);
 	});
 
 	describe("defineDependencies", () => {
@@ -51,7 +98,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["base", "dependent", "final"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -95,7 +142,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -128,7 +175,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b", "c", "d", "e"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -174,7 +221,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b", "c"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -208,7 +255,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -238,7 +285,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b", "c"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -277,7 +324,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["base", "dependent"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -296,14 +343,17 @@ describe("Dependency Hooks", () => {
 						transformCalled = true;
 						capturedDeps = context.dependencies;
 
+						const baseData = context.dependencies.base?.data as TestData | undefined;
+
 						// Add metadata to dependency
 						return {
 							base: {
-								...context.dependencies.base,
 								data: {
-									...context.dependencies.base?.data,
+									...baseData,
 									transformed: true,
 								},
+								error: context.dependencies.base?.error,
+								metadata: context.dependencies.base?.metadata,
 							},
 						};
 					}
@@ -335,7 +385,7 @@ describe("Dependency Hooks", () => {
 					];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -355,12 +405,14 @@ describe("Dependency Hooks", () => {
 
 						// Aggregate section results
 						const sectionDep = context.dependencies.section_dim;
-						if (sectionDep?.data?.sections) {
+						const sectionData = sectionDep?.data as TestData | undefined;
+
+						if (sectionData?.sections) {
 							return {
 								section_dim: {
 									data: {
 										aggregated: true,
-										count: sectionDep.data.sections.length,
+										count: sectionData.sections.length,
 									},
 								},
 							};
@@ -389,7 +441,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -431,7 +483,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -476,7 +528,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["a", "b", "c"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string; dependencies?: DimensionDependencies }): string {
 					if (context.dimension === "c" && context.dependencies) {
 						filteredDeps = context.dependencies;
 					}
@@ -524,7 +576,7 @@ describe("Dependency Hooks", () => {
 					this.dimensions = ["fetch", "process"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -540,13 +592,16 @@ describe("Dependency Hooks", () => {
 					context: SectionDimensionContext,
 				): DimensionDependencies {
 					if (context.dimension === "process") {
+						const fetchData = context.dependencies.fetch?.data as TestData | undefined;
+
 						return {
 							fetch: {
-								...context.dependencies.fetch,
 								data: {
-									...context.dependencies.fetch?.data,
+									...fetchData,
 									externalData,
 								},
+								error: context.dependencies.fetch?.error,
+								metadata: context.dependencies.fetch?.metadata,
 							},
 						};
 					}

@@ -4,8 +4,72 @@ import { MockAIProvider, createMockSection } from "./setup";
 import {
 	serializeState,
 	deserializeState,
+	createProcessState,
 } from "../src/core/engine/state-manager";
-import { createProcessState } from "../src/core/engine/state-manager";
+import type { ProcessState } from "../src/core/shared/types";
+
+// ============================================================================
+// TEST TYPES & HELPERS
+// ============================================================================
+
+/**
+ * Test metadata shape
+ */
+interface TestMetadata {
+	custom?: string;
+	userId?: string;
+	requestId?: string;
+	timestamp?: number | string;
+	nested?: {
+		config?: { key: string };
+		deep?: { value: number };
+	};
+	[key: string]: unknown;
+}
+
+/**
+ * Test dimension data shape
+ */
+interface TestData {
+	result?: string;
+	value?: string | number;
+	step?: number;
+	[key: string]: unknown;
+}
+
+/**
+ * Helper to safely get dimension data
+ */
+function getDimensionData(
+	state: ProcessState,
+	dimension: string,
+): TestData | undefined {
+	return state.globalResults[dimension]?.data as TestData | undefined;
+}
+
+/**
+ * Helper to safely get section dimension data
+ */
+function getSectionDimensionData(
+	state: ProcessState,
+	sectionIndex: number,
+	dimension: string,
+): TestData | undefined {
+	return state.sectionResultsMap.get(sectionIndex)?.[dimension]?.data as
+		| TestData
+		| undefined;
+}
+
+/**
+ * Helper to get typed metadata
+ */
+function getMetadata(state: ProcessState): TestMetadata | undefined {
+	return state.metadata as TestMetadata | undefined;
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("Inngest Orchestration - Checkpoint Logic", () => {
 	let mockProvider: MockAIProvider;
@@ -87,7 +151,7 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 					},
 				},
 				metadata: {
-					tokens: 1000,
+					totalTokens: 1000,
 					cost: 0.05,
 				},
 			};
@@ -102,7 +166,7 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 					},
 				},
 				metadata: {
-					tokens: 1000,
+					totalTokens: 1000,
 					cost: 0.05,
 				},
 			});
@@ -218,9 +282,9 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			// Verify we have the previous results
 			expect(resumedState.globalResults["dim1"]).toBeDefined();
 			expect(resumedState.globalResults["dim2"]).toBeDefined();
-			expect(resumedState.globalResults["dim1"].data.result).toBe(
-				"completed at step 1",
-			);
+
+			const dim1Data = getDimensionData(resumedState, "dim1");
+			expect(dim1Data?.result).toBe("completed at step 1");
 
 			// Can continue adding new results
 			resumedState.globalResults["dim3"] = {
@@ -268,17 +332,17 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			// Checkpoint 1: After dim1
 			state.globalResults["dim1"] = { data: { step: 1 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim1"].data.step).toBe(1);
+			expect(getDimensionData(state, "dim1")?.step).toBe(1);
 
 			// Checkpoint 2: After dim2
 			state.globalResults["dim2"] = { data: { step: 2 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim2"].data.step).toBe(2);
+			expect(getDimensionData(state, "dim2")?.step).toBe(2);
 
 			// Checkpoint 3: After dim3
 			state.globalResults["dim3"] = { data: { step: 3 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim3"].data.step).toBe(3);
+			expect(getDimensionData(state, "dim3")?.step).toBe(3);
 
 			// All results should be preserved
 			expect(Object.keys(state.globalResults)).toHaveLength(3);
@@ -313,7 +377,7 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			const serialized = serializeState(state);
 			const deserialized = deserializeState(serialized);
 
-			expect(deserialized.globalResults["failed"].error).toBe(
+			expect(deserialized.globalResults["failed"]?.error).toBe(
 				"Something went wrong",
 			);
 		});
@@ -337,14 +401,14 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			const deserialized = deserializeState(serialized);
 
 			expect(deserialized.sectionResultsMap.size).toBe(100);
-			expect(deserialized.sectionResultsMap.get(50)?.dim1.data.value).toBe(
-				"result-50",
-			);
+
+			const section50Data = getSectionDimensionData(deserialized, 50, "dim1");
+			expect(section50Data?.value).toBe("result-50");
 		});
 
 		test("should preserve metadata through checkpoints", () => {
 			const sections = [createMockSection("Test")];
-			const metadata = {
+			const metadata: TestMetadata = {
 				userId: "user-123",
 				requestId: "req-456",
 				timestamp: Date.now(),
@@ -359,7 +423,9 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			const deserialized = deserializeState(serialized);
 
 			expect(deserialized.metadata).toEqual(metadata);
-			expect(deserialized.metadata.nested.config.key).toBe("value");
+
+			const deserializedMetadata = getMetadata(deserialized);
+			expect(deserializedMetadata?.nested?.config?.key).toBe("value");
 		});
 
 		test("should handle sections with complex metadata", () => {
@@ -383,8 +449,13 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			const serialized = serializeState(state);
 			const deserialized = deserializeState(serialized);
 
-			expect(deserialized.sections[0].metadata.tags).toEqual(["tag1", "tag2"]);
-			expect(deserialized.sections[0].metadata.nested.deep.value).toBe(42);
+			const sectionMetadata = deserialized.sections[0]?.metadata as {
+				tags?: string[];
+				nested?: { deep: { value: number } };
+			};
+
+			expect(sectionMetadata?.tags).toEqual(["tag1", "tag2"]);
+			expect(sectionMetadata?.nested?.deep.value).toBe(42);
 		});
 	});
 
@@ -472,8 +543,12 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			// Check everything survived
 			expect(restored.id).toBe(state.id);
 			expect(restored.metadata).toEqual({ meta: "data" });
-			expect(restored.globalResults["test"].data.value).toBe(42);
-			expect(restored.sectionResultsMap.get(0)?.dim.data).toBe("result");
+
+			const testData = getDimensionData(restored, "test");
+			expect(testData?.value).toBe(42);
+
+			const sectionData = getSectionDimensionData(restored, 0, "dim");
+			expect(sectionData).toBe("result");
 		});
 
 		test("should handle Date objects in metadata", () => {
@@ -486,8 +561,9 @@ describe("Inngest Orchestration - Checkpoint Logic", () => {
 			const parsed = JSON.parse(json);
 			const restored = deserializeState(parsed);
 
+			const metadata = getMetadata(restored);
 			// Date becomes string after JSON round-trip
-			expect(restored.metadata.timestamp).toBe(now.toISOString());
+			expect(metadata?.timestamp).toBe(now.toISOString());
 		});
 	});
 });

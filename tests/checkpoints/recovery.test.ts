@@ -3,8 +3,49 @@ import {
 	createProcessState,
 	serializeState,
 	deserializeState,
+	type SerializedProcessState,
 } from "../../src/core/engine/state-manager";
 import { createMockSection } from "../setup";
+import type { ProcessState } from "../../src/core/shared/types";
+
+// ============================================================================
+// TEST TYPES & HELPERS
+// ============================================================================
+
+interface TestResultData {
+	result?: string;
+	step?: number;
+	value?: number;
+	timestamp?: number;
+	[key: string]: unknown;
+}
+
+/**
+ * Type-safe helper to get dimension data
+ */
+function getDimensionData(
+	state: ProcessState,
+	dimension: string,
+): TestResultData | undefined {
+	return state.globalResults[dimension]?.data as TestResultData | undefined;
+}
+
+/**
+ * Type-safe helper to get section dimension data
+ */
+function getSectionDimensionData(
+	state: ProcessState,
+	sectionIndex: number,
+	dimension: string,
+): TestResultData | undefined {
+	return state.sectionResultsMap.get(sectionIndex)?.[dimension]?.data as
+		| TestResultData
+		| undefined;
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("Checkpoint Recovery - Simulation Tests", () => {
 	describe("Partial Completion", () => {
@@ -29,9 +70,9 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Verify we have the previous results
 			expect(resumedState.globalResults["dim1"]).toBeDefined();
 			expect(resumedState.globalResults["dim2"]).toBeDefined();
-			expect(resumedState.globalResults["dim1"].data.result).toBe(
-				"completed at step 1",
-			);
+
+			const dim1Data = getDimensionData(resumedState, "dim1");
+			expect(dim1Data?.result).toBe("completed at step 1");
 
 			// Can continue adding new results
 			resumedState.globalResults["dim3"] = {
@@ -70,6 +111,11 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			expect(resumed.globalResults["global1"]).toBeDefined();
 			expect(resumed.sectionResultsMap.get(0)?.section1).toBeDefined();
 			expect(resumed.sectionResultsMap.get(1)?.section1).toBeDefined();
+
+			const s1Data = getSectionDimensionData(resumed, 0, "section1");
+			const s2Data = getSectionDimensionData(resumed, 1, "section1");
+			expect(s1Data?.result).toBe("s1 result");
+			expect(s2Data?.result).toBe("s2 result");
 		});
 	});
 
@@ -81,30 +127,30 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Checkpoint 1: After dim1
 			state.globalResults["dim1"] = { data: { step: 1 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim1"].data.step).toBe(1);
+			expect(getDimensionData(state, "dim1")?.step).toBe(1);
 
 			// Checkpoint 2: After dim2
 			state.globalResults["dim2"] = { data: { step: 2 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim2"].data.step).toBe(2);
+			expect(getDimensionData(state, "dim2")?.step).toBe(2);
 
 			// Checkpoint 3: After dim3
 			state.globalResults["dim3"] = { data: { step: 3 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim3"].data.step).toBe(3);
+			expect(getDimensionData(state, "dim3")?.step).toBe(3);
 
 			// All results should be preserved
 			expect(Object.keys(state.globalResults)).toHaveLength(3);
-			expect(state.globalResults["dim1"].data.step).toBe(1);
-			expect(state.globalResults["dim2"].data.step).toBe(2);
-			expect(state.globalResults["dim3"].data.step).toBe(3);
+			expect(getDimensionData(state, "dim1")?.step).toBe(1);
+			expect(getDimensionData(state, "dim2")?.step).toBe(2);
+			expect(getDimensionData(state, "dim3")?.step).toBe(3);
 		});
 
 		test("should accumulate results across checkpoints", () => {
 			const sections = [createMockSection("Test")];
 			let state = createProcessState(sections);
 
-			const checkpoints: any[] = [];
+			const checkpoints: SerializedProcessState[] = [];
 
 			// Simulate 10 checkpoints
 			for (let i = 1; i <= 10; i++) {
@@ -125,7 +171,9 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 
 			// All values preserved
 			for (let i = 1; i <= 10; i++) {
-				expect(state.globalResults[`dim${i}`].data.value).toBe(i);
+				const data = getDimensionData(state, `dim${i}`);
+				expect(data?.value).toBe(i);
+				expect(data?.timestamp).toBeDefined();
 			}
 		});
 	});
@@ -133,7 +181,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 	describe("Crash and Resume Scenarios", () => {
 		test("should simulate crash and resume", () => {
 			const sections = [createMockSection("Test")];
-			let state = createProcessState(sections);
+			let state: ProcessState | null = createProcessState(sections);
 
 			// Complete some dimensions
 			state.globalResults["dim1"] = { data: { result: "done" } };
@@ -144,7 +192,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 
 			// CRASH HAPPENS HERE
 			// ... (state lost, variables cleared, process restarted)
-			state = null as any;
+			state = null;
 
 			// Resume from checkpoint (new process, fresh memory)
 			const resumedState = deserializeState(checkpoint);
@@ -152,7 +200,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Verify we didn't lose progress
 			expect(resumedState.globalResults["dim1"]).toBeDefined();
 			expect(resumedState.globalResults["dim2"]).toBeDefined();
-			expect(resumedState.globalResults["dim1"].data.result).toBe("done");
+			expect(getDimensionData(resumedState, "dim1")?.result).toBe("done");
 
 			// Continue processing
 			resumedState.globalResults["dim3"] = { data: { result: "done" } };
@@ -172,18 +220,18 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			];
 
 			stages.forEach(({ completed, expected }) => {
-				let state = createProcessState(sections);
+				let state: ProcessState | null = createProcessState(sections);
 
 				// Complete dimensions
 				completed.forEach((dim) => {
-					state.globalResults[dim] = { data: { result: "done" } };
+					state!.globalResults[dim] = { data: { result: "done" } };
 				});
 
 				// Checkpoint
 				const checkpoint = serializeState(state);
 
 				// Crash
-				state = null as any;
+				state = null;
 
 				// Resume
 				const resumed = deserializeState(checkpoint);
@@ -191,6 +239,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 				expect(Object.keys(resumed.globalResults)).toHaveLength(expected);
 				completed.forEach((dim) => {
 					expect(resumed.globalResults[dim]).toBeDefined();
+					expect(getDimensionData(resumed, dim)?.result).toBe("done");
 				});
 			});
 		});
@@ -202,7 +251,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 				createMockSection("Section 3"),
 			];
 
-			let state = createProcessState(sections);
+			let state: ProcessState | null = createProcessState(sections);
 
 			// Process first 2 sections
 			state.sectionResultsMap.set(0, {
@@ -216,7 +265,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			const checkpoint = serializeState(state);
 
 			// Crash before processing section 3
-			state = null as any;
+			state = null;
 
 			// Resume
 			const resumed = deserializeState(checkpoint);
@@ -224,6 +273,12 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Verify sections 0 and 1 are complete
 			expect(resumed.sectionResultsMap.get(0)?.dim1).toBeDefined();
 			expect(resumed.sectionResultsMap.get(1)?.dim1).toBeDefined();
+			expect(getSectionDimensionData(resumed, 0, "dim1")?.result).toBe(
+				"section0-done",
+			);
+			expect(getSectionDimensionData(resumed, 1, "dim1")?.result).toBe(
+				"section1-done",
+			);
 
 			// Section 2 should be empty (not processed yet)
 			expect(resumed.sectionResultsMap.get(2)).toEqual({});
@@ -234,6 +289,9 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			});
 
 			expect(resumed.sectionResultsMap.get(2)?.dim1).toBeDefined();
+			expect(getSectionDimensionData(resumed, 2, "dim1")?.result).toBe(
+				"section2-done",
+			);
 		});
 	});
 
@@ -261,10 +319,13 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			const resumed = deserializeState(checkpoint);
 
 			// Verify errors preserved
-			expect(resumed.globalResults["dim1"].data).toBeDefined();
-			expect(resumed.globalResults["dim2"].error).toBe("Dimension failed");
-			expect(resumed.globalResults["dim2"].metadata?.attempts).toBe(3);
-			expect(resumed.globalResults["dim3"].data).toBeDefined();
+			expect(resumed.globalResults["dim1"]?.data).toBeDefined();
+			expect(resumed.globalResults["dim2"]?.error).toBe("Dimension failed");
+			expect(resumed.globalResults["dim2"]?.metadata?.attempts).toBe(3);
+			expect(resumed.globalResults["dim3"]?.data).toBeDefined();
+
+			expect(getDimensionData(resumed, "dim1")?.result).toBe("success");
+			expect(getDimensionData(resumed, "dim3")?.result).toBe("success");
 		});
 
 		test("should handle partial failures across checkpoints", () => {
@@ -284,9 +345,9 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			state = deserializeState(serializeState(state));
 
 			// Final state has mix of success and failure
-			expect(state.globalResults["dim1"].data).toBeDefined();
-			expect(state.globalResults["dim2"].error).toBe("failed");
-			expect(state.globalResults["dim3"].data).toBeDefined();
+			expect(getDimensionData(state, "dim1")?.result).toBe("ok");
+			expect(state.globalResults["dim2"]?.error).toBe("failed");
+			expect(getDimensionData(state, "dim3")?.result).toBe("ok");
 		});
 	});
 
@@ -296,7 +357,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 				createMockSection(`Section ${i}`),
 			);
 
-			let state = createProcessState(sections);
+			let state: ProcessState | null = createProcessState(sections);
 
 			// Process half the sections
 			for (let i = 0; i < 50; i++) {
@@ -309,7 +370,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			const checkpoint = serializeState(state);
 
 			// Crash
-			state = null as any;
+			state = null;
 
 			// Resume
 			const resumed = deserializeState(checkpoint);
@@ -317,6 +378,9 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Verify first 50 are complete
 			for (let i = 0; i < 50; i++) {
 				expect(resumed.sectionResultsMap.get(i)?.dim1).toBeDefined();
+				expect(getSectionDimensionData(resumed, i, "dim1")?.result).toBe(
+					`s${i}-done`,
+				);
 			}
 
 			// Verify last 50 are empty
@@ -333,6 +397,13 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 
 			// All sections now complete
 			expect(resumed.sectionResultsMap.size).toBe(100);
+
+			// Spot check
+			for (let i = 0; i < 100; i++) {
+				expect(getSectionDimensionData(resumed, i, "dim1")?.result).toBe(
+					`s${i}-done`,
+				);
+			}
 		});
 
 		test("should handle checkpointing with many dimensions", () => {
@@ -354,7 +425,7 @@ describe("Checkpoint Recovery - Simulation Tests", () => {
 			// Verify all 50 dimensions preserved
 			expect(Object.keys(state.globalResults)).toHaveLength(50);
 			for (let i = 0; i < 50; i++) {
-				expect(state.globalResults[`dim${i}`].data.value).toBe(i);
+				expect(getDimensionData(state, `dim${i}`)?.value).toBe(i);
 			}
 		});
 	});

@@ -3,7 +3,35 @@ import { DagEngine } from "../src/core/engine";
 import { Plugin, type PromptContext, type ProviderSelection } from "../src/plugin";
 import { ProviderRegistry } from "../src/providers/registry";
 import { MockAIProvider, createMockSection } from "./setup";
-import { SectionData, type DimensionResult } from "../src/types";
+import type { DimensionResult } from "../src/types";
+
+// ============================================================================
+// TEST TYPES
+// ============================================================================
+
+/**
+ * Type for stored results in tests
+ */
+interface StoredResult {
+	results: Record<string, DimensionResult>;
+	stored_at: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Type-safe helper to access dimension result
+ */
+function isDimensionResult(value: unknown): value is DimensionResult {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		("data" in value || "error" in value)
+	);
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("DagEngine - Async Plugin Methods", () => {
 	let mockProvider: MockAIProvider;
@@ -360,7 +388,7 @@ describe("DagEngine - Async Plugin Methods", () => {
 
 	describe("Async finalizeResults()", () => {
 		test("should handle async finalizeResults with database storage", async () => {
-			const storedResults: any[] = [];
+			const storedResults: StoredResult[] = [];
 
 			class AsyncProcessResultsPlugin extends Plugin {
 				constructor() {
@@ -377,7 +405,7 @@ describe("DagEngine - Async Plugin Methods", () => {
 				}
 
 				async finalizeResults(
-					context: any,
+					context: { results: Record<string, DimensionResult> },
 				): Promise<Record<string, DimensionResult>> {
 					const { results } = context;
 
@@ -393,10 +421,13 @@ describe("DagEngine - Async Plugin Methods", () => {
 					const finalizedResults: Record<string, DimensionResult> = {};
 
 					Object.entries(results).forEach(([key, result]) => {
+						if (!isDimensionResult(result)) return;
+
 						finalizedResults[key] = {
-							...result,
+							data: result.data,
+							error: result.error,
 							metadata: {
-								...result.metadata,
+								...(result.metadata || {}),
 								stored: true,
 								stored_at: new Date().toISOString(),
 							},
@@ -433,16 +464,21 @@ describe("DagEngine - Async Plugin Methods", () => {
 					return { provider: "mock-ai", options: {} };
 				}
 
-				finalizeResults(context: any): Record<string, DimensionResult> {
+				finalizeResults(context: {
+					results: Record<string, DimensionResult>;
+				}): Record<string, DimensionResult> {
 					const { results } = context;
 
 					const finalizedResults: Record<string, DimensionResult> = {};
 
 					Object.entries(results).forEach(([key, result]) => {
+						if (!isDimensionResult(result)) return;
+
 						finalizedResults[key] = {
-							...result,
+							data: result.data,
+							error: result.error,
 							metadata: {
-								...result.metadata,
+								...(result.metadata || {}),
 								processed_sync: true,
 							},
 						};
@@ -483,7 +519,7 @@ describe("DagEngine - Async Plugin Methods", () => {
 										enrichmentCalls.push(`enriching-${section.content}`);
 										await new Promise((resolve) => setTimeout(resolve, 20));
 										return {
-											...section,
+											content: section.content,
 											metadata: {
 												...section.metadata,
 												enriched: true,

@@ -1,9 +1,39 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { describe, test, expect, beforeEach } from "vitest";
 import { DagEngine } from "../src/core/engine";
-import { Plugin } from "../src/plugin";
+import { Plugin, type PromptContext, type ProviderSelection } from "../src/plugin";
 import { ProviderRegistry } from "../src/providers/registry";
 import { MockAIProvider, createMockSection } from "./setup";
 import type { SectionDimensionContext } from "../src/types";
+
+// ============================================================================
+// TEST TYPES
+// ============================================================================
+
+interface TestData {
+	quality?: string;
+	result?: string;
+	skipped?: boolean;
+	reason?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Helper to get typed data from dimension result
+ */
+function getResultData(result: unknown): TestData | undefined {
+	if (
+		typeof result === "object" &&
+		result !== null &&
+		"data" in result
+	) {
+		return (result as { data: unknown }).data as TestData;
+	}
+	return undefined;
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("DagEngine - Dynamic Skipping", () => {
 	let mockProvider: MockAIProvider;
@@ -24,12 +54,12 @@ describe("DagEngine - Dynamic Skipping", () => {
 				this.dimensions = ["check", "analysis"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -38,14 +68,13 @@ describe("DagEngine - Dynamic Skipping", () => {
 				};
 			}
 
-			// ✅ FIXED: Use correct signature with SectionDimensionContext
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
-					// ✅ Access 'check' through dependencies
-					// 'check' is available because it's declared as a dependency
-					return dependencies?.check?.data?.quality === "good";
+					// Access 'check' through dependencies
+					const checkData = dependencies?.check?.data as TestData | undefined;
+					return checkData?.quality === "good";
 				}
 				return false;
 			}
@@ -59,12 +88,14 @@ describe("DagEngine - Dynamic Skipping", () => {
 		const result = await engine.process([createMockSection("Test")]);
 
 		// check dimension executes normally
-		expect(result.sections[0]?.results?.check?.data).toEqual({
+		const checkData = getResultData(result.sections[0]?.results?.check);
+		expect(checkData).toEqual({
 			quality: "good",
 		});
 
 		// analysis dimension is skipped because check.quality === 'good'
-		expect(result.sections[0]?.results?.analysis?.data).toEqual({
+		const analysisData = getResultData(result.sections[0]?.results?.analysis);
+		expect(analysisData).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
@@ -77,12 +108,12 @@ describe("DagEngine - Dynamic Skipping", () => {
 				this.dimensions = ["check", "analysis"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -91,13 +122,12 @@ describe("DagEngine - Dynamic Skipping", () => {
 				};
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
-					// ✅ Access through dependencies
-					return dependencies?.check?.data?.quality === "good";
+					const checkData = dependencies?.check?.data as TestData | undefined;
+					return checkData?.quality === "good";
 				}
 				return false;
 			}
@@ -114,12 +144,14 @@ describe("DagEngine - Dynamic Skipping", () => {
 		const result = await engine.process([createMockSection("Test")]);
 
 		// check executes and returns 'poor'
-		expect(result.sections[0]?.results?.check?.data).toEqual({
+		const checkData = getResultData(result.sections[0]?.results?.check);
+		expect(checkData).toEqual({
 			quality: "poor",
 		});
 
 		// analysis executes because check.quality !== 'good'
-		expect(result.sections[0]?.results?.analysis?.data).toEqual({
+		const analysisData = getResultData(result.sections[0]?.results?.analysis);
+		expect(analysisData).toEqual({
 			result: "deep",
 		});
 	});
@@ -131,15 +163,14 @@ describe("DagEngine - Dynamic Skipping", () => {
 				this.dimensions = ["process"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
-			// ✅ FIXED: Use correct signature
 			shouldSkipDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				// Skip if content is too short
@@ -160,13 +191,15 @@ describe("DagEngine - Dynamic Skipping", () => {
 		]);
 
 		// First section skipped
-		expect(result.sections[0]?.results?.process?.data).toEqual({
+		const section0Data = getResultData(result.sections[0]?.results?.process);
+		expect(section0Data).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
 
 		// Second section processed
-		expect(result.sections[1]?.results?.process?.data).toEqual({
+		const section1Data = getResultData(result.sections[1]?.results?.process);
+		expect(section1Data).toEqual({
 			result: "processed",
 		});
 	});
@@ -191,12 +224,12 @@ describe("Dependency-Based Skipping", () => {
 				this.dimensions = ["check", "analysis"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -207,7 +240,8 @@ describe("Dependency-Based Skipping", () => {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
-					return dependencies?.check?.data?.quality === "good";
+					const checkData = dependencies?.check?.data as TestData | undefined;
+					return checkData?.quality === "good";
 				}
 				return false;
 			}
@@ -223,10 +257,13 @@ describe("Dependency-Based Skipping", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.check?.data).toEqual({
+		const checkData = getResultData(result.sections[0]?.results?.check);
+		expect(checkData).toEqual({
 			quality: "good",
 		});
-		expect(result.sections[0]?.results?.analysis?.data).toEqual({
+
+		const analysisData = getResultData(result.sections[0]?.results?.analysis);
+		expect(analysisData).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
@@ -239,12 +276,12 @@ describe("Dependency-Based Skipping", () => {
 				this.dimensions = ["check", "analysis"];
 			}
 
-			createPrompt(context: any): string {
+			createPrompt(context: PromptContext): string {
 				return context.dimension;
 			}
 
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 
 			defineDependencies(): Record<string, string[]> {
@@ -255,7 +292,8 @@ describe("Dependency-Based Skipping", () => {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
-					return dependencies?.check?.data?.quality === "good";
+					const checkData = dependencies?.check?.data as TestData | undefined;
+					return checkData?.quality === "good";
 				}
 				return false;
 			}
@@ -271,7 +309,8 @@ describe("Dependency-Based Skipping", () => {
 
 		const result = await engine.process([createMockSection("Test")]);
 
-		expect(result.sections[0]?.results?.analysis?.data).toEqual({
+		const analysisData = getResultData(result.sections[0]?.results?.analysis);
+		expect(analysisData).toEqual({
 			result: "deep",
 		});
 	});

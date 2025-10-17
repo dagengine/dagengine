@@ -52,18 +52,18 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			const result = await engine.process(sections);
 
 			// Verify all dimensions executed
-			expect(result.sections[0].results.dim1).toBeDefined();
-			expect(result.sections[0].results.dim2).toBeDefined();
-			expect(result.sections[0].results.dim3).toBeDefined();
+			expect(result.sections[0]?.results.dim1).toBeDefined();
+			expect(result.sections[0]?.results.dim2).toBeDefined();
+			expect(result.sections[0]?.results.dim3).toBeDefined();
 
 			// Verify dependency order
-			const dim1Result = result.sections[0].results.dim1;
-			const dim2Result = result.sections[0].results.dim2;
-			const dim3Result = result.sections[0].results.dim3;
+			const dim1Result = result.sections[0]?.results.dim1;
+			const dim2Result = result.sections[0]?.results.dim2;
+			const dim3Result = result.sections[0]?.results.dim3;
 
-			expect(dim1Result.data).toBeDefined();
-			expect(dim2Result.data).toBeDefined();
-			expect(dim3Result.data).toBeDefined();
+			expect(dim1Result?.data).toBeDefined();
+			expect(dim2Result?.data).toBeDefined();
+			expect(dim3Result?.data).toBeDefined();
 		});
 
 		test("should handle checkpoint between execution groups", async () => {
@@ -106,8 +106,8 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			// Verify execution order: g1 -> g2 -> section1 -> section2
 			expect(result.globalResults.g1).toBeDefined();
 			expect(result.globalResults.g2).toBeDefined();
-			expect(result.sections[0].results.section1).toBeDefined();
-			expect(result.sections[0].results.section2).toBeDefined();
+			expect(result.sections[0]?.results.section1).toBeDefined();
+			expect(result.sections[0]?.results.section2).toBeDefined();
 		});
 	});
 
@@ -148,9 +148,9 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 
 			// All dimensions complete in single execution
 			// (Since we can't actually interrupt execution)
-			expect(result.sections[0].results.dim1).toBeDefined();
-			expect(result.sections[0].results.dim2).toBeDefined();
-			expect(result.sections[0].results.dim3).toBeDefined();
+			expect(result.sections[0]?.results.dim1).toBeDefined();
+			expect(result.sections[0]?.results.dim2).toBeDefined();
+			expect(result.sections[0]?.results.dim3).toBeDefined();
 		});
 	});
 	describe("Error Recovery with Checkpoints", () => {
@@ -191,10 +191,10 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			const result = await engine.process(sections);
 
 			// Verify results
-			expect(result.sections[0].results.dim1?.data).toBeDefined();
-			expect(result.sections[0].results.dim2?.error).toBeDefined();
-			expect(result.sections[0].results.dim2?.error).toContain("failed");
-			expect(result.sections[0].results.dim3?.data).toBeDefined();
+			expect(result.sections[0]?.results.dim1?.data).toBeDefined();
+			expect(result.sections[0]?.results.dim2?.error).toBeDefined();
+			expect(result.sections[0]?.results.dim2?.error).toContain("failed");
+			expect(result.sections[0]?.results.dim3?.data).toBeDefined();
 		});
 	});
 
@@ -263,7 +263,7 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 
 			// Verify all dimensions executed
 			dimensions.forEach((dim) => {
-				expect(result.sections[0].results[dim]).toBeDefined();
+				expect(result.sections[0]?.results[dim]).toBeDefined();
 			});
 		}, 30000);
 	});

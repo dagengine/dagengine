@@ -45,6 +45,10 @@ export class MockAIProvider extends BaseProvider {
 		this.shouldFail = false;
 		this.delay = 0;
 	}
+
+	getNativeBaseUrl() {
+		return '';
+	}
 }
 
 // Test utilities

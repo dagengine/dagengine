@@ -1,8 +1,6 @@
-// tests/engine-edge-cases.test.ts
-
 import { describe, test, expect, beforeEach } from "vitest";
 import { DagEngine } from "../src/core/engine/dag-engine"; // ✅ Fixed import
-import { Plugin } from "../src/plugin";
+import { Plugin, type ProviderSelection  } from "../src/plugin";
 import { ProviderRegistry } from "../src/providers/registry";
 import { MockAIProvider, createMockSection } from "./setup";
 
@@ -155,6 +153,11 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 	});
 
 	test("should handle dependency failures with continueOnError true", async () => {
+		interface TestData {
+			result?: string;
+			[key: string]: unknown;
+		}
+
 		class DepFailPlugin extends Plugin {
 			constructor() {
 				super("dep-fail", "Dep Fail", "Test");
@@ -163,8 +166,8 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 			createPrompt(): string {
 				return "test";
 			}
-			selectProvider(): any {
-				return { provider: "mock-ai" };
+			selectProvider(): ProviderSelection {
+				return { provider: "mock-ai", options: {} };
 			}
 			defineDependencies(): Record<string, string[]> {
 				return { dim2: ["dim1"] };
@@ -183,8 +186,10 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		const engine = new DagEngine({
 			plugin: new DepFailPlugin(),
 			registry,
-			continueOnError: true,
-			maxRetries: 0,
+			execution: {
+				continueOnError: true,
+				maxRetries: 0,
+			},
 		});
 
 		const result = await engine.process([createMockSection("Test")]);
@@ -196,9 +201,10 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 
 		// ✅ dim2 executes successfully even with failed dependency
 		expect(result.sections[0]?.results.dim2?.data).toBeDefined();
-		expect(result.sections[0]?.results.dim2?.data?.result).toBe(
-			"dim2 executed with partial deps",
-		);
+
+		// Type-safe access to data
+		const dim2Data = result.sections[0]?.results.dim2?.data as TestData | undefined;
+		expect(dim2Data?.result).toBe("dim2 executed with partial deps");
 	});
 
 	// Line 396: Skip dimension when plugin doesn't implement shouldSkipDimension

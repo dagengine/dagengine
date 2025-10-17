@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import {
 	ProviderAdapter,
 	createProviderAdapter,
@@ -18,6 +18,10 @@ class TestProvider extends BaseProvider {
 
 	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		return { data: { result: "test" } };
+	}
+
+	getNativeBaseUrl() {
+		return '';
 	}
 }
 
@@ -41,7 +45,7 @@ describe("ProviderAdapter", () => {
 	});
 
 	test("should handle provider initialization failures gracefully", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		const adapter = new ProviderAdapter({
 			// @ts-expect-error - test
@@ -151,7 +155,7 @@ describe("createProviderAdapter", () => {
 
 describe("ProviderAdapter - Warning Messages", () => {
 	test("should warn when Anthropic config provided without API key", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		new ProviderAdapter({
 			anthropic: {} as any,
@@ -164,7 +168,7 @@ describe("ProviderAdapter - Warning Messages", () => {
 	});
 
 	test("should warn when OpenAI config provided without API key", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		new ProviderAdapter({
 			openai: {} as any,
@@ -177,7 +181,7 @@ describe("ProviderAdapter - Warning Messages", () => {
 	});
 
 	test("should warn when Gemini config provided without API key", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		new ProviderAdapter({
 			gemini: {} as any,
@@ -190,7 +194,7 @@ describe("ProviderAdapter - Warning Messages", () => {
 	});
 
 	test("should warn when Tavily config provided without API key", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		new ProviderAdapter({
 			tavily: {} as any,
@@ -203,7 +207,7 @@ describe("ProviderAdapter - Warning Messages", () => {
 	});
 
 	test("should warn when WhoisXML config provided without API key", () => {
-		const consoleSpy = vi.spyOn(console, "warn").mockImplementation();
+		const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		new ProviderAdapter({
 			whoisxml: {} as any,

@@ -3,9 +3,66 @@ import {
 	createProcessState,
 	serializeState,
 	deserializeState,
-	SerializedProcessState,
+	type SerializedProcessState,
 } from "../../src/core/engine/state-manager";
 import { createMockSection } from "../setup";
+import type { ProcessState } from "../../src/core/shared/types";
+
+// ============================================================================
+// TEST TYPES
+// ============================================================================
+
+/**
+ * Test data shape - flexible interface for test assertions
+ */
+interface TestData {
+	value?: string | number;
+	result?: string;
+	nested?: {
+		array?: number[];
+		object?: { key: string };
+		null?: null;
+		boolean?: boolean;
+		number?: number;
+	};
+	level1?: {
+		level2?: {
+			level3?: {
+				level4?: {
+					level5?: { value: string };
+				};
+			};
+		};
+	};
+	unicode?: string;
+	escaped?: string;
+	quotes?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Helper to safely get data from dimension result
+ */
+function getData(state: ProcessState, dimension: string): TestData | undefined {
+	return state.globalResults[dimension]?.data as TestData | undefined;
+}
+
+/**
+ * Helper to safely get data from section dimension result
+ */
+function getSectionData(
+	state: ProcessState,
+	sectionIndex: number,
+	dimension: string,
+): TestData | undefined {
+	return state.sectionResultsMap.get(sectionIndex)?.[dimension]?.data as
+		| TestData
+		| undefined;
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 describe("Checkpoint Serialization - Unit Tests", () => {
 	describe("Basic Serialization", () => {
@@ -28,7 +85,7 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 
 			state.globalResults["dim1"] = {
 				data: { value: "result1" },
-				metadata: { tokens: 100 },
+				metadata: { totalTokens: 100 },
 			};
 			state.globalResults["dim2"] = {
 				data: { value: "result2" },
@@ -39,7 +96,7 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 			expect(serialized.globalResults).toEqual({
 				dim1: {
 					data: { value: "result1" },
-					metadata: { tokens: 100 },
+					metadata: { totalTokens: 100 },
 				},
 				dim2: {
 					data: { value: "result2" },
@@ -89,7 +146,7 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 					},
 				},
 				metadata: {
-					tokens: 1000,
+					totalTokens: 1000,
 					cost: 0.05,
 					model: "gpt-4",
 				},
@@ -108,7 +165,7 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 					},
 				},
 				metadata: {
-					tokens: 1000,
+					totalTokens: 1000,
 					cost: 0.05,
 					model: "gpt-4",
 				},
@@ -239,17 +296,17 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 
 			// First round-trip
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim1"].data.value).toBe(1);
+			expect(getData(state, "dim1")?.value).toBe(1);
 
 			// Second round-trip
 			state.globalResults["dim2"] = { data: { value: 2 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim2"].data.value).toBe(2);
+			expect(getData(state, "dim2")?.value).toBe(2);
 
 			// Third round-trip
 			state.globalResults["dim3"] = { data: { value: 3 } };
 			state = deserializeState(serializeState(state));
-			expect(state.globalResults["dim3"].data.value).toBe(3);
+			expect(getData(state, "dim3")?.value).toBe(3);
 
 			// All results preserved
 			expect(Object.keys(state.globalResults)).toHaveLength(3);
@@ -266,13 +323,13 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 
 			const serialized = serializeState(state);
 			const json = JSON.stringify(serialized);
-			const parsed = JSON.parse(json);
+			const parsed = JSON.parse(json) as SerializedProcessState;
 			const restored = deserializeState(parsed);
 
 			expect(restored.id).toBe(state.id);
 			expect(restored.metadata).toEqual({ meta: "data" });
-			expect(restored.globalResults["test"].data.value).toBe(42);
-			expect(restored.sectionResultsMap.get(0)?.dim.data).toBe("result");
+			expect(getData(restored, "test")?.value).toBe(42);
+			expect(getSectionData(restored, 0, "dim")).toBe("result");
 		});
 
 		test("should handle large state through JSON", () => {
@@ -290,13 +347,11 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 
 			const serialized = serializeState(state);
 			const json = JSON.stringify(serialized);
-			const parsed = JSON.parse(json);
+			const parsed = JSON.parse(json) as SerializedProcessState;
 			const restored = deserializeState(parsed);
 
 			expect(restored.sectionResultsMap.size).toBe(50);
-			expect(restored.sectionResultsMap.get(25)?.dim1.data.value).toBe(
-				"result-25",
-			);
+			expect(getSectionData(restored, 25, "dim1")?.value).toBe("result-25");
 		});
 	});
 
@@ -336,14 +391,13 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 
 			const serialized = serializeState(state);
 			const json = JSON.stringify(serialized);
-			const parsed = JSON.parse(json);
+			const parsed = JSON.parse(json) as SerializedProcessState;
 			const restored = deserializeState(parsed);
 
-			expect(restored.globalResults["special"].data).toEqual({
-				unicode: "你好 🎉 مرحبا",
-				escaped: "Line1\nLine2\tTab",
-				quotes: 'He said "hello"',
-			});
+			const specialData = getData(restored, "special");
+			expect(specialData?.unicode).toBe("你好 🎉 مرحبا");
+			expect(specialData?.escaped).toBe("Line1\nLine2\tTab");
+			expect(specialData?.quotes).toBe('He said "hello"');
 		});
 
 		test("should handle very deep nesting", () => {
@@ -367,10 +421,10 @@ describe("Checkpoint Serialization - Unit Tests", () => {
 			const serialized = serializeState(state);
 			const deserialized = deserializeState(serialized);
 
-			expect(
-				deserialized.globalResults["deep"].data.level1.level2.level3.level4
-					.level5.value,
-			).toBe("deep");
+			const deepData = getData(deserialized, "deep");
+			expect(deepData?.level1?.level2?.level3?.level4?.level5?.value).toBe(
+				"deep",
+			);
 		});
 	});
 });
