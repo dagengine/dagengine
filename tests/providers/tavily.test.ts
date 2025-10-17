@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { TavilyProvider } from "../../src/providers/search/tavily.ts";
 
 const originalFetch = global.fetch;

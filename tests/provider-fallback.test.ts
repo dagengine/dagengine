@@ -65,6 +65,9 @@ class SecondFallbackProvider extends BaseProvider {
 		}
 		return { data: { provider: "second-fallback", result: "success" } };
 	}
+	getNativeBaseUrl() {
+		return '';
+	}
 }
 
 describe("DagEngine - Provider Fallback", () => {
