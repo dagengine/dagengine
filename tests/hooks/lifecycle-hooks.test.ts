@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { DagEngine } from "../../src/core/engine";
 import { TestPlugin } from "../helpers/test-plugin";
-
 import { ProviderAdapter } from "../../src/providers/adapter";
 import type {
 	BeforeProcessStartContext,
@@ -9,11 +8,18 @@ import type {
 	ProcessFailureContext,
 	ProcessStartResult,
 	ProcessResult,
+	ProviderRequest,
+	ProviderResponse,
 } from "../../src/types";
+
+// ============================================================================
+// TEST TYPES & HELPERS
+// ============================================================================
 
 class MockProvider {
 	name = "mock";
-	async execute() {
+
+	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		return {
@@ -25,6 +31,27 @@ class MockProvider {
 			},
 		};
 	}
+
+	// Stub methods for BaseProvider
+	getGatewayApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getGatewayConfig() {
+		return undefined;
+	}
+
+	getProviderApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getBaseUrl(): string | undefined {
+		return undefined;
+	}
+
+	get config() {
+		return {};
+	}
 }
 
 describe("Lifecycle Hooks", () => {
@@ -34,7 +61,7 @@ describe("Lifecycle Hooks", () => {
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as unknown as import("../../src/providers/types").BaseProvider);
 	});
 
 	describe("beforeProcessStart", () => {
@@ -48,7 +75,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -87,7 +114,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -123,7 +150,7 @@ describe("Lifecycle Hooks", () => {
 		});
 
 		test("should add metadata to process", async () => {
-			let processMetadata: any = null;
+			let processMetadata: Record<string, unknown> | undefined = undefined;
 
 			class MetadataPlugin extends TestPlugin {
 				constructor() {
@@ -131,7 +158,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -145,7 +172,7 @@ describe("Lifecycle Hooks", () => {
 					};
 				}
 
-				afterProcessComplete(context: AfterProcessCompleteContext) {
+				afterProcessComplete(context: AfterProcessCompleteContext): ProcessResult {
 					processMetadata = context.metadata;
 					return context.result;
 				}
@@ -159,8 +186,9 @@ describe("Lifecycle Hooks", () => {
 			await engine.process([{ content: "Test", metadata: {} }]);
 
 			expect(processMetadata).toBeDefined();
-			expect(processMetadata.customData).toBe("test-value");
-			expect(processMetadata.startTime).toBeGreaterThan(0);
+			const metadata = processMetadata!; // Non-null assertion after check
+			expect(metadata.customData).toBe("test-value");
+			expect(metadata.startTime).toBeGreaterThan(0);
 		});
 
 		test("should handle async beforeProcessStart", async () => {
@@ -172,7 +200,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -214,7 +242,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -222,7 +250,7 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				beforeProcessStart() {
+				beforeProcessStart(): ProcessStartResult {
 					throw new Error("beforeProcessStart failed");
 				}
 			}
@@ -241,14 +269,14 @@ describe("Lifecycle Hooks", () => {
 			expect(errors).toContain("beforeProcessStart failed");
 		});
 
-		test("should allow returning void/undefined", async () => {
-			class VoidReturnPlugin extends TestPlugin {
+		test("should allow returning empty object", async () => {
+			class EmptyReturnPlugin extends TestPlugin {
 				constructor() {
-					super("void-return", "Void Return", "Test");
+					super("empty-return", "Empty Return", "Test");
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -256,13 +284,13 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				beforeProcessStart() {
-					// Return nothing
+				beforeProcessStart(): ProcessStartResult {
+					return {}; // Return empty object instead of void
 				}
 			}
 
 			const engine = new DagEngine({
-				plugin: new VoidReturnPlugin(),
+				plugin: new EmptyReturnPlugin(),
 				providers: adapter,
 			});
 
@@ -283,7 +311,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -291,7 +319,7 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				afterProcessComplete(context: AfterProcessCompleteContext) {
+				afterProcessComplete(context: AfterProcessCompleteContext): ProcessResult {
 					hookCalled = true;
 					capturedContext = context;
 					return context.result;
@@ -322,7 +350,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -335,8 +363,12 @@ describe("Lifecycle Hooks", () => {
 				): ProcessResult {
 					return {
 						...context.result,
-						customData: { processed: true, timestamp: Date.now() },
-					} as any;
+						metadata: {
+							...context.result.metadata,
+							processed: true,
+							timestamp: Date.now()
+						},
+					};
 				}
 			}
 
@@ -347,13 +379,13 @@ describe("Lifecycle Hooks", () => {
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-			expect((result as any).customData).toBeDefined();
-			expect((result as any).customData.processed).toBe(true);
-			expect((result as any).customData.timestamp).toBeGreaterThan(0);
+			expect(result.metadata).toBeDefined();
+			expect((result.metadata as Record<string, unknown>).processed).toBe(true);
+			expect((result.metadata as Record<string, unknown>).timestamp).toBeGreaterThan(0);
 		});
 
 		test("should access all dimension results", async () => {
-			let allResults: any = null;
+			let allResults: Record<string, unknown> | undefined = undefined;
 
 			class InspectPlugin extends TestPlugin {
 				constructor() {
@@ -361,7 +393,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["dim1", "dim2", "dim3"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					return context.dimension;
 				}
 
@@ -369,7 +401,7 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				afterProcessComplete(context: AfterProcessCompleteContext) {
+				afterProcessComplete(context: AfterProcessCompleteContext): ProcessResult {
 					allResults = context.result.sections[0]?.results;
 					return context.result;
 				}
@@ -383,9 +415,9 @@ describe("Lifecycle Hooks", () => {
 			await engine.process([{ content: "Test", metadata: {} }]);
 
 			expect(allResults).toBeDefined();
-			expect(allResults.dim1).toBeDefined();
-			expect(allResults.dim2).toBeDefined();
-			expect(allResults.dim3).toBeDefined();
+			expect(allResults!.dim1).toBeDefined();
+			expect(allResults!.dim2).toBeDefined();
+			expect(allResults!.dim3).toBeDefined();
 		});
 
 		test("should handle async afterProcessComplete", async () => {
@@ -397,7 +429,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -432,7 +464,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -440,7 +472,7 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				afterProcessComplete() {
+				afterProcessComplete(): ProcessResult {
 					throw new Error("afterProcessComplete failed");
 				}
 			}
@@ -460,14 +492,14 @@ describe("Lifecycle Hooks", () => {
 			expect(errors).toContain("afterProcessComplete failed");
 		});
 
-		test("should allow returning void/undefined", async () => {
-			class VoidReturnPlugin extends TestPlugin {
+		test("should return original result when not modifying", async () => {
+			class PassthroughPlugin extends TestPlugin {
 				constructor() {
-					super("void-return", "Void Return", "Test");
+					super("passthrough", "Passthrough", "Test");
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -475,14 +507,15 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				afterProcessComplete(context: AfterProcessCompleteContext) {
-					// Inspect but don't return anything
+				afterProcessComplete(context: AfterProcessCompleteContext): ProcessResult {
+					// Just inspect, return original
 					expect(context.result).toBeDefined();
+					return context.result;
 				}
 			}
 
 			const engine = new DagEngine({
-				plugin: new VoidReturnPlugin(),
+				plugin: new PassthroughPlugin(),
 				providers: adapter,
 			});
 
@@ -502,7 +535,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["failing"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					throw new Error("Intentional failure");
 				}
 
@@ -512,17 +545,17 @@ describe("Lifecycle Hooks", () => {
 
 				handleProcessFailure(
 					context: ProcessFailureContext,
-				): ProcessResult | null {
+				): void {
 					hookCalled = true;
 					capturedContext = context;
-					return null;
+					// Return void to let error propagate
 				}
 			}
 
 			const engine = new DagEngine({
 				plugin: new FailurePlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			await expect(
@@ -546,7 +579,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["failing"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					throw new Error("Intentional failure");
 				}
 
@@ -579,7 +612,7 @@ describe("Lifecycle Hooks", () => {
 			const engine = new DagEngine({
 				plugin: new RecoveryPlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
@@ -594,14 +627,14 @@ describe("Lifecycle Hooks", () => {
 			).toBe(true);
 		});
 
-		test("should allow failure to propagate if returns null", async () => {
+		test("should allow failure to propagate if returns void", async () => {
 			class NoRecoveryPlugin extends TestPlugin {
 				constructor() {
 					super("no-recovery", "No Recovery", "Test");
 					this.dimensions = ["failing"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					throw new Error("Unrecoverable error");
 				}
 
@@ -609,15 +642,15 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				handleProcessFailure(): null {
-					return null;
+				handleProcessFailure(): void {
+					// Return void to propagate error
 				}
 			}
 
 			const engine = new DagEngine({
 				plugin: new NoRecoveryPlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			await expect(
@@ -634,7 +667,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["failing"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					throw new Error("Test failure");
 				}
 
@@ -662,7 +695,7 @@ describe("Lifecycle Hooks", () => {
 			const engine = new DagEngine({
 				plugin: new AsyncFailurePlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			await engine.process([{ content: "Test", metadata: {} }]);
@@ -670,7 +703,7 @@ describe("Lifecycle Hooks", () => {
 		});
 
 		test("should access partial results in failure context", async () => {
-			let partialResults: any = null;
+			let partialResults: Partial<ProcessResult> | undefined = undefined;
 
 			class PartialResultsPlugin extends TestPlugin {
 				constructor() {
@@ -678,7 +711,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["success", "failing"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: { dimension: string }): string {
 					if (context.dimension === "failing") {
 						throw new Error("Second dimension fails");
 					}
@@ -689,22 +722,22 @@ describe("Lifecycle Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				defineDependencies() {
+				defineDependencies(): Record<string, string[]> {
 					return { failing: ["success"] };
 				}
 
 				handleProcessFailure(
 					context: ProcessFailureContext,
-				): ProcessResult | null {
+				): void {
 					partialResults = context.partialResults;
-					return null;
+					// Return void to propagate
 				}
 			}
 
 			const engine = new DagEngine({
 				plugin: new PartialResultsPlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			await expect(
@@ -713,7 +746,7 @@ describe("Lifecycle Hooks", () => {
 
 			expect(partialResults).toBeDefined();
 			// First dimension should have succeeded
-			expect(partialResults.sections?.[0]?.results?.success).toBeDefined();
+			expect(partialResults!.sections?.[0]?.results?.success).toBeDefined();
 		});
 
 		test("should handle errors in handleProcessFailure gracefully", async () => {
@@ -727,7 +760,7 @@ describe("Lifecycle Hooks", () => {
 					this.dimensions = ["failing"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					throw new Error("Original failure");
 				}
 
@@ -743,7 +776,7 @@ describe("Lifecycle Hooks", () => {
 			const engine = new DagEngine({
 				plugin: new ErrorInHandlerPlugin(),
 				providers: adapter,
-				continueOnError: false,
+				execution: { continueOnError: false },
 			});
 
 			await expect(

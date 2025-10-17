@@ -1,18 +1,50 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
 import { DagEngine } from "../../src/core/engine";
-import { Plugin } from "../../src/plugin";
+import { Plugin, type PromptContext, type ProviderSelection } from "../../src/plugin";
 import { ProviderAdapter } from "../../src/providers/adapter";
 import type {
 	SectionDimensionContext,
 	DimensionContext,
 	SkipWithResult,
+	ProviderRequest,
+	ProviderResponse,
 } from "../../src/types";
+
+// ============================================================================
+// TEST TYPES & HELPERS
+// ============================================================================
+
+interface TestData {
+	result?: string;
+	skipped?: boolean;
+	reason?: string;
+	cached?: boolean;
+	value?: string;
+	globalCached?: boolean;
+	summary?: string;
+	aggregated?: boolean;
+	[key: string]: unknown;
+}
+
+/**
+ * Helper to get typed data from result
+ */
+function getResultData(result: unknown): TestData | undefined {
+	if (
+		typeof result === "object" &&
+		result !== null &&
+		"data" in result
+	) {
+		return (result as { data: unknown }).data as TestData;
+	}
+	return undefined;
+}
 
 class MockProvider {
 	name = "mock";
 	callLog: string[] = [];
 
-	async execute(request: any) {
+	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		this.callLog.push(request.dimension || "unknown");
 		return {
 			data: { result: `result-${request.dimension}` },
@@ -24,24 +56,45 @@ class MockProvider {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.callLog = [];
 	}
 
 	getDimensionCallCount(dimension: string): number {
 		return this.callLog.filter((d) => d === dimension).length;
 	}
+
+	// Stub methods for BaseProvider
+	getGatewayApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getGatewayConfig() {
+		return undefined;
+	}
+
+	getProviderApiKey(): string | undefined {
+		return undefined;
+	}
+
+	getBaseUrl(): string | undefined {
+		return undefined;
+	}
+
+	get config() {
+		return {};
+	}
 }
 
 describe("Skip Logic Hooks", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: any;
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider as unknown as import("../../src/providers/types").BaseProvider);
 		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 	});
 
@@ -59,11 +112,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["process", "skip_me"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -83,10 +136,10 @@ describe("Skip Logic Hooks", () => {
 			expect(hookCalled).toBe(true);
 			expect(mockProvider.getDimensionCallCount("process")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("skip_me")).toBe(0);
-			expect(result.sections[0]?.results.skip_me?.data).toEqual({
-				skipped: true,
-				reason: "Skipped by plugin shouldSkipDimension",
-			});
+
+			const skipMeData = getResultData(result.sections[0]?.results.skip_me);
+			expect(skipMeData?.skipped).toBe(true);
+			expect(skipMeData?.reason).toBe("Skipped by plugin shouldSkipDimension");
 		});
 
 		test("should not skip dimension when returns false", async () => {
@@ -96,11 +149,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -126,16 +179,16 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): any {
-					return null;
+				shouldSkipDimension(): boolean {
+					return null as unknown as boolean;
 				}
 			}
 
@@ -156,16 +209,16 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): any {
-					return undefined;
+				shouldSkipDimension(): boolean {
+					return undefined as unknown as boolean;
 				}
 			}
 
@@ -191,11 +244,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -215,10 +268,10 @@ describe("Skip Logic Hooks", () => {
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
 			expect(mockProvider.getDimensionCallCount("test")).toBe(0);
-			expect(result.sections[0]?.results.test?.data).toEqual({
-				cached: true,
-				value: "from-cache",
-			});
+
+			const testData = getResultData(result.sections[0]?.results.test);
+			expect(testData?.cached).toBe(true);
+			expect(testData?.value).toBe("from-cache");
 			expect(result.sections[0]?.results.test?.metadata?.cached).toBe(true);
 			expect(result.sections[0]?.results.test?.metadata?.source).toBe("cache");
 		});
@@ -230,11 +283,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["analyze"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -254,8 +307,12 @@ describe("Skip Logic Hooks", () => {
 			]);
 
 			expect(mockProvider.getDimensionCallCount("analyze")).toBe(1); // Only second section
-			expect(result.sections[0]?.results.analyze?.data?.skipped).toBe(true);
-			expect(result.sections[1]?.results.analyze?.data?.result).toBeDefined();
+
+			const section0Data = getResultData(result.sections[0]?.results.analyze);
+			expect(section0Data?.skipped).toBe(true);
+
+			const section1Data = getResultData(result.sections[1]?.results.analyze);
+			expect(section1Data?.result).toBeDefined();
 		});
 
 		test("should skip based on section metadata", async () => {
@@ -265,11 +322,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["process"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -289,8 +346,12 @@ describe("Skip Logic Hooks", () => {
 			]);
 
 			expect(mockProvider.getDimensionCallCount("process")).toBe(1);
-			expect(result.sections[0]?.results.process?.data?.result).toBeDefined();
-			expect(result.sections[1]?.results.process?.data?.skipped).toBe(true);
+
+			const section0Data = getResultData(result.sections[0]?.results.process);
+			expect(section0Data?.result).toBeDefined();
+
+			const section1Data = getResultData(result.sections[1]?.results.process);
+			expect(section1Data?.skipped).toBe(true);
 		});
 
 		test("should skip based on dependencies", async () => {
@@ -300,22 +361,22 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["check", "analyze"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
-				defineDependencies() {
+				defineDependencies(): Record<string, string[]> {
 					return { analyze: ["check"] };
 				}
 
 				shouldSkipDimension(context: SectionDimensionContext): boolean {
 					if (context.dimension === "analyze") {
-						// Skip if check passed
-						return context.dependencies.check?.data?.result === "result-check";
+						const checkData = context.dependencies.check?.data as TestData | undefined;
+						return checkData?.result === "result-check";
 					}
 					return false;
 				}
@@ -330,7 +391,9 @@ describe("Skip Logic Hooks", () => {
 
 			expect(mockProvider.getDimensionCallCount("check")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("analyze")).toBe(0);
-			expect(result.sections[0]?.results.analyze?.data?.skipped).toBe(true);
+
+			const analyzeData = getResultData(result.sections[0]?.results.analyze);
+			expect(analyzeData?.skipped).toBe(true);
 		});
 
 		test("should handle async shouldSkipDimension", async () => {
@@ -342,11 +405,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -379,11 +442,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -397,7 +460,7 @@ describe("Skip Logic Hooks", () => {
 				providers: adapter,
 			});
 
-			const result = await engine.process([{ content: "Test", metadata: {} }], {
+			await engine.process([{ content: "Test", metadata: {} }], {
 				onError: (context, error) => errors.push(error.message),
 			});
 
@@ -414,11 +477,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = ["process"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -440,10 +503,18 @@ describe("Skip Logic Hooks", () => {
 			]);
 
 			expect(mockProvider.getDimensionCallCount("process")).toBe(2); // Sections 0 and 2
-			expect(result.sections[0]?.results.process?.data?.result).toBeDefined();
-			expect(result.sections[1]?.results.process?.data?.skipped).toBe(true);
-			expect(result.sections[2]?.results.process?.data?.result).toBeDefined();
-			expect(result.sections[3]?.results.process?.data?.skipped).toBe(true);
+
+			const section0Data = getResultData(result.sections[0]?.results.process);
+			expect(section0Data?.result).toBeDefined();
+
+			const section1Data = getResultData(result.sections[1]?.results.process);
+			expect(section1Data?.skipped).toBe(true);
+
+			const section2Data = getResultData(result.sections[2]?.results.process);
+			expect(section2Data?.result).toBeDefined();
+
+			const section3Data = getResultData(result.sections[3]?.results.process);
+			expect(section3Data?.skipped).toBe(true);
 		});
 	});
 
@@ -460,11 +531,11 @@ describe("Skip Logic Hooks", () => {
 					];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -484,10 +555,10 @@ describe("Skip Logic Hooks", () => {
 			expect(hookCalled).toBe(true);
 			expect(mockProvider.getDimensionCallCount("global_process")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("global_skip")).toBe(0);
-			expect(result.globalResults.global_skip?.data).toEqual({
-				skipped: true,
-				reason: "Skipped by plugin shouldSkipGlobalDimension",
-			});
+
+			const globalSkipData = result.globalResults.global_skip?.data as TestData | undefined;
+			expect(globalSkipData?.skipped).toBe(true);
+			expect(globalSkipData?.reason).toBe("Skipped by plugin shouldSkipGlobalDimension");
 		});
 
 		test("should not skip global dimension when returns false", async () => {
@@ -497,11 +568,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = [{ name: "global_test", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -532,11 +603,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = [{ name: "summary", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -556,10 +627,10 @@ describe("Skip Logic Hooks", () => {
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
 			expect(mockProvider.getDimensionCallCount("summary")).toBe(0);
-			expect(result.globalResults.summary?.data).toEqual({
-				globalCached: true,
-				summary: "cached-summary",
-			});
+
+			const summaryData = result.globalResults.summary?.data as TestData | undefined;
+			expect(summaryData?.globalCached).toBe(true);
+			expect(summaryData?.summary).toBe("cached-summary");
 			expect(result.globalResults.summary?.metadata?.cached).toBe(true);
 		});
 
@@ -572,11 +643,11 @@ describe("Skip Logic Hooks", () => {
 					];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -598,7 +669,9 @@ describe("Skip Logic Hooks", () => {
 				{ content: "Bye", metadata: {} },
 			]);
 			expect(mockProvider.getDimensionCallCount("global_summary")).toBe(0);
-			expect(result1.globalResults.global_summary?.data?.skipped).toBe(true);
+
+			const summaryData1 = result1.globalResults.global_summary?.data as TestData | undefined;
+			expect(summaryData1?.skipped).toBe(true);
 
 			// Test 2: At least one long - should process
 			mockProvider.reset();
@@ -616,11 +689,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = [{ name: "summary", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -637,12 +710,12 @@ describe("Skip Logic Hooks", () => {
 
 			// Test 1: Single section - skip
 			mockProvider.reset();
-			const result1 = await engine.process([{ content: "One", metadata: {} }]);
+			await engine.process([{ content: "One", metadata: {} }]);
 			expect(mockProvider.getDimensionCallCount("summary")).toBe(0);
 
 			// Test 2: Multiple sections - process
 			mockProvider.reset();
-			const result2 = await engine.process([
+			await engine.process([
 				{ content: "One", metadata: {} },
 				{ content: "Two", metadata: {} },
 			]);
@@ -659,22 +732,21 @@ describe("Skip Logic Hooks", () => {
 					];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
-				defineDependencies() {
+				defineDependencies(): Record<string, string[]> {
 					return { global_summary: ["section_check"] };
 				}
 
 				shouldSkipGlobalDimension(context: DimensionContext): boolean {
 					if (context.dimension === "global_summary") {
-						// Skip if section_check succeeded
-						const sectionCheckData = context.dependencies.section_check?.data;
+						const sectionCheckData = context.dependencies.section_check?.data as TestData | undefined;
 						return sectionCheckData?.aggregated === true;
 					}
 					return false;
@@ -690,7 +762,9 @@ describe("Skip Logic Hooks", () => {
 
 			expect(mockProvider.getDimensionCallCount("section_check")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("global_summary")).toBe(0);
-			expect(result.globalResults.global_summary?.data?.skipped).toBe(true);
+
+			const summaryData = result.globalResults.global_summary?.data as TestData | undefined;
+			expect(summaryData?.skipped).toBe(true);
 		});
 
 		test("should handle async shouldSkipGlobalDimension", async () => {
@@ -702,11 +776,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = [{ name: "summary", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -739,11 +813,11 @@ describe("Skip Logic Hooks", () => {
 					this.dimensions = [{ name: "summary", scope: "global" as const }];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
-				selectProvider() {
+				selectProvider(): ProviderSelection {
 					return { provider: "mock", options: {} };
 				}
 
@@ -757,7 +831,7 @@ describe("Skip Logic Hooks", () => {
 				providers: adapter,
 			});
 
-			const result = await engine.process([{ content: "Test", metadata: {} }], {
+			await engine.process([{ content: "Test", metadata: {} }], {
 				onError: (context, error) => errors.push(error.message),
 			});
 
