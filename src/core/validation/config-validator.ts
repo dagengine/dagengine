@@ -48,16 +48,6 @@ interface EngineConfig {
 }
 
 /**
- * Validation context for better error messages
- */
-interface ValidationContext {
-	field: string;
-	provided: unknown;
-	minimum?: number;
-	maximum?: number;
-}
-
-/**
  * Configuration validator for DagEngine
  *
  * Performs comprehensive validation of engine configuration including:
@@ -131,7 +121,7 @@ export class ConfigValidator {
 	 * Note: Provider validation happens during initialization.
 	 * This is a placeholder for future provider-specific validation.
 	 */
-	private static validateProviders(config: EngineConfig): void {
+	private static validateProviders(_config: EngineConfig): void {
 		// Future: Validate provider configuration structure
 		// For now, provider validation happens during adapter initialization
 	}

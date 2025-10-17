@@ -104,7 +104,7 @@ export class CostCalculator {
 	/**
 	 * Get pricing info for a specific model
 	 */
-	getModelPricing(model: string) {
+	getModelPricing(model: string): PricingConfig["models"][string] | undefined {
 		return this.pricing.models[model];
 	}
 

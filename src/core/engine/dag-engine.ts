@@ -69,6 +69,15 @@ import type { GraphAnalytics } from "../graph-manager.ts";
 import crypto from "crypto";
 import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.ts";
 
+export interface ExecutionConfig {
+	concurrency: number;
+	maxRetries: number;
+	retryDelay: number;
+	timeout: number;
+	continueOnError: boolean;
+	dimensionTimeouts: Record<string, number>;
+}
+
 /**
  * Provider initializer utility
  */
@@ -278,7 +287,6 @@ export class DagEngine {
 			await this.phaseExecutor.preProcess(stateManager, options);
 			const plan = await this.phaseExecutor.planExecution(
 				stateManager,
-				options,
 			);
 
 			this.cachedDependencyGraph = plan.dependencyGraph;
@@ -286,20 +294,16 @@ export class DagEngine {
 			await this.phaseExecutor.executeDimensions(stateManager, plan, options);
 			const result = await this.phaseExecutor.finalizeResults(
 				stateManager,
-				plan,
-				options,
 			);
 			return await this.phaseExecutor.postProcess(
 				stateManager,
 				result,
 				plan,
-				options,
 			);
 		} catch (error) {
 			return await this.phaseExecutor.handleFailure(
 				stateManager,
 				error,
-				options,
 			);
 		}
 	}
@@ -491,7 +495,7 @@ export class DagEngine {
 	 * console.log('Max retries:', config.maxRetries);
 	 * ```
 	 */
-	getExecutionConfig() {
+	getExecutionConfig(): ExecutionConfig {
 		return {
 			concurrency: this.phaseExecutor.config.concurrency,
 			maxRetries: this.phaseExecutor.config.maxRetries,

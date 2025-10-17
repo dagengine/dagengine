@@ -204,7 +204,7 @@ export class InngestOrchestrator {
 			},
 			{ event: `${this.functionPrefix}/workflow.execute` },
 			async ({ event, step }) => {
-				const { processId, sections, options } = event.data;
+				const { sections, options } = event.data;
 
 				// STEP 1: Initialize state
 				const serializedState = await step.run(
@@ -230,7 +230,7 @@ export class InngestOrchestrator {
 					"plan-execution",
 					async (): Promise<ExecutionPlan> => {
 						const state = deserializeState(serializedState);
-						return await this.phaseExecutor.planExecution(state, options);
+						return await this.phaseExecutor.planExecution(state);
 					},
 				);
 
@@ -262,7 +262,7 @@ export class InngestOrchestrator {
 					"finalize",
 					async (): Promise<ProcessResult> => {
 						const state = deserializeState(serializedState);
-						return await this.phaseExecutor.finalizeResults(state, plan, options);
+						return await this.phaseExecutor.finalizeResults(state);
 					},
 				);
 
@@ -275,7 +275,6 @@ export class InngestOrchestrator {
 							state,
 							result,
 							plan,
-							options,
 						);
 					},
 				);

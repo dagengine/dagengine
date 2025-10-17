@@ -150,7 +150,6 @@ export class PhaseExecutor {
 	 */
 	async planExecution(
 		state: ProcessState,
-		options: ProcessOptions,
 	): Promise<ExecutionPlan> {
 		// Get dependency graph from plugin
 		const dependencyGraph = await this.hookExecutor!.executeDefineDependencies(
@@ -318,8 +317,6 @@ export class PhaseExecutor {
 	 */
 	async finalizeResults(
 		state: ProcessState,
-		plan: ExecutionPlan,
-		options: ProcessOptions,
 	): Promise<ProcessResult> {
 		// Build section results
 		const sectionResults = state.sections.map((section, idx) => ({
@@ -381,7 +378,6 @@ export class PhaseExecutor {
 		state: ProcessState,
 		result: ProcessResult,
 		plan: ExecutionPlan,
-		options: ProcessOptions,
 	): Promise<ProcessResult> {
 		const duration = Date.now() - state.startTime;
 		const successCount = countSuccessful(state.globalResults, result.sections);
@@ -414,7 +410,6 @@ export class PhaseExecutor {
 	async handleFailure(
 		state: ProcessState,
 		error: unknown,
-		options: ProcessOptions,
 	): Promise<ProcessResult> {
 		const err = error instanceof Error ? error : new Error(String(error));
 		const duration = Math.max(Date.now() - state.startTime, 1);
@@ -456,7 +451,7 @@ export class PhaseExecutor {
 	/**
 	 * Initializes runtime executors
 	 */
-	private initializeExecutors(options: ProcessOptions): void {
+	private initializeExecutors(_options: ProcessOptions): void {
 		this.providerExecutor = new ProviderExecutor(
 			this.adapter,
 			this.plugin,

@@ -65,7 +65,7 @@ export class DependencyValidator {
 	): void {
 		const dimensionSet = new Set(dimensions);
 
-		for (const [dimension, deps] of Object.entries(dependencyGraph)) {
+		for (const [, deps] of Object.entries(dependencyGraph)) {
 			for (const dep of deps) {
 				if (!dimensionSet.has(dep)) {
 					throw new DependencyNotFoundError(dep, "plugin");
@@ -133,15 +133,13 @@ export class DependencyValidator {
 		const dimensions = plugin.getDimensionNames();
 
 		for (const dimension of dimensions) {
-			const isGlobal = plugin.isGlobalDimension(dimension);
-			const deps = dependencyGraph[dimension] || [];
-
-			if (!isGlobal) {
-			}
-
 			// Global dimensions can depend on anything (globals or sections)
 			// Sections get aggregated for global consumption
 			// No restrictions here - the dependency system handles this
+
+			// Dependency validation happens elsewhere in the system
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			const _deps = dependencyGraph[dimension] || [];
 		}
 	}
 

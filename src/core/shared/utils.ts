@@ -12,7 +12,6 @@ import type {
 	DimensionResult,
 	DimensionDependencies,
 } from "../../types.ts";
-import { ERROR_MESSAGES } from "./constants.ts";
 import { DimensionTimeoutError } from "./errors.ts";
 
 // ============================================================================

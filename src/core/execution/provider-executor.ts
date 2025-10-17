@@ -578,7 +578,7 @@ export class ProviderExecutor {
 		previousAttempts: AttemptRecord[],
 		failedProvider: string,
 		nextProvider: ProviderAttempt,
-		dimension: string,
+		_dimension: string,
 	): Promise<boolean> {
 		const fallbackContext: FallbackContext = {
 			...providerContext,

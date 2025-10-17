@@ -250,7 +250,6 @@ export class DependencyGraphManager {
 	private validateAcyclic(graph: Graph): void {
 		if (!alg.isAcyclic(graph)) {
 			const cycles = alg.findCycles(graph);
-			const cycleStr = cycles[0]?.join(" → ");
 			throw new CircularDependencyError(cycles[0] || []);
 		}
 	}

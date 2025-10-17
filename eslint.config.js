@@ -9,7 +9,7 @@ export default [
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
-				ecmaVersion: 2020,
+				ecmaVersion: 2022,
 				sourceType: "module",
 				project: "./tsconfig.json",
 			},
@@ -19,9 +19,10 @@ export default [
 		},
 		rules: {
 			...tseslint.configs.recommended.rules,
+			"no-undef": "off",  // Turn off for TypeScript - TS handles this
 			"@typescript-eslint/no-unused-vars": [
 				"error",
-				{ argsIgnorePattern: "^_" },
+				{ argsIgnorePattern: "^_", }
 			],
 			"@typescript-eslint/explicit-function-return-type": "warn",
 			"@typescript-eslint/no-explicit-any": "warn",

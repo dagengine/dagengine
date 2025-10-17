@@ -10,7 +10,6 @@
 import type { Plugin } from "../../plugin.ts";
 import {
 	type SectionData,
-	DimensionResult,
 	type DimensionContext,
 	type SectionDimensionContext,
 	type ProcessOptions,
@@ -26,7 +25,7 @@ import {
 	hasFailedDependencies,
 	getFailedDependencies,
 } from "../shared/utils.ts";
-import { ERROR_MESSAGES, SKIP_REASONS } from "../shared/constants.ts";
+import { SKIP_REASONS } from "../shared/constants.ts";
 import { DependencyError } from "../shared/errors.ts";
 
 /**
@@ -100,6 +99,14 @@ export class DimensionExecutor {
 	 * @param dependencyGraph - Dependency graph
 	 * @param options - Process options
 	 */
+	/**
+	 * Processes a section-level dimension across all sections
+	 *
+	 * @param dimension - Dimension name
+	 * @param state - Process state
+	 * @param dependencyGraph - Dependency graph
+	 * @param options - Process options
+	 */
 	async processSectionDimension(
 		dimension: string,
 		state: ProcessState,
@@ -119,14 +126,10 @@ export class DimensionExecutor {
 			),
 		);
 
-		try {
-			await this.queue.addAll(tasks);
-			options.onDimensionComplete?.(dimension, {
-				data: "Section dimension complete",
-			});
-		} catch (error) {
-			throw error; // Propagate to main error handler
-		}
+		await this.queue.addAll(tasks);
+		options.onDimensionComplete?.(dimension, {
+			data: "Section dimension complete",
+		});
 	}
 
 	// ==================== PRIVATE: GLOBAL EXECUTION ====================
@@ -252,7 +255,6 @@ export class DimensionExecutor {
 					sectionIdx,
 					state,
 					dependencyGraph,
-					options,
 				);
 
 				if (sectionIdx === 0) {
@@ -270,7 +272,6 @@ export class DimensionExecutor {
 		sectionIdx: number,
 		state: ProcessState,
 		dependencyGraph: Record<string, string[]>,
-		options: ProcessOptions,
 	): Promise<void> {
 		const context = await this.createSectionContext(
 			dimension,

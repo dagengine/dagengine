@@ -104,19 +104,6 @@ export interface ExecutionConfig {
 // ============================================================================
 // MAIN ENGINE CONFIGURATION
 // ============================================================================
-/**
- * Inngest orchestration configuration
- */
-export interface InngestConfig {
-	/** Enable Inngest orchestration */
-	enabled: boolean;
-	/** Inngest event key (for production) */
-	eventKey?: string;
-	/** Function prefix for Inngest function names */
-	functionPrefix?: string;
-	/** Custom base URL for Inngest API */
-	baseUrl?: string;
-}
 
 /**
  * Inngest orchestration configuration

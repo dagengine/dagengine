@@ -1,7 +1,6 @@
 export type{ PromptContext, ProviderSelection } from './plugin';
 
 export interface SectionData {
-
 	content: string;
 	metadata: Record<string, unknown>;
 }
@@ -61,13 +60,12 @@ export interface CostSummary {
 	totalCost: number;
 	totalTokens: number;
 	byDimension: Record<string, DimensionCost>;
-	byProvider: Record<string,{
-	cost: number;
-	tokens: TokenUsage;
-	models: string[];
-}
->;
-currency: "USD";
+	byProvider: Record<string, {
+		cost: number;
+		tokens: TokenUsage;
+		models: string[];
+	}>;
+	currency: "USD";
 }
 
 // ============================================================================
@@ -161,8 +159,9 @@ export interface ProviderContext extends DimensionContext {
 
 /**
  * Context before provider execution
+ * Type alias for backward compatibility
  */
-export interface BeforeProviderExecuteContext extends ProviderContext {}
+export type BeforeProviderExecuteContext = ProviderContext;
 
 /**
  * Context after provider execution (with result)
@@ -177,7 +176,7 @@ export interface ProviderResultContext extends ProviderContext {
  * Alias for backward compatibility
  * @deprecated Use ProviderResultContext instead
  */
-export interface AfterProviderExecuteContext extends ProviderResultContext {}
+export type AfterProviderExecuteContext = ProviderResultContext;
 
 // ============================================================================
 // RESULT CONTEXTS
@@ -185,8 +184,9 @@ export interface AfterProviderExecuteContext extends ProviderResultContext {}
 
 /**
  * Context after dimension execution
+ * Type alias for backward compatibility
  */
-export interface DimensionResultContext extends ProviderResultContext {}
+export type DimensionResultContext = ProviderResultContext;
 
 /**
  * Context for section transformation
@@ -380,10 +380,10 @@ export interface ProviderResponse<T = unknown> {
  * Context for beforeProcessStart hook
  * @deprecated Use ProcessContext instead
  */
-export interface BeforeProcessStartContext extends ProcessContext {}
+export type BeforeProcessStartContext = ProcessContext;
 
 /**
  * Context for afterProcessComplete hook
  * @deprecated Use ProcessResultContext instead
  */
-export interface AfterProcessCompleteContext extends ProcessResultContext {}
+export type AfterProcessCompleteContext = ProcessResultContext;
