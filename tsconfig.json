@@ -4,20 +4,44 @@
 		"lib": ["ES2020"],
 		"module": "ESNext",
 		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"noEmit": true,
+
+		"typeRoots": ["./node_modules/@types", "./src/types"],
+
+		// Emit settings (for build)
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+
+		// Strict type checking
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": false,
 		"noImplicitReturns": true,
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true,
+		"noPropertyAccessFromIndexSignature": false,
 		"allowUnusedLabels": false,
 		"allowUnreachableCode": false,
+
+		// Additional safety
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"strictFunctionTypes": true,
+		"strictBindCallApply": true,
+		"strictPropertyInitialization": true,
+		"noImplicitThis": true,
+		"alwaysStrict": true,
+
+		// Module resolution
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+
+		// Other
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true
+		"allowImportingTsExtensions": true,
+		"noEmit": true
 	},
 	"include": ["src", "tests"],
 	"exclude": ["node_modules", "dist"]

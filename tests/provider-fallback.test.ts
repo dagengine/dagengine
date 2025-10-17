@@ -31,6 +31,10 @@ class PrimaryProvider extends BaseProvider {
 		}
 		return { data: { provider: "primary", result: "success" } };
 	}
+
+	getNativeBaseUrl() {
+		return '';
+	}
 }
 
 class FallbackProvider extends BaseProvider {
@@ -39,6 +43,10 @@ class FallbackProvider extends BaseProvider {
 
 	constructor() {
 		super("fallback", {});
+	}
+
+	getNativeBaseUrl() {
+		return '';
 	}
 
 	async execute(request: ProviderRequest): Promise<ProviderResponse> {

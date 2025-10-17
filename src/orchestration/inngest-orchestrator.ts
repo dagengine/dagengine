@@ -4,18 +4,33 @@
  * This is a PURE WRAPPER - it doesn't change any engine logic.
  * Creates and manages its own Inngest client internally.
  */
-
 import type { InngestConfig } from "../core/engine/engine-config";
-import type { PhaseExecutor } from "../core/engine/phase-executor";
+import type { PhaseExecutor } from "../core/execution/phase-executor.ts";
 import {
 	createProcessState,
 	serializeState,
 	deserializeState,
 } from "../core/engine/state-manager";
 import type { SectionData, ProcessOptions, ProcessResult } from "../types";
+import { Inngest } from 'inngest';
+
+// Extract types from Inngest
+type InngestClient = Inngest;
+type InngestStep = Parameters<Parameters<Inngest['createFunction']>[2]>[0]['step'];
+
+interface InngestFunctionContext {
+	event: {
+		data: {
+			processId: string;
+			sections: SectionData[];
+			options: ProcessOptions;
+		};
+	};
+	step: InngestStep;
+}
 
 export class InngestOrchestrator {
-	private readonly inngest: any;
+	private readonly inngest: InngestClient;
 	private readonly functionPrefix: string;
 
 	constructor(

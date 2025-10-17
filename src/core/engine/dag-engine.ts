@@ -43,13 +43,13 @@
  * });
  * ```
  */
-
+import type PQueue from "p-queue";
 import type { Plugin } from "../../plugin.ts";
 import { ProviderAdapter } from "../../providers/adapter.ts";
 import type { ProviderRegistry } from "../../providers/registry.ts";
 import type { SectionData, ProcessOptions, ProcessResult } from "../../types.ts";
 
-import { PhaseExecutor } from "./phase-executor.ts";
+import { PhaseExecutor } from "../execution/phase-executor.ts";
 import { createProcessState } from "./state-manager";
 import {
 	type EngineConfig,
@@ -270,7 +270,14 @@ export class DagEngine {
 		sections: SectionData[],
 		options: ProcessOptions = {},
 	): Promise<ProcessResult> {
-		const processId = options.processId || crypto.randomUUID();
+		if (!this.inngestOrchestrator) {
+			throw new Error(
+				"Inngest orchestrator is not enabled. " +
+				"Initialize DagEngine with inngest: { enabled: true }"
+			);
+		}
+
+		const processId = options.processId ?? crypto.randomUUID();
 
 		// Delegate to Inngest orchestrator
 		return await this.inngestOrchestrator.execute({
@@ -412,7 +419,7 @@ export class DagEngine {
 	 * console.log('Pending:', queue.pending);
 	 * ```
 	 */
-	getQueue() {
+	getQueue(): PQueue {
 		return this.phaseExecutor.getQueue();
 	}
 

@@ -21,17 +21,18 @@ import type {
 } from "../../types.ts";
 import PQueue from "p-queue";
 
-import { updateStateSections } from "./state-manager.ts";
+import { updateStateSections } from "../engine/state-manager.ts";
 import { HookExecutor } from "../lifecycle/hook-executor.ts";
 import { DependencyGraphManager } from "../analysis/graph-manager.ts";
 import { CostCalculator } from "../analysis/cost-calculator.ts";
-import { ProviderExecutor } from "../execution/provider-executor.ts";
-import { DimensionExecutor } from "../execution/dimension-executor.ts";
-import { DependencyResolver } from "../execution/dependency-resolver.ts";
-import { TransformationManager } from "../execution/transformation-manager.ts";
+import { ProviderExecutor } from "./provider-executor.ts";
+import { DimensionExecutor } from "./dimension-executor.ts";
+import { DependencyResolver } from "./dependency-resolver.ts";
+import { TransformationManager } from "./transformation-manager.ts";
 
 import type { ExecutionPlan, ProcessState } from "../shared/types.ts";
 import { NoSectionsError } from "../shared/errors.ts";
+import { DimensionResult } from "../../types.ts";
 import {
 	countSuccessful,
 	countFailed,
@@ -482,11 +483,11 @@ export class PhaseExecutor {
 	private aggregateAllResults(
 		sectionResults: Array<{
 			section: SectionData;
-			results: Record<string, any>;
+			results: Record<string, DimensionResult>;
 		}>,
-		globalResults: Record<string, any>,
-	): Record<string, any> {
-		const allResults: Record<string, any> = { ...globalResults };
+		globalResults: Record<string, DimensionResult>,
+	): Record<string, DimensionResult> {
+		const allResults: Record<string, DimensionResult> = { ...globalResults };
 
 		sectionResults.forEach((sr, idx) => {
 			Object.entries(sr.results).forEach(([dim, result]) => {

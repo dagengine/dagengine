@@ -66,7 +66,7 @@ export class HookExecutor {
 		processId: string,
 		timestamp: number,
 		sections: SectionData[],
-		metadata: any,
+		metadata: Record<string, unknown> | undefined,
 	): Promise<Record<string, string[]>> {
 		if (!this.plugin.defineDependencies) {
 			return {};

@@ -1,4 +1,3 @@
-// ===== Existing types (keep as is) =====
 export interface SectionData {
 	content: string;
 	metadata: Record<string, unknown>;
@@ -59,18 +58,18 @@ export interface CostSummary {
 	totalCost: number;
 	totalTokens: number;
 	byDimension: Record<string, DimensionCost>;
-	byProvider: Record<
-		string,
-		{
-			cost: number;
-			tokens: TokenUsage;
-			models: string[];
-		}
-	>;
-	currency: "USD";
+	byProvider: Record<string,{
+	cost: number;
+	tokens: TokenUsage;
+	models: string[];
+}
+>;
+currency: "USD";
 }
 
-// ===== NEW: Plugin Hook Context Types =====
+// ============================================================================
+// CONTEXT TYPES - Base
+// ============================================================================
 
 /**
  * Base context present in all hooks
@@ -80,13 +79,17 @@ export interface BaseContext {
 	timestamp: number;
 }
 
+// ============================================================================
+// PROCESS-LEVEL CONTEXTS
+// ============================================================================
+
 /**
  * Process-level context (start of process)
  */
 export interface ProcessContext extends BaseContext {
 	sections: SectionData[];
 	options: ProcessOptions;
-	metadata?: Record<string, unknown>;
+	metadata?: unknown;
 }
 
 /**
@@ -94,7 +97,7 @@ export interface ProcessContext extends BaseContext {
  */
 export interface ProcessStartResult {
 	sections?: SectionData[];
-	metadata?: any;
+	metadata?: unknown;
 }
 
 /**
@@ -117,6 +120,10 @@ export interface ProcessFailureContext extends ProcessContext {
 	duration: number;
 }
 
+// ============================================================================
+// DIMENSION-LEVEL CONTEXTS
+// ============================================================================
+
 /**
  * Dimension-level context (base for dimension execution)
  */
@@ -136,8 +143,12 @@ export interface SectionDimensionContext extends DimensionContext {
 	sectionIndex: number;
 }
 
+// ============================================================================
+// PROVIDER CONTEXTS
+// ============================================================================
+
 /**
- * Context during provider execution
+ * Context during provider execution (base)
  */
 export interface ProviderContext extends DimensionContext {
 	request: ProviderRequest;
@@ -146,27 +157,38 @@ export interface ProviderContext extends DimensionContext {
 }
 
 /**
- * Context after dimension execution
+ * Context before provider execution
  */
-export interface DimensionResultContext extends ProviderContext {
-	result: DimensionResult;
-	duration: number;
-	tokensUsed?: TokenUsage | undefined; // ✅ Fixed: Explicitly allow undefined
-}
+export interface BeforeProviderExecuteContext extends ProviderContext {}
 
 /**
- * Context after provider execution (raw response)
+ * Context after provider execution (with result)
  */
 export interface ProviderResultContext extends ProviderContext {
 	result: ProviderResponse;
 	duration: number;
-	tokensUsed?: TokenUsage | undefined; // ✅ Fixed: Explicitly allow undefined
+	tokensUsed?: TokenUsage;
 }
+
+/**
+ * Alias for backward compatibility
+ * @deprecated Use ProviderResultContext instead
+ */
+export interface AfterProviderExecuteContext extends ProviderResultContext {}
+
+// ============================================================================
+// RESULT CONTEXTS
+// ============================================================================
+
+/**
+ * Context after dimension execution
+ */
+export interface DimensionResultContext extends ProviderResultContext {}
 
 /**
  * Context for section transformation
  */
-export interface TransformSectionsContext extends DimensionResultContext {
+export interface TransformSectionsContext extends ProviderResultContext {
 	currentSections: SectionData[];
 }
 
@@ -180,6 +202,10 @@ export interface FinalizeContext extends BaseContext {
 	transformedSections: SectionData[];
 	duration: number;
 }
+
+// ============================================================================
+// RETRY & FALLBACK CONTEXTS
+// ============================================================================
 
 /**
  * Context during retry attempts
@@ -232,6 +258,10 @@ export interface FailureContext extends RetryContext {
 	providers: string[];
 }
 
+// ============================================================================
+// SKIP RESULT TYPES
+// ============================================================================
+
 /**
  * Skip result with cached data
  */
@@ -240,20 +270,65 @@ export interface SkipWithResult {
 	result: DimensionResult;
 }
 
+// ============================================================================
+// PROCESS OPTIONS & RESULTS
+// ============================================================================
+
 /**
- * Process options (existing, but ensure it's exported)
+ * Core process options (required/known options)
  */
-export interface ProcessOptions {
+export interface CoreProcessOptions {
+	/**
+	 * Unique process identifier
+	 * If not provided, a UUID will be generated
+	 */
+	processId?: string;
+
+	/**
+	 * Custom metadata to pass through the process
+	 */
+	metadata?: unknown;
+}
+
+/**
+ * Process lifecycle callbacks
+ */
+export interface ProcessCallbacks {
+	/**
+	 * Called when a dimension starts processing
+	 */
 	onDimensionStart?: (dimension: string) => void;
+
+	/**
+	 * Called when a dimension completes
+	 */
 	onDimensionComplete?: (dimension: string, result: DimensionResult) => void;
+
+	/**
+	 * Called when section processing starts
+	 */
 	onSectionStart?: (index: number, total: number) => void;
+
+	/**
+	 * Called when section processing completes
+	 */
 	onSectionComplete?: (index: number, total: number) => void;
+
+	/**
+	 * Called when an error occurs
+	 */
 	onError?: (context: string, error: Error) => void;
+}
+
+/**
+ * Complete process options
+ */
+export interface ProcessOptions extends CoreProcessOptions, ProcessCallbacks {
 	[key: string]: unknown;
 }
 
 /**
- * Process result (existing, ensure exported)
+ * Process result
  */
 export interface ProcessResult {
 	sections: Array<{
@@ -263,10 +338,16 @@ export interface ProcessResult {
 	globalResults: Record<string, DimensionResult>;
 	transformedSections: SectionData[];
 	costs?: CostSummary;
-	metadata?: Record<string, unknown>;
+	metadata?: unknown;
 }
 
-// ===== Provider Types (keep existing) =====
+// ============================================================================
+// PROVIDER REQUEST & RESPONSE
+// ============================================================================
+
+/**
+ * Provider request
+ */
 export interface ProviderRequest {
 	input: string | string[];
 	options?: Record<string, unknown>;
@@ -279,50 +360,27 @@ export interface ProviderRequest {
 	};
 }
 
+/**
+ * Provider response
+ */
 export interface ProviderResponse<T = unknown> {
 	data?: T;
 	error?: string;
 	metadata?: ProviderMetadata;
 }
 
+// ============================================================================
+// DEPRECATED ALIASES (for backward compatibility)
+// ============================================================================
+
 /**
  * Context for beforeProcessStart hook
+ * @deprecated Use ProcessContext instead
  */
-export interface BeforeProcessStartContext extends BaseContext {
-	sections: SectionData[];
-	options: ProcessOptions;
-}
+export interface BeforeProcessStartContext extends ProcessContext {}
 
 /**
  * Context for afterProcessComplete hook
+ * @deprecated Use ProcessResultContext instead
  */
-export interface AfterProcessCompleteContext extends BaseContext {
-	sections: SectionData[];
-	options: ProcessOptions;
-	metadata?: Record<string, unknown>;
-	result: ProcessResult;
-	duration: number;
-	totalDimensions: number;
-	successfulDimensions: number;
-	failedDimensions: number;
-}
-
-/**
- * Context for beforeProviderExecute hook
- */
-export interface BeforeProviderExecuteContext extends DimensionContext {
-	request: ProviderRequest;
-	provider: string;
-	providerOptions: Record<string, unknown>;
-}
-
-/**
- * Context for afterProviderExecute hook
- */
-export interface AfterProviderExecuteContext extends DimensionContext {
-	request: ProviderRequest;
-	provider: string;
-	providerOptions: Record<string, unknown>;
-	response: ProviderResponse;
-	duration: number;
-}
+export interface AfterProcessCompleteContext extends ProcessResultContext {}

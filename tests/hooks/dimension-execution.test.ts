@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
 import { DagEngine } from "../../src/core/engine";
 import { TestPlugin } from "../helpers/test-plugin";
 import { ProviderAdapter } from "../../src/providers/adapter";
+import { BaseProvider } from "../../src/providers/types";
 import type {
 	BeforeProviderExecuteContext,
 	AfterProviderExecuteContext,
@@ -9,12 +10,25 @@ import type {
 	ProviderResponse,
 } from "../../src/types";
 
-class MockProvider {
-	name = "mock";
-	receivedRequests: ProviderRequest[] = [];
-	requestModifications: any[] = [];
+import { PromptContext } from "../../src/plugin";
 
-	async execute(request: ProviderRequest) {
+
+/**
+ * Mock provider for testing
+ */
+class MockProvider extends BaseProvider {
+	public receivedRequests: ProviderRequest[] = [];
+	public requestModifications: unknown[] = [];
+
+	constructor() {
+		super("mock", {});
+	}
+
+	protected getNativeBaseUrl(): string {
+		return "http://localhost:3000";
+	}
+
+	async execute(request: ProviderRequest): Promise<ProviderResponse> {
 		this.receivedRequests.push(request);
 		return {
 			data: { result: "test", requestInput: request.input },
@@ -26,7 +40,7 @@ class MockProvider {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.receivedRequests = [];
 		this.requestModifications = [];
 	}
@@ -35,12 +49,12 @@ class MockProvider {
 describe("Provider Execution Hooks", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleWarnSpy: any;
+	let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
 		adapter = new ProviderAdapter({});
-		adapter.registerProvider(mockProvider as any);
+		adapter.registerProvider(mockProvider);
 		consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 	});
 
@@ -59,7 +73,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "original prompt";
 				}
 
@@ -95,7 +109,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "original prompt";
 				}
 
@@ -138,7 +152,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -184,7 +198,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -224,7 +238,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test prompt";
 				}
 
@@ -254,7 +268,10 @@ describe("Provider Execution Hooks", () => {
 			expect(capturedContext!.provider).toBe("mock");
 			expect(capturedContext!.request.input).toBe("test prompt");
 			expect(capturedContext!.providerOptions.temperature).toBe(0.7);
-			expect(capturedContext!.section.content).toBe("Test content");
+
+			// Check sections array (BeforeProviderExecuteContext extends DimensionContext)
+			expect(capturedContext!.sections).toHaveLength(1);
+			expect(capturedContext!.sections[0]?.content).toBe("Test content");
 		});
 
 		test("should handle errors gracefully", async () => {
@@ -266,7 +283,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -302,7 +319,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["dim1", "dim2", "dim3"];
 				}
 
-				createPrompt(context: any) {
+				createPrompt(context: PromptContext): string {
 					return context.dimension;
 				}
 
@@ -342,7 +359,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -372,13 +389,21 @@ describe("Provider Execution Hooks", () => {
 		});
 
 		test("should modify response after provider execution", async () => {
+			interface EnhancedData {
+				result?: string;
+				requestInput?: string | string[];
+				enhanced?: boolean;
+				timestamp?: number;
+				originalResult?: unknown;
+			}
+
 			class ModifyResponsePlugin extends TestPlugin {
 				constructor() {
 					super("modify-response", "Modify Response", "Test");
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -389,10 +414,12 @@ describe("Provider Execution Hooks", () => {
 				afterProviderExecute(
 					context: AfterProviderExecuteContext,
 				): ProviderResponse {
+					const currentData = context.result.data as EnhancedData | undefined;
+
 					return {
 						...context.result,
 						data: {
-							...context.result.data,
+							...(currentData || {}),
 							enhanced: true,
 							timestamp: Date.now(),
 							originalResult: context.result.data,
@@ -408,21 +435,34 @@ describe("Provider Execution Hooks", () => {
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-			expect(result.sections[0]?.results.test?.data?.enhanced).toBe(true);
-			expect(result.sections[0]?.results.test?.data?.timestamp).toBeDefined();
-			expect(
-				result.sections[0]?.results.test?.data?.originalResult,
-			).toBeDefined();
+			const testData = result.sections[0]?.results.test?.data as
+				EnhancedData | undefined;
+
+			expect(testData?.enhanced).toBe(true);
+			expect(testData?.timestamp).toBeDefined();
+			expect(testData?.originalResult).toBeDefined();
 		});
 
 		test("should modify metadata in response", async () => {
+			interface EnhancedMetadata {
+				model?: string;
+				provider?: string;
+				tokens?: {
+					inputTokens: number;
+					outputTokens: number;
+					totalTokens: number;
+				};
+				enhanced?: boolean;
+				processingTime?: number;
+			}
+
 			class MetadataResponsePlugin extends TestPlugin {
 				constructor() {
 					super("metadata-response", "Metadata Response", "Test");
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -451,10 +491,11 @@ describe("Provider Execution Hooks", () => {
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-			expect(result.sections[0]?.results.test?.metadata?.enhanced).toBe(true);
-			expect(
-				result.sections[0]?.results.test?.metadata?.processingTime,
-			).toBeDefined();
+			const testMetadata = result.sections[0]?.results.test?.metadata as
+				EnhancedMetadata | undefined;
+
+			expect(testMetadata?.enhanced).toBe(true);
+			expect(testMetadata?.processingTime).toBeDefined();
 		});
 
 		test("should handle async afterProviderExecute", async () => {
@@ -466,7 +507,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -502,7 +543,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test prompt";
 				}
 
@@ -543,7 +584,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -571,13 +612,19 @@ describe("Provider Execution Hooks", () => {
 		});
 
 		test("should filter response data", async () => {
+			interface FilterableData {
+				result?: string;
+				requestInput?: string | string[];
+				[key: string]: unknown;
+			}
+
 			class FilterResponsePlugin extends TestPlugin {
 				constructor() {
 					super("filter-response", "Filter Response", "Test");
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -588,12 +635,17 @@ describe("Provider Execution Hooks", () => {
 				afterProviderExecute(
 					context: AfterProviderExecuteContext,
 				): ProviderResponse {
-					// Filter out certain fields
-					const { requestInput, ...filteredData } = context.result.data || {};
-					return {
-						...context.result,
-						data: filteredData,
-					};
+					const data = context.result.data as FilterableData | undefined;
+
+					if (data) {
+						const { requestInput, ...filteredData } = data;
+						return {
+							...context.result,
+							data: filteredData,
+						};
+					}
+
+					return context.result;
 				}
 			}
 
@@ -604,14 +656,21 @@ describe("Provider Execution Hooks", () => {
 
 			const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-			expect(result.sections[0]?.results.test?.data?.result).toBeDefined();
-			expect(
-				result.sections[0]?.results.test?.data?.requestInput,
-			).toBeUndefined();
+			const testData = result.sections[0]?.results.test?.data as
+				FilterableData | undefined;
+
+			expect(testData?.result).toBeDefined();
+			expect(testData?.requestInput).toBeUndefined();
 		});
 
 		test("should work with both before and after hooks", async () => {
 			const executionLog: string[] = [];
+
+			interface ModifiedData {
+				result?: string;
+				requestInput?: string | string[];
+				modifiedBy?: string;
+			}
 
 			class BothHooksPlugin extends TestPlugin {
 				constructor() {
@@ -619,7 +678,7 @@ describe("Provider Execution Hooks", () => {
 					this.dimensions = ["test"];
 				}
 
-				createPrompt() {
+				createPrompt(): string {
 					return "test";
 				}
 
@@ -641,10 +700,12 @@ describe("Provider Execution Hooks", () => {
 					context: AfterProviderExecuteContext,
 				): ProviderResponse {
 					executionLog.push("after");
+					const currentData = context.result.data as ModifiedData | undefined;
+
 					return {
 						...context.result,
 						data: {
-							...context.result.data,
+							...(currentData || {}),
 							modifiedBy: "after",
 						},
 					};
@@ -662,7 +723,10 @@ describe("Provider Execution Hooks", () => {
 			expect(mockProvider.receivedRequests[0]?.input).toBe(
 				"modified by before",
 			);
-			expect(result.sections[0]?.results.test?.data?.modifiedBy).toBe("after");
+
+			const testData = result.sections[0]?.results.test?.data as
+				ModifiedData | undefined;
+			expect(testData?.modifiedBy).toBe("after");
 		});
 	});
 });
