@@ -1,4 +1,4 @@
-export type{ PromptContext, ProviderSelection } from './plugin';
+export type { PromptContext, ProviderSelection } from "./plugin";
 
 export interface SectionData {
 	content: string;
@@ -60,11 +60,14 @@ export interface CostSummary {
 	totalCost: number;
 	totalTokens: number;
 	byDimension: Record<string, DimensionCost>;
-	byProvider: Record<string, {
-		cost: number;
-		tokens: TokenUsage;
-		models: string[];
-	}>;
+	byProvider: Record<
+		string,
+		{
+			cost: number;
+			tokens: TokenUsage;
+			models: string[];
+		}
+	>;
 	currency: "USD";
 }
 

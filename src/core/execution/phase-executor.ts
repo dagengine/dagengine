@@ -148,9 +148,7 @@ export class PhaseExecutor {
 	 * Builds dependency graph, performs topological sort, and creates
 	 * parallel execution groups.
 	 */
-	async planExecution(
-		state: ProcessState,
-	): Promise<ExecutionPlan> {
+	async planExecution(state: ProcessState): Promise<ExecutionPlan> {
 		// Get dependency graph from plugin
 		const dependencyGraph = await this.hookExecutor!.executeDefineDependencies(
 			state.id,
@@ -315,9 +313,7 @@ export class PhaseExecutor {
 	 *
 	 * Aggregates results, executes finalizeResults hook, and calculates costs.
 	 */
-	async finalizeResults(
-		state: ProcessState,
-	): Promise<ProcessResult> {
+	async finalizeResults(state: ProcessState): Promise<ProcessResult> {
 		// Build section results
 		const sectionResults = state.sections.map((section, idx) => ({
 			section,

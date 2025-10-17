@@ -1,6 +1,6 @@
 {
 	"name": "@ivan629/dag-ai",
-	"version": "2.1.0",
+	"version": "1.0.0",
 	"description": "AI-powered DAG engine with advanced graph analytics and workflow visualization",
 	"keywords": [
 		"dag",
@@ -10,13 +10,13 @@
 		"graph",
 		"analytics",
 		"visualization",
-		"typescript"
+		"typescript",
+		"directed-acyclic-graph",
+		"orchestration",
+		"llm",
+		"ai-agents"
 	],
 	"homepage": "https://github.com/ivan629/dag-ai#readme",
-	"private": false,
-	"publishConfig": {
-		"registry": "https://npm.pkg.github.com"
-	},
 	"bugs": {
 		"url": "https://github.com/ivan629/dag-ai/issues"
 	},
@@ -25,13 +25,13 @@
 		"url": "git+https://github.com/ivan629/dag-ai.git"
 	},
 	"license": "MIT",
-	"author": "Your Name <your.email@example.com>",
+	"author": "Ivan Holovach <ivan.holovach@example.com>",
 	"type": "module",
 	"exports": {
 		".": {
+			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
-			"require": "./dist/index.cjs",
-			"types": "./dist/index.d.ts"
+			"require": "./dist/index.cjs"
 		},
 		"./package.json": "./package.json"
 	},
@@ -44,45 +44,28 @@
 		"CHANGELOG.md",
 		"LICENSE"
 	],
-	"engines": {
-		"node": ">=18.0.0"
-	},
 	"scripts": {
 		"build": "rimraf dist && tsup",
 		"build:watch": "tsup --watch",
 		"dev": "tsup --watch --onSuccess \"node dist/index.js\"",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:coverage": "npm run test:portkey & vitest run --coverage ",
-		"test:portkey": "tsx tests/test-portkey.ts",
+		"format": "prettier --write \"src/**/*.{ts,json,md}\"",
+		"format:check": "prettier --check \"src/**/*.{ts,json,md}\"",
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
-		"format": "prettier --write \"src/**/*.ts\"",
-		"format:check": "prettier --check \"src/**/*.ts\"",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"test:portkey": "tsx tests/test-portkey.ts",
 		"type-check": "tsc --noEmit",
-		"validate": "npm run type-check && npm run lint && npm run test",
-		"prepublishOnly": "npm run build"
-	},
-	"devDependencies": {
-		"@semantic-release/changelog": "^6.0.3",
-		"@semantic-release/git": "^10.0.1",
-		"@types/node": "^24.3.0",
-		"@typescript-eslint/eslint-plugin": "^8.41.0",
-		"@typescript-eslint/parser": "^8.41.0",
-		"@vitest/coverage-v8": "^3.2.4",
-		"@vitest/ui": "^3.2.4",
-		"eslint": "^9.34.0",
-		"eslint-config-prettier": "^10.1.8",
-		"husky": "^9.1.7",
-		"lint-staged": "^16.1.5",
-		"np": "^10.2.0",
-		"prettier": "^3.6.2",
-		"rimraf": "^6.0.1",
-		"semantic-release": "^24.2.7",
-		"tsup": "^8.5.0",
-		"tsx": "^4.20.6",
-		"typescript": "^5.9.2",
-		"vitest": "^3.2.4"
+		"size": "size-limit",
+		"deps:check": "npm outdated",
+		"deps:update": "npm-check-updates -u && npm install",
+		"security:audit": "npm audit --audit-level=moderate",
+		"security:licenses": "license-checker --summary",
+		"security:check": "npm run security:audit && npm run security:licenses",
+		"validate": "npm run type-check && npm run lint && npm run format:check && npm run security:check && npm run test",
+		"prepare": "husky install",
+		"prepublishOnly": "npm run validate && npm run build"
 	},
 	"dependencies": {
 		"@dagrejs/graphlib": "^2.2.4",
@@ -91,5 +74,49 @@
 		"jsonrepair": "^3.13.1",
 		"p-queue": "^9.0.0",
 		"p-retry": "^7.1.0"
-	}
+	},
+	"devDependencies": {
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/git": "^10.0.1",
+		"@size-limit/preset-small-lib": "^11.2.0",
+		"@types/node": "^24.3.0",
+		"@typescript-eslint/eslint-plugin": "^8.41.0",
+		"@typescript-eslint/parser": "^8.41.0",
+		"@vitest/coverage-v8": "^3.2.4",
+		"@vitest/ui": "^3.2.4",
+		"eslint": "^9.34.0",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^16.4.0",
+		"husky": "^9.1.7",
+		"license-checker": "^25.0.1",
+		"lint-staged": "^16.1.5",
+		"npm-check-updates": "^19.1.1",
+		"prettier": "^3.6.2",
+		"rimraf": "^6.0.1",
+		"semantic-release": "^24.2.7",
+		"size-limit": "^11.2.0",
+		"tsup": "^8.5.0",
+		"tsx": "^4.20.6",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4"
+	},
+	"engines": {
+		"node": ">=18.0.0",
+		"npm": ">=9.0.0"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"access": "public",
+		"provenance": true
+	},
+	"lint-staged": {
+		"*.ts": [
+			"prettier --write",
+			"eslint --fix"
+		],
+		"*.{json,md}": [
+			"prettier --write"
+		]
+	},
+	"private": false
 }

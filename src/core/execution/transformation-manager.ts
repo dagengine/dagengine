@@ -8,7 +8,11 @@
  */
 
 import type { Plugin } from "../../plugin.ts";
-import type { SectionData, DimensionResult, ProcessOptions } from "../../types.ts";
+import type {
+	SectionData,
+	DimensionResult,
+	ProcessOptions,
+} from "../../types.ts";
 import type { HookExecutor } from "../lifecycle/hook-executor.ts";
 import type { ProcessState } from "../shared/types.ts";
 import { resetSectionResultsMap } from "../shared/utils.ts";

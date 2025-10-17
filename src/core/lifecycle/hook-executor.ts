@@ -616,7 +616,10 @@ export class HookExecutor {
 	 * Get context string for logging
 	 */
 	private getContextString(
-		context: DimensionContext | SectionDimensionContext | DimensionResultContext,
+		context:
+			| DimensionContext
+			| SectionDimensionContext
+			| DimensionResultContext,
 	): string {
 		if ("sectionIndex" in context) {
 			return `for ${context.dimension} (section ${context.sectionIndex})`;

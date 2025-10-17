@@ -58,7 +58,7 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 			dimensionTimeouts: undefined,
 		});
 
-		const config = engine.getExecutionConfig() as ExecutionConfig;
+		const config = engine.getExecutionConfig();
 		expect(config.dimensionTimeouts).toEqual({});
 	});
 

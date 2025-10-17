@@ -46,10 +46,7 @@ export { DagEngine } from "./engine/dag-engine.ts";
 // CONFIGURATION
 // ============================================================================
 
-export type {
-	EngineConfig,
-	ExecutionConfig,
-} from "./engine/engine-config.ts";
+export type { EngineConfig, ExecutionConfig } from "./engine/engine-config.ts";
 
 export { DEFAULT_EXECUTION_CONFIG } from "./engine/engine-config.ts";
 
@@ -124,10 +121,7 @@ export {
 	VALIDATION,
 } from "./shared/constants.ts";
 
-export type {
-	SkipReason,
-	MetadataKey,
-} from "./shared/constants.ts";
+export type { SkipReason, MetadataKey } from "./shared/constants.ts";
 
 // ============================================================================
 // ANALYSIS & ANALYTICS

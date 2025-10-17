@@ -51,14 +51,19 @@ export class PortkeyAdapter {
 	 */
 	static anthropicToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map((text): OpenAIMessage => ({
-				role: "user" as const,
-				content: text
-			}))
+			? request.input.map(
+					(text): OpenAIMessage => ({
+						role: "user" as const,
+						content: text,
+					}),
+				)
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
-			model: this.getModelOption(request.options?.model, "claude-sonnet-4-5-20250929"),
+			model: this.getModelOption(
+				request.options?.model,
+				"claude-sonnet-4-5-20250929",
+			),
 			messages,
 			max_tokens: this.getMaxTokens(request.options?.maxTokens, 4096),
 			temperature: this.getTemperature(request.options?.temperature),
@@ -71,10 +76,12 @@ export class PortkeyAdapter {
 	 */
 	static openaiToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map((text): OpenAIMessage => ({
-				role: "user" as const,
-				content: text
-			}))
+			? request.input.map(
+					(text): OpenAIMessage => ({
+						role: "user" as const,
+						content: text,
+					}),
+				)
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
@@ -91,10 +98,12 @@ export class PortkeyAdapter {
 	 */
 	static geminiToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map((text): OpenAIMessage => ({
-				role: "user" as const,
-				content: text
-			}))
+			? request.input.map(
+					(text): OpenAIMessage => ({
+						role: "user" as const,
+						content: text,
+					}),
+				)
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
@@ -154,9 +163,8 @@ export class PortkeyAdapter {
 				metadata,
 			};
 		} catch (error) {
-			const errorMessage = error instanceof Error
-				? error.message
-				: "Unknown error occurred";
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error occurred";
 
 			return {
 				error: `Failed to parse Portkey response: ${errorMessage}`,
@@ -171,10 +179,7 @@ export class PortkeyAdapter {
 	/**
 	 * Safely extract and validate model option
 	 */
-	private static getModelOption(
-		value: unknown,
-		defaultModel: string
-	): string {
+	private static getModelOption(value: unknown, defaultModel: string): string {
 		if (typeof value === "string" && value.trim().length > 0) {
 			return value;
 		}
@@ -184,10 +189,7 @@ export class PortkeyAdapter {
 	/**
 	 * Safely extract and validate max_tokens option
 	 */
-	private static getMaxTokens(
-		value: unknown,
-		defaultValue: number
-	): number {
+	private static getMaxTokens(value: unknown, defaultValue: number): number {
 		if (typeof value === "number" && value > 0 && Number.isFinite(value)) {
 			return Math.floor(value);
 		}
@@ -198,7 +200,12 @@ export class PortkeyAdapter {
 	 * Safely extract and validate temperature option
 	 */
 	private static getTemperature(value: unknown): number | undefined {
-		if (typeof value === "number" && value >= 0 && value <= 2 && Number.isFinite(value)) {
+		if (
+			typeof value === "number" &&
+			value >= 0 &&
+			value <= 2 &&
+			Number.isFinite(value)
+		) {
 			return value;
 		}
 		return undefined;
@@ -208,7 +215,12 @@ export class PortkeyAdapter {
 	 * Safely extract and validate top_p option
 	 */
 	private static getTopP(value: unknown): number | undefined {
-		if (typeof value === "number" && value >= 0 && value <= 1 && Number.isFinite(value)) {
+		if (
+			typeof value === "number" &&
+			value >= 0 &&
+			value <= 1 &&
+			Number.isFinite(value)
+		) {
 			return value;
 		}
 		return undefined;
@@ -217,7 +229,9 @@ export class PortkeyAdapter {
 	/**
 	 * Validate that response is a valid OpenAI response
 	 */
-	private static isValidOpenAIResponse(value: unknown): value is OpenAIResponse {
+	private static isValidOpenAIResponse(
+		value: unknown,
+	): value is OpenAIResponse {
 		if (!value || typeof value !== "object") {
 			return false;
 		}
@@ -230,7 +244,9 @@ export class PortkeyAdapter {
 		}
 
 		// Must have at least one choice with message
-		const firstChoice = response.choices[0] as Record<string, unknown> | undefined;
+		const firstChoice = response.choices[0] as
+			| Record<string, unknown>
+			| undefined;
 		if (!firstChoice || typeof firstChoice !== "object") {
 			return false;
 		}

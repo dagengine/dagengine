@@ -2,7 +2,10 @@ import graphlib, { Graph } from "@dagrejs/graphlib";
 const alg = graphlib.alg;
 
 import type { Plugin } from "../plugin.ts";
-import { CircularDependencyError, ExecutionGroupingError } from "./shared/errors.ts";
+import {
+	CircularDependencyError,
+	ExecutionGroupingError,
+} from "./shared/errors.ts";
 
 /**
  * Graph analytics interface
@@ -223,7 +226,9 @@ export class DependencyGraphManager {
 			const isGlobal = this.plugin.isGlobalDimension(dim);
 			const color = isGlobal ? "lightblue" : "lightgreen";
 			const shape = isGlobal ? "box" : "ellipse";
-			lines.push(`  "${dim}" [fillcolor="${color}", style="filled", shape="${shape}"];`);
+			lines.push(
+				`  "${dim}" [fillcolor="${color}", style="filled", shape="${shape}"];`,
+			);
 		});
 
 		lines.push("");
@@ -438,8 +443,7 @@ export class DependencyGraphManager {
 	 */
 	private hasSameDependencies(deps1: string[], deps2: string[]): boolean {
 		return (
-			deps1.length === deps2.length &&
-			deps1.every((d) => deps2.includes(d))
+			deps1.length === deps2.length && deps1.every((d) => deps2.includes(d))
 		);
 	}
 

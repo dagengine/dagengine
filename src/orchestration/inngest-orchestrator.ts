@@ -10,7 +10,10 @@
 import type { InngestConfig } from "../core/engine/engine-config.ts";
 import type { PhaseExecutor } from "../core/execution/phase-executor.ts";
 import type { ProcessState } from "../core/shared/types.ts";
-import type { ExecutionPlan, SerializedProcessState } from "../core/shared/types.ts";
+import type {
+	ExecutionPlan,
+	SerializedProcessState,
+} from "../core/shared/types.ts";
 import {
 	createProcessState,
 	serializeState,
@@ -129,7 +132,7 @@ export class InngestOrchestrator {
 			} catch {
 				throw new Error(
 					"Could not load Inngest serve adapter. " +
-					"Install inngest with Next.js or Express support.",
+						"Install inngest with Next.js or Express support.",
 				);
 			}
 		}
@@ -158,7 +161,7 @@ export class InngestOrchestrator {
 		} catch {
 			throw new Error(
 				"Inngest package not found. Install it with: npm install inngest\n" +
-				"Or disable Inngest: inngest: { enabled: false }",
+					"Or disable Inngest: inngest: { enabled: false }",
 			);
 		}
 
@@ -271,11 +274,7 @@ export class InngestOrchestrator {
 					"post-process",
 					async (): Promise<ProcessResult> => {
 						const state = deserializeState(serializedState);
-						return await this.phaseExecutor.postProcess(
-							state,
-							result,
-							plan,
-						);
+						return await this.phaseExecutor.postProcess(state, result, plan);
 					},
 				);
 			},

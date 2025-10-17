@@ -285,26 +285,15 @@ export class DagEngine {
 		const stateManager = createProcessState(sections);
 		try {
 			await this.phaseExecutor.preProcess(stateManager, options);
-			const plan = await this.phaseExecutor.planExecution(
-				stateManager,
-			);
+			const plan = await this.phaseExecutor.planExecution(stateManager);
 
 			this.cachedDependencyGraph = plan.dependencyGraph;
 
 			await this.phaseExecutor.executeDimensions(stateManager, plan, options);
-			const result = await this.phaseExecutor.finalizeResults(
-				stateManager,
-			);
-			return await this.phaseExecutor.postProcess(
-				stateManager,
-				result,
-				plan,
-			);
+			const result = await this.phaseExecutor.finalizeResults(stateManager);
+			return await this.phaseExecutor.postProcess(stateManager, result, plan);
 		} catch (error) {
-			return await this.phaseExecutor.handleFailure(
-				stateManager,
-				error,
-			);
+			return await this.phaseExecutor.handleFailure(stateManager, error);
 		}
 	}
 
@@ -333,7 +322,7 @@ export class DagEngine {
 		if (!this.inngestOrchestrator) {
 			throw new Error(
 				"Inngest orchestrator is not enabled. " +
-				"Initialize DagEngine with inngest: { enabled: true }",
+					"Initialize DagEngine with inngest: { enabled: true }",
 			);
 		}
 

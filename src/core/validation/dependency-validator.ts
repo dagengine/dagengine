@@ -270,7 +270,10 @@ export class DependencyValidator {
 		dependency: string,
 		dependencyGraph: Record<string, string[]>,
 	): boolean {
-		const allDeps = DependencyValidator.getAllDependencies(dimension, dependencyGraph);
+		const allDeps = DependencyValidator.getAllDependencies(
+			dimension,
+			dependencyGraph,
+		);
 		return allDeps.has(dependency);
 	}
 

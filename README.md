@@ -1,366 +1,497 @@
-# DagEngine Library - Complete Workflow Guide
+# @ivan629/dag-ai
+
+<div align="center">
+
+**AI-powered DAG engine with advanced graph analytics and workflow visualization**
+
+[![CI/CD Pipeline](https://github.com/ivan629/dag-ai/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/ivan629/dag-ai/actions)
+[![codecov](https://codecov.io/gh/ivan629/dag-ai/branch/main/graph/badge.svg)](https://codecov.io/gh/ivan629/dag-ai)
+[![npm version](https://badge.fury.io/js/%40ivan629%2Fdag-ai.svg)](https://badge.fury.io/js/%40ivan629%2Fdag-ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
+[![Snyk](https://snyk.io/test/github/ivan629/dag-ai/badge.svg)](https://snyk.io/test/github/ivan629/dag-ai)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ivan629/dag-ai/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ivan629/dag-ai)
+
+[Documentation](https://github.com/ivan629/dag-ai#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
+
+</div>
+
+---
 
 ## Overview
 
-The DagEngine is an AI-powered document processing library that analyzes content through multiple "dimensions" (like sentiment, topics, verification, etc.). It supports both **section-level** processing (analyzing each document section individually) and **global** processing (analyzing all sections together).
-
-## Key Concepts
-
-### Dimensions
-- **Section Dimensions**: Process each document section independently (e.g., sentiment analysis per section)
-- **Global Dimensions**: Process all sections together to find patterns, relationships, or restructure content
-
-### Dependencies
-Dimensions can depend on other dimensions. The engine ensures dependencies are processed in the correct order.
-
-### Section Transformation
-Global dimensions can transform the sections array - merging similar sections, splitting complex ones, or reordering content.
-
----
-
-## Scenario 1: Traditional Section-Only Processing
-
-### Setup
-```javascript
-// Plugin with only section-level dimensions
-this.dimensions = [
-  'sentiment',
-  'topics', 
-  'summary'
-];
-
-// Dependencies
-getDimensionDependencyGraph() {
-  return {
-    sentiment: [],           // No dependencies
-    topics: [],              // No dependencies  
-    summary: ['sentiment', 'topics']  // Waits for sentiment + topics
-  };
-}
-```
-
-### Execution Flow
-
-```
-Input: [Section1, Section2, Section3]
-
-┌─────────────────────────────────────────────────────────────┐
-│ GLOBAL PHASE                                                │
-│ → No global dimensions, skipped                             │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│ SECTION PHASE (Parallel processing of all 3 sections)      │
-└─────────────────────────────────────────────────────────────┘
-
-For Section1:                For Section2:                For Section3:
-├─ sentiment (parallel)      ├─ sentiment (parallel)      ├─ sentiment (parallel)
-├─ topics (parallel)         ├─ topics (parallel)         ├─ topics (parallel)
-└─ summary (waits for both)  └─ summary (waits for both)  └─ summary (waits for both)
-
-Final Result:
-- Section1: {sentiment: result, topics: result, summary: result}
-- Section2: {sentiment: result, topics: result, summary: result}
-- Section3: {sentiment: result, topics: result, summary: result}
-```
-
-### Timing
-- **Concurrent**: All sections process simultaneously
-- **Per Section**: sentiment + topics run in parallel, then summary waits for both
-- **Total Time**: ~2 AI calls (parallel sentiment/topics, then summary)
-
----
-
-## Scenario 2: Global + Section Processing (No Transformation)
-
-### Setup
-```javascript
-this.dimensions = [
-  { name: 'global_themes', scope: 'global' },  // Global analysis
-  'sentiment',                                  // Section analysis
-  'summary'                                     // Section analysis
-];
-
-getDimensionDependencyGraph() {
-  return {
-    global_themes: [],                    // No dependencies
-    sentiment: [],                        // No dependencies
-    summary: ['sentiment', 'global_themes']  // Waits for both
-  };
-}
-```
-
-### Execution Flow
-
-```
-Input: [Section1, Section2, Section3]
-
-┌─────────────────────────────────────────────────────────────┐
-│ GLOBAL PHASE (Sequential)                                   │
-│ global_themes: Analyzes ALL sections together              │
-│ → Identifies themes across Section1, Section2, Section3     │
-│ → Stores result for later use                              │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│ SECTION PHASE (Parallel processing, using global results)   │
-└─────────────────────────────────────────────────────────────┘
-
-For Section1:                For Section2:                For Section3:
-├─ sentiment (parallel)      ├─ sentiment (parallel)      ├─ sentiment (parallel)
-└─ summary:                  └─ summary:                  └─ summary:
-   ├─ waits for sentiment       ├─ waits for sentiment       ├─ waits for sentiment
-   └─ uses global_themes        └─ uses global_themes        └─ uses global_themes
-
-Final Result:
-- globalResults: {global_themes: cross-document analysis}
-- Section1: {sentiment: result, summary: result with global context}
-- Section2: {sentiment: result, summary: result with global context}  
-- Section3: {sentiment: result, summary: result with global context}
-```
+**dag-ai** is an enterprise-grade TypeScript library for building complex AI workflows using Directed Acyclic Graphs (DAGs). Process data through multiple AI providers with automatic dependency management, fallback handling, and advanced optimization.
 
 ### Key Features
-- **Global Analysis**: Runs once for all sections
-- **Shared Context**: Each section's summary uses the same global themes
-- **Efficiency**: Global themes computed once, reused 3 times
+
+- 🎯 **DAG-based Execution** - Define complex workflows with automatic dependency resolution
+- 🤖 **Multi-Provider Support** - Anthropic Claude, OpenAI, Google Gemini with automatic fallbacks
+- ⚡ **Parallel Processing** - Concurrent execution with configurable concurrency limits
+- 🔄 **Smart Retries** - Automatic retry with exponential backoff
+- 💰 **Cost Optimization** - Skip logic and provider selection strategies
+- 🎨 **Type-Safe** - Full TypeScript support with comprehensive type definitions
+- 🔌 **Extensible** - 16+ lifecycle hooks for custom behavior
+- 📊 **Analytics** - Built-in token tracking and cost calculation
+- 🛡️ **Enterprise-Ready** - Error handling, validation, and production-tested
 
 ---
 
-## Scenario 3: Global Processing with Section Transformation
+## Quick Start
 
-### Setup
-```javascript
-this.dimensions = [
-  { name: 'global_themes', scope: 'global' },
-  { 
-    name: 'section_clustering', 
-    scope: 'global',
-    transform: (result, sections) => {
-      // AI suggests merging Section1+2, keeping Section3
-      return [
-        { content: "Merged content of Section1+2", metadata: {...} },
-        sections[2]  // Keep Section3 unchanged
-      ];
+### Installation
+
+```bash
+npm install @ivan629/dag-ai
+```
+
+### Basic Example
+
+```typescript
+import { DagEngine, Plugin } from '@ivan629/dag-ai';
+
+// Define your workflow
+class SentimentPlugin extends Plugin {
+  constructor() {
+    super('sentiment', 'Sentiment Analyzer', 'Analyzes text sentiment');
+    this.dimensions = ['sentiment'];
+  }
+
+  createPrompt(context) {
+    return `Analyze the sentiment: "${context.sections[0].content}"
+    Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+  }
+
+  selectProvider() {
+    return { 
+      provider: 'anthropic',
+      options: { model: 'claude-sonnet-4-5-20250929' }
+    };
+  }
+}
+
+// Create engine
+const engine = new DagEngine({
+  plugin: new SentimentPlugin(),
+  providers: {
+    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
+  }
+});
+
+// Process data
+const result = await engine.process([
+  { content: 'I love this product!', metadata: {} }
+]);
+
+console.log(result.sections[0].results.sentiment.data);
+// { sentiment: 'positive', score: 0.95 }
+```
+
+**[→ Full Quick Start Guide](docs/quick-start.md)**
+
+---
+
+## Core Concepts
+
+### Sections & Dimensions
+
+**Sections** are your input data. **Dimensions** are the analyses you want to run:
+
+```typescript
+const reviews = [
+  { content: 'Great product!', metadata: { id: 1 } },
+  { content: 'Not what I expected', metadata: { id: 2 } }
+];
+
+class ReviewPlugin extends Plugin {
+  constructor() {
+    super('review', 'Review Analyzer', 'Analyzes reviews');
+    
+    // Run multiple analyses
+    this.dimensions = [
+      'sentiment',  // Section-level: per review
+      'topics',     // Section-level: per review
+      'summary'     // Global: across all reviews
+    ];
+  }
+
+  // Mark global dimensions
+  isGlobalDimension(dimension) {
+    return dimension === 'summary';
+  }
+}
+```
+
+### Dependencies
+
+Control execution order with dependencies:
+
+```typescript
+defineDependencies() {
+  return {
+    // 'summary' runs after 'sentiment' and 'topics' complete
+    summary: ['sentiment', 'topics']
+  };
+}
+```
+
+**[→ Learn More About Core Concepts](docs/core-concepts.md)**
+
+---
+
+## Examples
+
+### Multi-Step Analysis
+
+```typescript
+class ContentAnalyzer extends Plugin {
+  constructor() {
+    super('content', 'Content Analyzer', 'Analyzes content');
+    this.dimensions = ['sentiment', 'topics', 'summary'];
+  }
+
+  defineDependencies() {
+    return {
+      summary: ['sentiment', 'topics']  // Summary needs both
+    };
+  }
+
+  createPrompt(context) {
+    if (context.dimension === 'sentiment') {
+      return `Analyze sentiment: ${context.sections[0].content}`;
     }
-  },
-  'sentiment',
-  'summary'
-];
+    
+    if (context.dimension === 'topics') {
+      return `Extract topics: ${context.sections[0].content}`;
+    }
+    
+    if (context.dimension === 'summary') {
+      const sentiments = context.dependencies.sentiment.data;
+      const topics = context.dependencies.topics.data;
+      
+      return `Create summary based on:
+        Sentiments: ${JSON.stringify(sentiments)}
+        Topics: ${JSON.stringify(topics)}`;
+    }
+  }
 
-getDimensionDependencyGraph() {
+  selectProvider(context) {
+    // Use different models for different tasks
+    if (context.dimension === 'summary') {
+      return { 
+        provider: 'anthropic',
+        options: { model: 'claude-opus-4-20250514' }  // More powerful
+      };
+    }
+    
+    return {
+      provider: 'anthropic',
+      options: { model: 'claude-sonnet-4-5-20250929' }  // Faster
+    };
+  }
+}
+```
+
+### Fallback Providers
+
+```typescript
+selectProvider() {
   return {
-    global_themes: [],
-    section_clustering: ['global_themes'],  // Uses themes for clustering
-    sentiment: [],
-    summary: ['sentiment', 'global_themes']
+    provider: 'anthropic',
+    options: { model: 'claude-sonnet-4-5-20250929' },
+    fallbacks: [
+      { 
+        provider: 'openai',
+        options: { model: 'gpt-4' }
+      },
+      { 
+        provider: 'gemini',
+        options: { model: 'gemini-pro' }
+      }
+    ]
   };
 }
 ```
 
-### Execution Flow
+### Skip Logic (Cost Optimization)
 
-```
-Input: [Section1, Section2, Section3]
-
-┌─────────────────────────────────────────────────────────────┐
-│ GLOBAL PHASE (Sequential with transformation)               │
-│                                                             │
-│ 1. global_themes: Analyzes ALL 3 sections                  │
-│    → Identifies common themes                               │
-│                                                             │
-│ 2. section_clustering: Uses themes to restructure           │
-│    → AI determines Section1+2 are similar                  │
-│    → Transform function merges them                         │
-│    → 3 sections become 2 sections                          │
-└─────────────────────────────────────────────────────────────┘
-
-Current sections: [MergedSection1+2, Section3]
-
-┌─────────────────────────────────────────────────────────────┐
-│ SECTION PHASE (Now processes the 2 NEW sections)            │
-└─────────────────────────────────────────────────────────────┘
-
-For MergedSection1+2:        For Section3:
-├─ sentiment (parallel)      ├─ sentiment (parallel)
-└─ summary:                  └─ summary:
-   ├─ waits for sentiment       ├─ waits for sentiment
-   └─ uses global_themes        └─ uses global_themes
-
-Final Result:
-- globalResults: {global_themes: ..., section_clustering: ...}
-- finalSections: [MergedSection1+2, Section3]  // Transformed structure
-- MergedSection1+2: {sentiment: result, summary: result}
-- Section3: {sentiment: result, summary: result}
-```
-
-### Transformation Impact
-- **Input**: 3 sections → **Output**: 2 sections
-- **Content Restructuring**: Related sections merged intelligently
-- **Downstream Processing**: All subsequent dimensions work on the new structure
-
----
-
-## Scenario 4: Complex Dependencies with Multiple Global Dimensions
-
-### Setup
-```javascript
-this.dimensions = [
-  { name: 'global_themes', scope: 'global' },
-  { name: 'cross_references', scope: 'global' },
-  { name: 'section_clustering', scope: 'global', transform: mergeSections },
-  'sentiment',
-  'fact_check',
-  'summary'
-];
-
-getDimensionDependencyGraph() {
-  return {
-    global_themes: [],
-    cross_references: ['global_themes'],           // Needs themes first
-    section_clustering: ['global_themes', 'cross_references'],  // Needs both
-    sentiment: [],
-    fact_check: ['cross_references'],              // Uses global cross-refs
-    summary: ['sentiment', 'fact_check', 'global_themes']
-  };
+```typescript
+shouldSkipSectionDimension(context) {
+  // Skip short content
+  if (context.section.content.length < 50) {
+    return true;
+  }
+  
+  // Return cached result
+  const cached = this.cache.get(context.section.metadata.id);
+  if (cached) {
+    return { skip: true, result: { data: cached } };
+  }
+  
+  return false;
 }
 ```
 
-### Execution Flow
-
-```
-Input: [Section1, Section2, Section3, Section4]
-
-┌─────────────────────────────────────────────────────────────┐
-│ GLOBAL PHASE (Topologically sorted)                         │
-│                                                             │
-│ 1. global_themes: Analyzes all 4 sections                  │
-│    → Identifies document-wide themes                        │
-│                                                             │
-│ 2. cross_references: Uses themes to find connections        │
-│    → Maps relationships between sections                    │
-│                                                             │
-│ 3. section_clustering: Uses themes + cross-refs            │
-│    → Merges Section1+3 (related content)                   │
-│    → Keeps Section2, Section4 separate                     │
-│    → 4 sections → 3 sections                               │
-└─────────────────────────────────────────────────────────────┘
-
-Current sections: [MergedSection1+3, Section2, Section4]
-
-┌─────────────────────────────────────────────────────────────┐
-│ SECTION PHASE (Processes 3 transformed sections)            │
-└─────────────────────────────────────────────────────────────┘
-
-For each of the 3 sections (parallel):
-├─ sentiment (no dependencies)
-├─ fact_check (waits for cross_references global result)
-└─ summary (waits for sentiment + fact_check + global_themes)
-
-Final Result:
-- globalResults: {global_themes, cross_references, section_clustering}
-- finalSections: [MergedSection1+3, Section2, Section4]
-- Each section: {sentiment, fact_check, summary}
-```
-
-### Complex Dependencies
-- **Global Dependencies**: cross_references → global_themes → section_clustering
-- **Mixed Dependencies**: summary uses both section results (sentiment, fact_check) and global results (global_themes)
-- **Transformation Chain**: Multiple global dimensions can each transform sections
+**[→ More Examples](docs/examples.md)**
 
 ---
 
-## Error Handling Scenarios
+## API Reference
 
-### Missing Dependencies
-```
-If global dimension fails:
-├─ Error stored in globalResults
-├─ Dependent dimensions receive error object
-└─ Processing continues with error context
-```
+### DagEngine
 
-### Transform Function Failures
-```
-If transform returns invalid result:
-├─ Warning logged
-├─ Original sections preserved
-└─ Processing continues normally
-```
-
-### Circular Dependencies
-```
-If circular dependency detected:
-├─ Error thrown immediately
-├─ Processing stops
-└─ Clear error message provided
-```
-
----
-
-## Performance Characteristics
-
-### Concurrency Levels
-
-1. **Global Dimensions**: Sequential (respecting dependencies)
-2. **Sections**: Parallel batches (configurable concurrency)
-3. **Per-Section Dimensions**: Parallel (when no dependencies)
-
-### Memory Usage
-
-- **Global Results**: Cached and reused across all sections
-- **Section Processing**: Independent memory per section batch
-- **Dependency Resolution**: Efficient caching prevents recomputation
-
-### Scaling Behavior
-
-```
-10 sections, 5 dimensions:
-- Without global: ~50 AI calls (10 × 5)
-- With 2 global: ~32 AI calls (2 global + 10 × 3 section)
-
-100 sections, 5 dimensions:  
-- Without global: ~500 AI calls
-- With 2 global: ~302 AI calls (2 global + 100 × 3 section)
-```
-
----
-
-## Configuration Examples
-
-### Simple Processing
-```javascript
+```typescript
 const engine = new DagEngine({
-  ai: { anthropic: { apiKey: "..." } },
-  plugin: new SimplePlugin(),
-  concurrency: 3
-});
-```
-
-### Advanced Processing
-```javascript
-const engine = new DagEngine({
-  ai: { 
-    anthropic: { apiKey: "..." },
-    openai: { apiKey: "..." }
+  plugin: new MyPlugin(),
+  providers: {
+    anthropic: { apiKey: '...' },
+    openai: { apiKey: '...' }
   },
-  plugin: new AdvancedPlugin(),
-  concurrency: 10,
-  maxRetries: 5
+  execution: {
+    concurrency: 5,           // Max parallel requests
+    maxRetries: 3,            // Retry failed requests
+    timeout: 30000,           // 30s timeout
+    continueOnError: false    // Stop on first error
+  }
+});
+
+const result = await engine.process(sections, options);
+```
+
+### Plugin API
+
+```typescript
+class MyPlugin extends Plugin {
+  // Required
+  constructor() {
+    super(id, name, description);
+    this.dimensions = ['dim1', 'dim2'];
+  }
+
+  createPrompt(context): string;
+  selectProvider(context): ProviderSelection;
+
+  // Optional
+  defineDependencies(): Record<string, string[]>;
+  isGlobalDimension(dimension: string): boolean;
+  
+  // Lifecycle hooks (16 available)
+  shouldSkipSectionDimension(context): boolean | SkipResult;
+  shouldSkipGlobalDimension(context): boolean | SkipResult;
+  transformDependencies(context): Promise<Dependencies>;
+  beforeDimension(context): Promise<void>;
+  afterDimension(context): Promise<void>;
+  // ... and more
+}
+```
+
+**[→ Complete API Documentation](docs/api.md)**
+
+---
+
+## Supported Providers
+
+| Provider | Models | Features |
+|----------|--------|----------|
+| **Anthropic** | Claude Opus 4, Sonnet 4.5, Haiku 3.5 | Streaming, vision, tools |
+| **OpenAI** | GPT-4, GPT-4 Turbo, GPT-3.5 | Function calling, JSON mode |
+| **Google Gemini** | Gemini Pro, Gemini Ultra | Multimodal, long context |
+| **Portkey Gateway** | All providers | Unified API, caching, analytics |
+
+**[→ Provider Configuration Guide](docs/providers.md)**
+
+---
+
+## Advanced Features
+
+### Lifecycle Hooks
+
+Hook into 16 different execution points:
+
+```typescript
+class MyPlugin extends Plugin {
+  async beforeProcess(context) {
+    console.log('Starting process...');
+  }
+
+  async beforeDimension(context) {
+    console.log(`Processing ${context.dimension}...`);
+  }
+
+  async afterDimension(context) {
+    console.log(`Completed in ${context.duration}ms`);
+    console.log(`Used ${context.tokensUsed.totalTokens} tokens`);
+  }
+
+  async afterProcess(context) {
+    console.log('Process complete!');
+    console.log(`Total cost: $${context.costSummary.totalCost}`);
+  }
+}
+```
+
+**[→ Lifecycle Hooks Reference](docs/lifecycle-hooks.md)**
+
+### Cost Tracking
+
+Automatic token and cost tracking:
+
+```typescript
+const result = await engine.process(sections);
+
+console.log(result.costSummary);
+// {
+//   totalCost: 0.045,
+//   totalTokens: 15234,
+//   byDimension: {
+//     sentiment: { cost: 0.012, tokens: {...} },
+//     topics: { cost: 0.018, tokens: {...} }
+//   },
+//   byProvider: {
+//     anthropic: { cost: 0.030, tokens: {...}, models: [...] }
+//   }
+// }
+```
+
+### Error Handling
+
+```typescript
+const engine = new DagEngine({
+  plugin: new MyPlugin(),
+  providers: { /* ... */ },
+  execution: {
+    maxRetries: 3,
+    retryDelay: 1000,
+    continueOnError: true  // Don't stop on errors
+  },
+  onError: (id, error) => {
+    console.error(`Error in ${id}:`, error.message);
+  }
 });
 ```
 
-### Usage
-```javascript
-const result = await engine.process(sections, {
-  onDimensionStart: (dim) => console.log(`Starting ${dim}`),
-  onSectionComplete: (idx, result) => console.log(`Section ${idx} done`),
-  onError: (id, error) => console.error(`Error in ${id}:`, error)
-});
+---
 
-// Access results
-console.log('Global analysis:', result.globalResults);
-console.log('Final sections:', result.finalSections);  
-console.log('Section analysis:', result.sections);
+## Performance
+
+- **Parallel Execution** - Process multiple sections simultaneously
+- **Configurable Concurrency** - Control rate limits and costs
+- **Smart Caching** - Skip redundant API calls
+- **Efficient Batching** - Optimize token usage
+
+```typescript
+const engine = new DagEngine({
+  plugin: new MyPlugin(),
+  providers: { /* ... */ },
+  execution: {
+    concurrency: 10,        // 10 parallel requests
+    dimensionTimeouts: {
+      summary: 60000        // Custom timeout per dimension
+    }
+  }
+});
 ```
 
-This architecture provides maximum flexibility while maintaining clear execution order and efficient resource usage.
+---
+
+## Requirements
+
+- **Node.js** >= 18.0.0
+- **TypeScript** >= 5.0 (recommended)
+
+---
+
+## Development
+
+```bash
+# Clone repository
+git clone https://github.com/ivan629/dag-ai.git
+cd dag-ai
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Type check
+npm run type-check
+
+# Lint
+npm run lint
+
+# Build
+npm run build
+
+# Run all checks
+npm run validate
+```
+
+---
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Run tests: `npm test`
+5. Commit: `git commit -m "feat: add amazing feature"`
+6. Push: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+### Commit Convention
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `test:` - Test updates
+- `refactor:` - Code refactoring
+- `chore:` - Maintenance tasks
+
+---
+
+## Security
+
+We take security seriously. See [SECURITY.md](SECURITY.md) for:
+
+- Reporting vulnerabilities
+- Security update process
+- Supported versions
+
+**Never report security issues through public GitHub issues.**  
+Email: security@your-domain.com
+
+---
+
+## License
+
+[MIT](LICENSE) © Ivan Holovach
+
+---
+
+## Acknowledgments
+
+Built with:
+- [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) - Graph algorithms
+- [Anthropic Claude](https://www.anthropic.com/) - AI provider
+- [p-queue](https://github.com/sindresorhus/p-queue) - Concurrency control
+
+---
+
+## Links
+
+- 📖 [Documentation](docs/)
+- 🐛 [Issue Tracker](https://github.com/ivan629/dag-ai/issues)
+- 💬 [Discussions](https://github.com/ivan629/dag-ai/discussions)
+- 📦 [npm Package](https://www.npmjs.com/package/@ivan629/dag-ai)
+- 🔐 [Security Policy](SECURITY.md)

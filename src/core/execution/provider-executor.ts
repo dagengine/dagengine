@@ -160,7 +160,9 @@ export class ProviderExecutor {
 	/**
 	 * Build chain of providers to try (primary + fallbacks)
 	 */
-	private buildProviderChain(providerConfig: ProviderConfig): ProviderAttempt[] {
+	private buildProviderChain(
+		providerConfig: ProviderConfig,
+	): ProviderAttempt[] {
 		const fallbacks = providerConfig.fallbacks ?? [];
 
 		return [
@@ -168,7 +170,7 @@ export class ProviderExecutor {
 				provider: providerConfig.provider,
 				options: providerConfig.options,
 			},
-			...fallbacks.map(f => ({
+			...fallbacks.map((f) => ({
 				provider: f.provider,
 				options: f.options,
 				retryAfter: f.retryAfter,
@@ -417,7 +419,7 @@ export class ProviderExecutor {
 
 					console.warn(
 						`Provider "${currentProvider.provider}" failed for dimension "${dimension}". ` +
-						`Trying fallback provider "${nextProvider.provider}"...`,
+							`Trying fallback provider "${nextProvider.provider}"...`,
 					);
 				}
 			}
@@ -517,7 +519,7 @@ export class ProviderExecutor {
 				onFailedAttempt: (error) => {
 					console.warn(
 						`Attempt ${error.attemptNumber} failed for dimension "${dimension}" ` +
-						`with provider "${provider.provider}". ${error.retriesLeft} retries left.`,
+							`with provider "${provider.provider}". ${error.retriesLeft} retries left.`,
 					);
 				},
 			},

@@ -8,7 +8,10 @@
  */
 
 import type { Plugin } from "../../plugin.ts";
-import type { ProviderAdapter, ProviderAdapterConfig } from "../../providers/adapter.ts";
+import type {
+	ProviderAdapter,
+	ProviderAdapterConfig,
+} from "../../providers/adapter.ts";
 import type { ProviderRegistry } from "../../providers/registry.ts";
 import type { PricingConfig } from "../../types.ts";
 import {
@@ -284,19 +287,15 @@ export class ConfigValidator {
 	 */
 	private static validateTimeout(timeout: number, field: string): void {
 		if (typeof timeout !== "number") {
-			throw new ValidationError(
-				"Timeout must be a number",
-				field,
-				{ provided: timeout },
-			);
+			throw new ValidationError("Timeout must be a number", field, {
+				provided: timeout,
+			});
 		}
 
 		if (!Number.isFinite(timeout)) {
-			throw new ValidationError(
-				"Timeout must be a finite number",
-				field,
-				{ provided: timeout },
-			);
+			throw new ValidationError("Timeout must be a finite number", field, {
+				provided: timeout,
+			});
 		}
 
 		if (timeout < VALIDATION.MIN_TIMEOUT) {

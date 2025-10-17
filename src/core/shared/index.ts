@@ -16,11 +16,7 @@ export type {
 	AttemptRecord,
 } from "./types.ts";
 
-export {
-	isSkipWithResult,
-	isErrorResult,
-	isSuccessResult,
-} from "./types.ts";
+export { isSkipWithResult, isErrorResult, isSuccessResult } from "./types.ts";
 
 // Errors
 export {
@@ -52,10 +48,7 @@ export {
 	VALIDATION,
 } from "./constants.ts";
 
-export type {
-	SkipReason,
-	MetadataKey,
-} from "./constants.ts";
+export type { SkipReason, MetadataKey } from "./constants.ts";
 
 // Utils
 export {
