@@ -6,4 +6,4 @@
  * @module lifecycle
  */
 
-export { HookExecutor } from './hook-executor.ts';
+export { HookExecutor } from "./hook-executor.ts";

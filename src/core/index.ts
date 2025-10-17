@@ -40,208 +40,170 @@
 // MAIN ENGINE
 // ============================================================================
 
-export { DagEngine } from './engine/dag-engine.ts';
+export { DagEngine } from "./engine/dag-engine.ts";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 export type {
-    EngineConfig,
-    ExecutionConfig
-} from './engine/engine-config.ts';
+	EngineConfig,
+	ExecutionConfig,
+} from "./engine/engine-config.ts";
 
-export {
-    DEFAULT_EXECUTION_CONFIG
-} from './engine/engine-config.ts';
+export { DEFAULT_EXECUTION_CONFIG } from "./engine/engine-config.ts";
 
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
-export { StateManager } from './engine/state-manager.ts';
+export { StateManager } from "./engine/state-manager.ts";
 
 // ============================================================================
 // CORE TYPES
 // ============================================================================
 
 export type {
-    // State
-    ProcessState,
-    ExecutionPlan,
-
-    // Results
-    SectionResultPair,
-
-    // Skip checks
-    SkipCheckResult,
-
-    // Provider tracking
-    ProviderAttempt,
-    AttemptRecord,
-
-} from './shared/types.ts';
+	// State
+	ProcessState,
+	ExecutionPlan,
+	// Results
+	SectionResultPair,
+	// Skip checks
+	SkipCheckResult,
+	// Provider tracking
+	ProviderAttempt,
+	AttemptRecord,
+} from "./shared/types.ts";
 
 // Type guards
 export {
-    isSkipWithResult,
-    isErrorResult,
-    isSuccessResult,
-} from './shared/types.ts';
+	isSkipWithResult,
+	isErrorResult,
+	isSuccessResult,
+} from "./shared/types.ts";
 
 // ============================================================================
 // ERROR CLASSES
 // ============================================================================
 
 export {
-    // Base
-    DagEngineError,
-
-    // Configuration
-    ConfigurationError,
-    NoProvidersError,
-    NoSectionsError,
-
-    // Dependencies
-    CircularDependencyError,
-    DependencyError,
-    DependencyNotFoundError,
-
-    // Execution
-    DimensionTimeoutError,
-    ExecutionGroupingError,
-
-    // Providers
-    ProviderNotFoundError,
-    AllProvidersFailed,
-
-    // Validation
-    ValidationError,
-
-    // Utilities
-    isDagEngineError,
-    normalizeError,
-    getErrorMessage,
-    createContextError,
-
-} from './shared/errors.ts';
+	// Base
+	DagEngineError,
+	// Configuration
+	ConfigurationError,
+	NoProvidersError,
+	NoSectionsError,
+	// Dependencies
+	CircularDependencyError,
+	DependencyError,
+	DependencyNotFoundError,
+	// Execution
+	DimensionTimeoutError,
+	ExecutionGroupingError,
+	// Providers
+	ProviderNotFoundError,
+	AllProvidersFailed,
+	// Validation
+	ValidationError,
+	// Utilities
+	isDagEngineError,
+	normalizeError,
+	getErrorMessage,
+	createContextError,
+} from "./shared/errors.ts";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 export {
-    DEFAULT_ENGINE_CONFIG,
-    ERROR_MESSAGES,
-    SKIP_REASONS,
-    METADATA_KEYS,
-    TIMING,
-    VALIDATION,
-} from './shared/constants.ts';
+	DEFAULT_ENGINE_CONFIG,
+	ERROR_MESSAGES,
+	SKIP_REASONS,
+	METADATA_KEYS,
+	TIMING,
+	VALIDATION,
+} from "./shared/constants.ts";
 
 export type {
-    SkipReason,
-    MetadataKey,
-} from './shared/constants.ts';
+	SkipReason,
+	MetadataKey,
+} from "./shared/constants.ts";
 
 // ============================================================================
 // ANALYSIS & ANALYTICS
 // ============================================================================
 
 export type {
-    GraphAnalytics,
-    GraphExport,
-    GraphNode,
-    GraphLink,
-    DotExportOptions,
-    GraphStatistics,
-} from './analysis/graph-types.ts';
+	GraphAnalytics,
+	GraphExport,
+	GraphNode,
+	GraphLink,
+	DotExportOptions,
+	GraphStatistics,
+} from "./analysis/graph-types.ts";
 
-export {
-    CostCalculator
-} from './analysis/cost-calculator.ts';
+export { CostCalculator } from "./analysis/cost-calculator.ts";
 
-export {
-    DependencyGraphManager
-} from './analysis/graph-manager.ts';
+export { DependencyGraphManager } from "./analysis/graph-manager.ts";
 
 // ============================================================================
 // EXECUTION COMPONENTS (Advanced Usage)
 // ============================================================================
 
-export {
-    DimensionExecutor
-} from './execution/dimension-executor.ts';
+export { DimensionExecutor } from "./execution/dimension-executor.ts";
 
-export {
-    DependencyResolver
-} from './execution/dependency-resolver.ts';
+export { DependencyResolver } from "./execution/dependency-resolver.ts";
 
-export {
-    TransformationManager
-} from './execution/transformation-manager.ts';
+export { TransformationManager } from "./execution/transformation-manager.ts";
 
-export {
-    ProviderExecutor
-} from './execution/provider-executor.ts';
+export { ProviderExecutor } from "./execution/provider-executor.ts";
 
 // ============================================================================
 // LIFECYCLE HOOKS (Advanced Usage)
 // ============================================================================
 
-export {
-    HookExecutor
-} from './lifecycle/hook-executor.ts';
+export { HookExecutor } from "./lifecycle/hook-executor.ts";
 
 // ============================================================================
 // VALIDATION (Advanced Usage)
 // ============================================================================
 
-export {
-    ConfigValidator
-} from './validation/config-validator.ts';
+export { ConfigValidator } from "./validation/config-validator.ts";
 
-export {
-    DependencyValidator
-} from './validation/dependency-validator.ts';
+export { DependencyValidator } from "./validation/dependency-validator.ts";
 
 // ============================================================================
 // UTILITIES (Advanced Usage)
 // ============================================================================
 
 export {
-    // Dependencies
-    hasFailedDependencies,
-    getFailedDependencies,
-    hasSuccessfulDependencies,
-
-    // Results
-    countSuccessful,
-    countFailed,
-
-    // State
-    resetSectionResultsMap,
-    applyFinalizedResults,
-
-    // Timeouts
-    executeWithTimeout,
-    createTimeoutPromise,
-
-    // Arrays
-    chunk,
-    unique,
-
-    // Objects
-    deepClone,
-    isEmpty,
-    pick,
-    omit,
-
-    // Timing
-    delay,
-    measureTime,
-
-    // Strings
-    truncate,
-    capitalize,
-} from './shared/utils.ts';
+	// Dependencies
+	hasFailedDependencies,
+	getFailedDependencies,
+	hasSuccessfulDependencies,
+	// Results
+	countSuccessful,
+	countFailed,
+	// State
+	resetSectionResultsMap,
+	applyFinalizedResults,
+	// Timeouts
+	executeWithTimeout,
+	createTimeoutPromise,
+	// Arrays
+	chunk,
+	unique,
+	// Objects
+	deepClone,
+	isEmpty,
+	pick,
+	omit,
+	// Timing
+	delay,
+	measureTime,
+	// Strings
+	truncate,
+	capitalize,
+} from "./shared/utils.ts";

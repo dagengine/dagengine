@@ -7,13 +7,13 @@
  * @module shared/utils
  */
 
-import {
-    SectionData,
-    DimensionResult,
-    DimensionDependencies
-} from '../../types.ts';
-import { ERROR_MESSAGES } from './constants.ts';
-import { DimensionTimeoutError } from './errors.ts';
+import type {
+	SectionData,
+	DimensionResult,
+	DimensionDependencies,
+} from "../../types.ts";
+import { ERROR_MESSAGES } from "./constants.ts";
+import { DimensionTimeoutError } from "./errors.ts";
 
 // ============================================================================
 // DEPENDENCY UTILITIES
@@ -35,7 +35,7 @@ import { DimensionTimeoutError } from './errors.ts';
  * ```
  */
 export function hasFailedDependencies(deps: DimensionDependencies): boolean {
-    return Object.values(deps).some(dep => dep.error !== undefined);
+	return Object.values(deps).some((dep) => dep.error !== undefined);
 }
 
 /**
@@ -45,9 +45,9 @@ export function hasFailedDependencies(deps: DimensionDependencies): boolean {
  * @returns Array of dependency names that have errors
  */
 export function getFailedDependencies(deps: DimensionDependencies): string[] {
-    return Object.entries(deps)
-        .filter(([_, dep]) => dep.error !== undefined)
-        .map(([name, _]) => name);
+	return Object.entries(deps)
+		.filter(([_, dep]) => dep.error !== undefined)
+		.map(([name, _]) => name);
 }
 
 /**
@@ -56,8 +56,12 @@ export function getFailedDependencies(deps: DimensionDependencies): string[] {
  * @param deps - The dependencies to check
  * @returns true if all dependencies have data and no errors
  */
-export function hasSuccessfulDependencies(deps: DimensionDependencies): boolean {
-    return Object.values(deps).every(dep => dep.data !== undefined && !dep.error);
+export function hasSuccessfulDependencies(
+	deps: DimensionDependencies,
+): boolean {
+	return Object.values(deps).every(
+		(dep) => dep.data !== undefined && !dep.error,
+	);
 }
 
 // ============================================================================
@@ -74,21 +78,26 @@ export function hasSuccessfulDependencies(deps: DimensionDependencies): boolean 
  * @returns Total number of successful executions
  */
 export function countSuccessful(
-    globalResults: Record<string, DimensionResult>,
-    sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>
+	globalResults: Record<string, DimensionResult>,
+	sectionResults: Array<{
+		section: SectionData;
+		results: Record<string, DimensionResult>;
+	}>,
 ): number {
-    const globalSuccess = Object.values(globalResults).filter(r => !r.error).length;
+	const globalSuccess = Object.values(globalResults).filter(
+		(r) => !r.error,
+	).length;
 
-    const sectionDimensions = new Set<string>();
-    sectionResults.forEach(sr => {
-        Object.entries(sr.results).forEach(([dim, result]) => {
-            if (!result.error) {
-                sectionDimensions.add(dim);
-            }
-        });
-    });
+	const sectionDimensions = new Set<string>();
+	sectionResults.forEach((sr) => {
+		Object.entries(sr.results).forEach(([dim, result]) => {
+			if (!result.error) {
+				sectionDimensions.add(dim);
+			}
+		});
+	});
 
-    return globalSuccess + sectionDimensions.size;
+	return globalSuccess + sectionDimensions.size;
 }
 
 /**
@@ -101,21 +110,26 @@ export function countSuccessful(
  * @returns Total number of failed executions
  */
 export function countFailed(
-    globalResults: Record<string, DimensionResult>,
-    sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>
+	globalResults: Record<string, DimensionResult>,
+	sectionResults: Array<{
+		section: SectionData;
+		results: Record<string, DimensionResult>;
+	}>,
 ): number {
-    const globalFailures = Object.values(globalResults).filter(r => r.error).length;
+	const globalFailures = Object.values(globalResults).filter(
+		(r) => r.error,
+	).length;
 
-    const failedSectionDimensions = new Set<string>();
-    sectionResults.forEach(sr => {
-        Object.entries(sr.results).forEach(([dim, result]) => {
-            if (result.error) {
-                failedSectionDimensions.add(dim);
-            }
-        });
-    });
+	const failedSectionDimensions = new Set<string>();
+	sectionResults.forEach((sr) => {
+		Object.entries(sr.results).forEach(([dim, result]) => {
+			if (result.error) {
+				failedSectionDimensions.add(dim);
+			}
+		});
+	});
 
-    return globalFailures + failedSectionDimensions.size;
+	return globalFailures + failedSectionDimensions.size;
 }
 
 // ============================================================================
@@ -131,13 +145,13 @@ export function countFailed(
  * @param newLength - The new number of sections
  */
 export function resetSectionResultsMap(
-    map: Map<number, Record<string, DimensionResult>>,
-    newLength: number
+	map: Map<number, Record<string, DimensionResult>>,
+	newLength: number,
 ): void {
-    map.clear();
-    for (let i = 0; i < newLength; i++) {
-        map.set(i, {});
-    }
+	map.clear();
+	for (let i = 0; i < newLength; i++) {
+		map.set(i, {});
+	}
 }
 
 /**
@@ -152,29 +166,33 @@ export function resetSectionResultsMap(
  * @returns Updated section results
  */
 export function applyFinalizedResults(
-    sectionResults: Array<{ section: SectionData; results: Record<string, DimensionResult> }>,
-    finalizedResults: Record<string, DimensionResult>,
-    globalResults: Record<string, DimensionResult>
+	sectionResults: Array<{
+		section: SectionData;
+		results: Record<string, DimensionResult>;
+	}>,
+	finalizedResults: Record<string, DimensionResult>,
+	globalResults: Record<string, DimensionResult>,
 ): Array<{ section: SectionData; results: Record<string, DimensionResult> }> {
-    const updated = sectionResults.map((sr, idx) => {
-        const updatedResults: Record<string, DimensionResult> = {};
+	const updated = sectionResults.map((sr, idx) => {
+		const updatedResults: Record<string, DimensionResult> = {};
 
-        Object.keys(sr.results).forEach(dim => {
-            const finalizedKey = `${dim}_section_${idx}`;
-            updatedResults[dim] = (finalizedResults[finalizedKey] ?? sr.results[dim]) as DimensionResult;
-        });
+		Object.keys(sr.results).forEach((dim) => {
+			const finalizedKey = `${dim}_section_${idx}`;
+			updatedResults[dim] = (finalizedResults[finalizedKey] ??
+				sr.results[dim]) as DimensionResult;
+		});
 
-        return { section: sr.section, results: updatedResults };
-    });
+		return { section: sr.section, results: updatedResults };
+	});
 
-    // Update global results
-    Object.keys(globalResults).forEach(dim => {
-        if (finalizedResults[dim]) {
-            globalResults[dim] = finalizedResults[dim];
-        }
-    });
+	// Update global results
+	Object.keys(globalResults).forEach((dim) => {
+		if (finalizedResults[dim]) {
+			globalResults[dim] = finalizedResults[dim];
+		}
+	});
 
-    return updated;
+	return updated;
 }
 
 // ============================================================================
@@ -191,13 +209,16 @@ export function applyFinalizedResults(
  * @param dimension - Dimension name for error message
  * @returns Promise that rejects on timeout
  */
-export function createTimeoutPromise<T>(timeoutMs: number, dimension: string): Promise<T> {
-    return new Promise<T>((_, reject) =>
-        setTimeout(
-            () => reject(new DimensionTimeoutError(dimension, timeoutMs)),
-            timeoutMs
-        )
-    );
+export function createTimeoutPromise<T>(
+	timeoutMs: number,
+	dimension: string,
+): Promise<T> {
+	return new Promise<T>((_, reject) =>
+		setTimeout(
+			() => reject(new DimensionTimeoutError(dimension, timeoutMs)),
+			timeoutMs,
+		),
+	);
 }
 
 /**
@@ -222,11 +243,11 @@ export function createTimeoutPromise<T>(timeoutMs: number, dimension: string): P
  * ```
  */
 export async function executeWithTimeout<T>(
-    fn: () => Promise<T>,
-    dimension: string,
-    timeoutMs: number
+	fn: () => Promise<T>,
+	dimension: string,
+	timeoutMs: number,
 ): Promise<T> {
-    return Promise.race([fn(), createTimeoutPromise<T>(timeoutMs, dimension)]);
+	return Promise.race([fn(), createTimeoutPromise<T>(timeoutMs, dimension)]);
 }
 
 // ============================================================================
@@ -246,11 +267,11 @@ export async function executeWithTimeout<T>(
  * ```
  */
 export function chunk<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-        chunks.push(array.slice(i, i + size));
-    }
-    return chunks;
+	const chunks: T[][] = [];
+	for (let i = 0; i < array.length; i += size) {
+		chunks.push(array.slice(i, i + size));
+	}
+	return chunks;
 }
 
 /**
@@ -260,7 +281,7 @@ export function chunk<T>(array: T[], size: number): T[][] {
  * @returns Array with unique values
  */
 export function unique<T>(array: T[]): T[] {
-    return Array.from(new Set(array));
+	return Array.from(new Set(array));
 }
 
 // ============================================================================
@@ -277,7 +298,7 @@ export function unique<T>(array: T[]): T[] {
  * @returns Cloned object
  */
 export function deepClone<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj));
+	return JSON.parse(JSON.stringify(obj));
 }
 
 /**
@@ -287,7 +308,7 @@ export function deepClone<T>(obj: T): T {
  * @returns true if object has no own properties
  */
 export function isEmpty(obj: Record<string, unknown>): boolean {
-    return Object.keys(obj).length === 0;
+	return Object.keys(obj).length === 0;
 }
 
 /**
@@ -298,16 +319,16 @@ export function isEmpty(obj: Record<string, unknown>): boolean {
  * @returns New object with only specified keys
  */
 export function pick<T extends Record<string, unknown>, K extends keyof T>(
-    obj: T,
-    keys: K[]
+	obj: T,
+	keys: K[],
 ): Pick<T, K> {
-    const result = {} as Pick<T, K>;
-    keys.forEach(key => {
-        if (key in obj) {
-            result[key] = obj[key];
-        }
-    });
-    return result;
+	const result = {} as Pick<T, K>;
+	keys.forEach((key) => {
+		if (key in obj) {
+			result[key] = obj[key];
+		}
+	});
+	return result;
 }
 
 /**
@@ -318,14 +339,14 @@ export function pick<T extends Record<string, unknown>, K extends keyof T>(
  * @returns New object without specified keys
  */
 export function omit<T extends Record<string, unknown>, K extends keyof T>(
-    obj: T,
-    keys: K[]
+	obj: T,
+	keys: K[],
 ): Omit<T, K> {
-    const result = { ...obj };
-    keys.forEach(key => {
-        delete result[key];
-    });
-    return result;
+	const result = { ...obj };
+	keys.forEach((key) => {
+		delete result[key];
+	});
+	return result;
 }
 
 // ============================================================================
@@ -339,7 +360,7 @@ export function omit<T extends Record<string, unknown>, K extends keyof T>(
  * @returns Promise that resolves after delay
  */
 export function delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -355,12 +376,12 @@ export function delay(ms: number): Promise<void> {
  * ```
  */
 export async function measureTime<T>(
-    fn: () => Promise<T>
+	fn: () => Promise<T>,
 ): Promise<[T, number]> {
-    const start = Date.now();
-    const result = await fn();
-    const duration = Date.now() - start;
-    return [result, duration];
+	const start = Date.now();
+	const result = await fn();
+	const duration = Date.now() - start;
+	return [result, duration];
 }
 
 // ============================================================================
@@ -375,11 +396,15 @@ export async function measureTime<T>(
  * @param suffix - Suffix to add when truncated (default: '...')
  * @returns Truncated string
  */
-export function truncate(str: string, maxLength: number, suffix: string = '...'): string {
-    if (str.length <= maxLength) {
-        return str;
-    }
-    return str.slice(0, maxLength - suffix.length) + suffix;
+export function truncate(
+	str: string,
+	maxLength: number,
+	suffix: string = "...",
+): string {
+	if (str.length <= maxLength) {
+		return str;
+	}
+	return str.slice(0, maxLength - suffix.length) + suffix;
 }
 
 /**
@@ -389,7 +414,6 @@ export function truncate(str: string, maxLength: number, suffix: string = '...')
  * @returns Capitalized string
  */
 export function capitalize(str: string): string {
-    if (!str) return str;
-    return str.charAt(0).toUpperCase() + str.slice(1);
+	if (!str) return str;
+	return str.charAt(0).toUpperCase() + str.slice(1);
 }
-

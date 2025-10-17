@@ -32,67 +32,67 @@
  * ```
  */
 export interface GraphAnalytics {
-    /**
-     * Total number of dimensions in the graph
-     */
-    totalDimensions: number;
+	/**
+	 * Total number of dimensions in the graph
+	 */
+	totalDimensions: number;
 
-    /**
-     * Total number of dependencies (edges) in the graph
-     */
-    totalDependencies: number;
+	/**
+	 * Total number of dependencies (edges) in the graph
+	 */
+	totalDependencies: number;
 
-    /**
-     * Maximum depth of the dependency chain
-     *
-     * Represents the longest path from a root node to a leaf.
-     * Higher values indicate deeper nesting and longer minimum execution time.
-     */
-    maxDepth: number;
+	/**
+	 * Maximum depth of the dependency chain
+	 *
+	 * Represents the longest path from a root node to a leaf.
+	 * Higher values indicate deeper nesting and longer minimum execution time.
+	 */
+	maxDepth: number;
 
-    /**
-     * Critical path through the graph
-     *
-     * The longest chain of dependencies that determines minimum execution time.
-     * Optimizing dimensions on this path has the most impact on performance.
-     *
-     * @example ['root', 'summary', 'sentiment', 'final-report']
-     */
-    criticalPath: string[];
+	/**
+	 * Critical path through the graph
+	 *
+	 * The longest chain of dependencies that determines minimum execution time.
+	 * Optimizing dimensions on this path has the most impact on performance.
+	 *
+	 * @example ['root', 'summary', 'sentiment', 'final-report']
+	 */
+	criticalPath: string[];
 
-    /**
-     * Groups of dimensions that can execute in parallel
-     *
-     * Each group contains dimensions with identical dependencies,
-     * meaning they can safely run simultaneously.
-     *
-     * @example
-     * [
-     *   ['tags', 'categories'],  // Both depend on 'summary'
-     *   ['sentiment', 'tone']     // Both depend on 'tags'
-     * ]
-     */
-    parallelGroups: string[][];
+	/**
+	 * Groups of dimensions that can execute in parallel
+	 *
+	 * Each group contains dimensions with identical dependencies,
+	 * meaning they can safely run simultaneously.
+	 *
+	 * @example
+	 * [
+	 *   ['tags', 'categories'],  // Both depend on 'summary'
+	 *   ['sentiment', 'tone']     // Both depend on 'tags'
+	 * ]
+	 */
+	parallelGroups: string[][];
 
-    /**
-     * Dimensions with no dependencies
-     *
-     * These can execute immediately at process start.
-     *
-     * @example ['summary', 'metadata']
-     */
-    independentDimensions: string[];
+	/**
+	 * Dimensions with no dependencies
+	 *
+	 * These can execute immediately at process start.
+	 *
+	 * @example ['summary', 'metadata']
+	 */
+	independentDimensions: string[];
 
-    /**
-     * Bottleneck dimensions
-     *
-     * Dimensions that many other dimensions depend on.
-     * Delays in these dimensions cascade to many dependents.
-     * Sorted by number of dependents (descending).
-     *
-     * @example ['summary', 'tags']  // Many dimensions depend on these
-     */
-    bottlenecks: string[];
+	/**
+	 * Bottleneck dimensions
+	 *
+	 * Dimensions that many other dimensions depend on.
+	 * Delays in these dimensions cascade to many dependents.
+	 * Sorted by number of dependents (descending).
+	 *
+	 * @example ['summary', 'tags']  // Many dimensions depend on these
+	 */
+	bottlenecks: string[];
 }
 
 // ============================================================================
@@ -103,75 +103,75 @@ export interface GraphAnalytics {
  * Graph node in export format
  */
 export interface GraphNode {
-    /**
-     * Unique node identifier (dimension name)
-     */
-    id: string;
+	/**
+	 * Unique node identifier (dimension name)
+	 */
+	id: string;
 
-    /**
-     * Display label for the node
-     */
-    label: string;
+	/**
+	 * Display label for the node
+	 */
+	label: string;
 
-    /**
-     * Node type
-     */
-    type: 'global' | 'section';
+	/**
+	 * Node type
+	 */
+	type: "global" | "section";
 
-    /**
-     * Optional additional metadata
-     */
-    metadata?: {
-        /**
-         * Whether this dimension has dependencies
-         */
-        hasDependencies?: boolean;
+	/**
+	 * Optional additional metadata
+	 */
+	metadata?: {
+		/**
+		 * Whether this dimension has dependencies
+		 */
+		hasDependencies?: boolean;
 
-        /**
-         * Number of direct dependencies
-         */
-        dependencyCount?: number;
+		/**
+		 * Number of direct dependencies
+		 */
+		dependencyCount?: number;
 
-        /**
-         * Number of dimensions that depend on this one
-         */
-        dependentCount?: number;
+		/**
+		 * Number of dimensions that depend on this one
+		 */
+		dependentCount?: number;
 
-        /**
-         * Whether this is a bottleneck
-         */
-        isBottleneck?: boolean;
-    };
+		/**
+		 * Whether this is a bottleneck
+		 */
+		isBottleneck?: boolean;
+	};
 }
 
 /**
  * Graph link (edge) in export format
  */
 export interface GraphLink {
-    /**
-     * Source node ID (the dependency)
-     */
-    source: string;
+	/**
+	 * Source node ID (the dependency)
+	 */
+	source: string;
 
-    /**
-     * Target node ID (the dependent)
-     */
-    target: string;
+	/**
+	 * Target node ID (the dependent)
+	 */
+	target: string;
 
-    /**
-     * Optional link metadata
-     */
-    metadata?: {
-        /**
-         * Link type or relationship
-         */
-        type?: string;
+	/**
+	 * Optional link metadata
+	 */
+	metadata?: {
+		/**
+		 * Link type or relationship
+		 */
+		type?: string;
 
-        /**
-         * Link weight or importance
-         */
-        weight?: number;
-    };
+		/**
+		 * Link weight or importance
+		 */
+		weight?: number;
+	};
 }
 
 /**
@@ -192,40 +192,40 @@ export interface GraphLink {
  * ```
  */
 export interface GraphExport {
-    /**
-     * Array of nodes (dimensions)
-     */
-    nodes: GraphNode[];
+	/**
+	 * Array of nodes (dimensions)
+	 */
+	nodes: GraphNode[];
 
-    /**
-     * Array of links (dependencies)
-     */
-    links: GraphLink[];
+	/**
+	 * Array of links (dependencies)
+	 */
+	links: GraphLink[];
 
-    /**
-     * Optional graph metadata
-     */
-    metadata?: {
-        /**
-         * Graph name or title
-         */
-        name?: string;
+	/**
+	 * Optional graph metadata
+	 */
+	metadata?: {
+		/**
+		 * Graph name or title
+		 */
+		name?: string;
 
-        /**
-         * Graph description
-         */
-        description?: string;
+		/**
+		 * Graph description
+		 */
+		description?: string;
 
-        /**
-         * Creation timestamp
-         */
-        timestamp?: number;
+		/**
+		 * Creation timestamp
+		 */
+		timestamp?: number;
 
-        /**
-         * Analytics summary
-         */
-        analytics?: GraphAnalytics;
-    };
+		/**
+		 * Analytics summary
+		 */
+		analytics?: GraphAnalytics;
+	};
 }
 
 // ============================================================================
@@ -236,32 +236,32 @@ export interface GraphExport {
  * DOT graph export options
  */
 export interface DotExportOptions {
-    /**
-     * Graph direction
-     * @default 'LR' (left to right)
-     */
-    rankdir?: 'TB' | 'BT' | 'LR' | 'RL';
+	/**
+	 * Graph direction
+	 * @default 'LR' (left to right)
+	 */
+	rankdir?: "TB" | "BT" | "LR" | "RL";
 
-    /**
-     * Whether to include node styling
-     * @default true
-     */
-    includeStyles?: boolean;
+	/**
+	 * Whether to include node styling
+	 * @default true
+	 */
+	includeStyles?: boolean;
 
-    /**
-     * Custom node attributes
-     */
-    nodeAttributes?: Record<string, string>;
+	/**
+	 * Custom node attributes
+	 */
+	nodeAttributes?: Record<string, string>;
 
-    /**
-     * Custom edge attributes
-     */
-    edgeAttributes?: Record<string, string>;
+	/**
+	 * Custom edge attributes
+	 */
+	edgeAttributes?: Record<string, string>;
 
-    /**
-     * Graph title
-     */
-    title?: string;
+	/**
+	 * Graph title
+	 */
+	title?: string;
 }
 
 // ============================================================================
@@ -272,62 +272,62 @@ export interface DotExportOptions {
  * Detailed graph statistics
  */
 export interface GraphStatistics {
-    /**
-     * Node statistics
-     */
-    nodes: {
-        total: number;
-        global: number;
-        section: number;
-        independent: number;
-        bottlenecks: number;
-    };
+	/**
+	 * Node statistics
+	 */
+	nodes: {
+		total: number;
+		global: number;
+		section: number;
+		independent: number;
+		bottlenecks: number;
+	};
 
-    /**
-     * Edge statistics
-     */
-    edges: {
-        total: number;
-        averagePerNode: number;
-        maxPerNode: number;
-        minPerNode: number;
-    };
+	/**
+	 * Edge statistics
+	 */
+	edges: {
+		total: number;
+		averagePerNode: number;
+		maxPerNode: number;
+		minPerNode: number;
+	};
 
-    /**
-     * Depth statistics
-     */
-    depth: {
-        max: number;
-        average: number;
-        distribution: Record<number, number>;
-    };
+	/**
+	 * Depth statistics
+	 */
+	depth: {
+		max: number;
+		average: number;
+		distribution: Record<number, number>;
+	};
 
-    /**
-     * Parallelization potential
-     */
-    parallelization: {
-        maxConcurrency: number;
-        averageGroupSize: number;
-        totalGroups: number;
-    };
+	/**
+	 * Parallelization potential
+	 */
+	parallelization: {
+		maxConcurrency: number;
+		averageGroupSize: number;
+		totalGroups: number;
+	};
 
-    /**
-     * Complexity metrics
-     */
-    complexity: {
-        /**
-         * Graph density (edges / possible edges)
-         */
-        density: number;
+	/**
+	 * Complexity metrics
+	 */
+	complexity: {
+		/**
+		 * Graph density (edges / possible edges)
+		 */
+		density: number;
 
-        /**
-         * Average clustering coefficient
-         */
-        clustering: number;
+		/**
+		 * Average clustering coefficient
+		 */
+		clustering: number;
 
-        /**
-         * Whether the graph is a DAG (should always be true)
-         */
-        isAcyclic: boolean;
-    };
+		/**
+		 * Whether the graph is a DAG (should always be true)
+		 */
+		isAcyclic: boolean;
+	};
 }

@@ -7,10 +7,10 @@
  * @module engine/state-manager
  */
 
-import crypto from 'crypto';
-import { SectionData, DimensionResult } from '../../types.ts';
-import { ProcessState } from '../shared/types.ts';
-import { resetSectionResultsMap } from '../shared/utils.ts';
+import crypto from "crypto";
+import type { SectionData, DimensionResult } from "../../types.ts";
+import type { ProcessState } from "../shared/types.ts";
+import { resetSectionResultsMap } from "../shared/utils.ts";
 
 /**
  * Creates a new process state
@@ -29,17 +29,17 @@ import { resetSectionResultsMap } from '../shared/utils.ts';
  * ```
  */
 export function createProcessState(
-    sections: SectionData[],
-    metadata?: unknown
+	sections: SectionData[],
+	metadata?: unknown,
 ): ProcessState {
-    return {
-        id: crypto.randomUUID(),
-        startTime: Date.now(),
-        metadata,
-        sections: [...sections],
-        globalResults: {},
-        sectionResultsMap: new Map(sections.map((_, idx) => [idx, {}])),
-    };
+	return {
+		id: crypto.randomUUID(),
+		startTime: Date.now(),
+		metadata,
+		sections: [...sections],
+		globalResults: {},
+		sectionResultsMap: new Map(sections.map((_, idx) => [idx, {}])),
+	};
 }
 
 /**
@@ -58,11 +58,11 @@ export function createProcessState(
  * ```
  */
 export function updateStateSections(
-    state: ProcessState,
-    sections: SectionData[]
+	state: ProcessState,
+	sections: SectionData[],
 ): void {
-    state.sections = [...sections];
-    resetSectionResultsMap(state.sectionResultsMap, sections.length);
+	state.sections = [...sections];
+	resetSectionResultsMap(state.sectionResultsMap, sections.length);
 }
 
 /**
@@ -75,37 +75,39 @@ export function updateStateSections(
  * @returns Section results
  */
 export function getSectionResults(
-    state: ProcessState,
-    sectionIndex: number
+	state: ProcessState,
+	sectionIndex: number,
 ): Record<string, DimensionResult> {
-    return state.sectionResultsMap.get(sectionIndex) ?? {};
+	return state.sectionResultsMap.get(sectionIndex) ?? {};
 }
 
 export function serializeState(state: ProcessState): SerializedProcessState {
-    return {
-        ...state,
-        sectionResultsMap: Array.from(state.sectionResultsMap.entries())
-    };
+	return {
+		...state,
+		sectionResultsMap: Array.from(state.sectionResultsMap.entries()),
+	};
 }
 
 /**
  * Deserialize state from Inngest checkpoint
  */
-export function deserializeState(serialized: SerializedProcessState): ProcessState {
-    return {
-        ...serialized,
-        sectionResultsMap: new Map(serialized.sectionResultsMap)
-    };
+export function deserializeState(
+	serialized: SerializedProcessState,
+): ProcessState {
+	return {
+		...serialized,
+		sectionResultsMap: new Map(serialized.sectionResultsMap),
+	};
 }
 
 // Type for serialized state
 export interface SerializedProcessState {
-    id: string;
-    startTime: number;
-    metadata?: unknown;
-    sections: SectionData[];
-    globalResults: Record<string, DimensionResult>;
-    sectionResultsMap: Array<[number, Record<string, DimensionResult>]>;
+	id: string;
+	startTime: number;
+	metadata?: unknown;
+	sections: SectionData[];
+	globalResults: Record<string, DimensionResult>;
+	sectionResultsMap: Array<[number, Record<string, DimensionResult>]>;
 }
 
 /**
@@ -119,12 +121,12 @@ export interface SerializedProcessState {
  * @param result - Dimension result
  */
 export function setSectionResult(
-    state: ProcessState,
-    sectionIndex: number,
-    dimension: string,
-    result: DimensionResult
+	state: ProcessState,
+	sectionIndex: number,
+	dimension: string,
+	result: DimensionResult,
 ): void {
-    const sectionResults = state.sectionResultsMap.get(sectionIndex) ?? {};
-    sectionResults[dimension] = result;
-    state.sectionResultsMap.set(sectionIndex, sectionResults);
+	const sectionResults = state.sectionResultsMap.get(sectionIndex) ?? {};
+	sectionResults[dimension] = result;
+	state.sectionResultsMap.set(sectionIndex, sectionResults);
 }

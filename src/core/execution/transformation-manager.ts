@@ -7,11 +7,11 @@
  * @module execution/transformation-manager
  */
 
-import { Plugin } from '../../plugin.ts';
-import { SectionData, DimensionResult, ProcessOptions } from '../../types.ts';
-import { HookExecutor } from '../lifecycle/hook-executor.ts';
-import { ProcessState } from '../shared/types.ts';
-import { resetSectionResultsMap } from '../shared/utils.ts';
+import type { Plugin } from "../../plugin.ts";
+import type { SectionData, DimensionResult, ProcessOptions } from "../../types.ts";
+import type { HookExecutor } from "../lifecycle/hook-executor.ts";
+import type { ProcessState } from "../shared/types.ts";
+import { resetSectionResultsMap } from "../shared/utils.ts";
 
 /**
  * Manages transformation of sections after global dimension execution
@@ -21,133 +21,133 @@ import { resetSectionResultsMap } from '../shared/utils.ts';
  * - New hook-based transformSections approach
  */
 export class TransformationManager {
-    constructor(private readonly plugin: Plugin) {}
+	constructor(private readonly plugin: Plugin) {}
 
-    /**
-     * Applies transformation for a global dimension result
-     *
-     * Tries legacy transform first, then falls back to hook-based transform.
-     * If sections are transformed, the section results map is reset.
-     *
-     * @param dimension - Dimension name
-     * @param result - Dimension result
-     * @param state - Process state
-     * @param hookExecutor - Hook executor instance
-     * @param options - Process options
-     * @returns Transformed sections or original sections if no transformation
-     */
-    async applyTransformation(
-        dimension: string,
-        result: DimensionResult | undefined,
-        state: ProcessState,
-        hookExecutor: HookExecutor,
-        options: ProcessOptions
-    ): Promise<SectionData[]> {
-        if (!result) {
-            return state.sections;
-        }
+	/**
+	 * Applies transformation for a global dimension result
+	 *
+	 * Tries legacy transform first, then falls back to hook-based transform.
+	 * If sections are transformed, the section results map is reset.
+	 *
+	 * @param dimension - Dimension name
+	 * @param result - Dimension result
+	 * @param state - Process state
+	 * @param hookExecutor - Hook executor instance
+	 * @param options - Process options
+	 * @returns Transformed sections or original sections if no transformation
+	 */
+	async applyTransformation(
+		dimension: string,
+		result: DimensionResult | undefined,
+		state: ProcessState,
+		hookExecutor: HookExecutor,
+		options: ProcessOptions,
+	): Promise<SectionData[]> {
+		if (!result) {
+			return state.sections;
+		}
 
-        // Try legacy transform first
-        const legacyTransformed = await this.applyLegacyTransform(
-            dimension,
-            result,
-            state.sections,
-            state.sectionResultsMap,
-            options
-        );
+		// Try legacy transform first
+		const legacyTransformed = await this.applyLegacyTransform(
+			dimension,
+			result,
+			state.sections,
+			state.sectionResultsMap,
+			options,
+		);
 
-        if (legacyTransformed) {
-            return legacyTransformed;
-        }
+		if (legacyTransformed) {
+			return legacyTransformed;
+		}
 
-        // Try new transformSections hook
-        const hookTransformed = await this.applyHookTransform(
-            dimension,
-            result,
-            state,
-            hookExecutor
-        );
+		// Try new transformSections hook
+		const hookTransformed = await this.applyHookTransform(
+			dimension,
+			result,
+			state,
+			hookExecutor,
+		);
 
-        if (hookTransformed) {
-            return hookTransformed;
-        }
+		if (hookTransformed) {
+			return hookTransformed;
+		}
 
-        return state.sections;
-    }
+		return state.sections;
+	}
 
-    // ==================== PRIVATE METHODS ====================
+	// ==================== PRIVATE METHODS ====================
 
-    /**
-     * Applies legacy dimension transform function
-     *
-     * This supports the old-style transform function defined directly
-     * on the dimension configuration.
-     */
-    private async applyLegacyTransform(
-        dimension: string,
-        result: DimensionResult,
-        currentSections: SectionData[],
-        sectionResultsMap: Map<number, Record<string, DimensionResult>>,
-        options: ProcessOptions
-    ): Promise<SectionData[] | null> {
-        const config = this.plugin.getDimensionConfig(dimension);
+	/**
+	 * Applies legacy dimension transform function
+	 *
+	 * This supports the old-style transform function defined directly
+	 * on the dimension configuration.
+	 */
+	private async applyLegacyTransform(
+		dimension: string,
+		result: DimensionResult,
+		currentSections: SectionData[],
+		sectionResultsMap: Map<number, Record<string, DimensionResult>>,
+		options: ProcessOptions,
+	): Promise<SectionData[] | null> {
+		const config = this.plugin.getDimensionConfig(dimension);
 
-        if (!config.transform || !result.data) {
-            return null;
-        }
+		if (!config.transform || !result.data) {
+			return null;
+		}
 
-        try {
-            const transformed = await Promise.resolve(
-                config.transform(result, currentSections)
-            );
+		try {
+			const transformed = await Promise.resolve(
+				config.transform(result, currentSections),
+			);
 
-            if (Array.isArray(transformed) && transformed.length > 0) {
-                resetSectionResultsMap(sectionResultsMap, transformed.length);
-                return transformed;
-            }
-        } catch (error) {
-            const err = error instanceof Error ? error : new Error(String(error));
-            console.error(`Error in transform for ${dimension}:`, err.message);
-            options.onError?.(`transform-${dimension}`, err);
-        }
+			if (Array.isArray(transformed) && transformed.length > 0) {
+				resetSectionResultsMap(sectionResultsMap, transformed.length);
+				return transformed;
+			}
+		} catch (error) {
+			const err = error instanceof Error ? error : new Error(String(error));
+			console.error(`Error in transform for ${dimension}:`, err.message);
+			options.onError?.(`transform-${dimension}`, err);
+		}
 
-        return null;
-    }
+		return null;
+	}
 
-    /**
-     * Applies new hook-based transformation
-     *
-     * This uses the transformSections hook which provides more context
-     * and flexibility for transforming sections.
-     */
-    private async applyHookTransform(
-        dimension: string,
-        result: DimensionResult,
-        state: ProcessState,
-        hookExecutor: HookExecutor
-    ): Promise<SectionData[] | null> {
-        const transformed = await hookExecutor.transformSections({
-            processId: state.id,
-            timestamp: Date.now(),
-            dimension,
-            isGlobal: true,
-            sections: state.sections,
-            dependencies: {},
-            globalResults: state.globalResults,
-            request: { input: '', options: {} },
-            provider: result.metadata?.provider ?? 'unknown',
-            providerOptions: {},
-            result,
-            duration: 0,
-            tokensUsed: result.metadata?.tokens,
-            currentSections: state.sections,
-        });
+	/**
+	 * Applies new hook-based transformation
+	 *
+	 * This uses the transformSections hook which provides more context
+	 * and flexibility for transforming sections.
+	 */
+	private async applyHookTransform(
+		dimension: string,
+		result: DimensionResult,
+		state: ProcessState,
+		hookExecutor: HookExecutor,
+	): Promise<SectionData[] | null> {
+		const transformed = await hookExecutor.transformSections({
+			processId: state.id,
+			timestamp: Date.now(),
+			dimension,
+			isGlobal: true,
+			sections: state.sections,
+			dependencies: {},
+			globalResults: state.globalResults,
+			request: { input: "", options: {} },
+			provider: result.metadata?.provider ?? "unknown",
+			providerOptions: {},
+			result,
+			duration: 0,
+			tokensUsed: result.metadata?.tokens,
+			currentSections: state.sections,
+		});
 
-        if (transformed) {
-            resetSectionResultsMap(state.sectionResultsMap, transformed.length);
-            return transformed;
-        }
+		if (transformed) {
+			resetSectionResultsMap(state.sectionResultsMap, transformed.length);
+			return transformed;
+		}
 
-        return null;
-    }
+		return null;
+	}
 }

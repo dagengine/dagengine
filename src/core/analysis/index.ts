@@ -6,14 +6,14 @@
  * @module analysis
  */
 
-export { DependencyGraphManager } from './graph-manager.ts';
-export { CostCalculator } from './cost-calculator.ts';
+export { DependencyGraphManager } from "./graph-manager.ts";
+export { CostCalculator } from "./cost-calculator.ts";
 
 export type {
-    GraphAnalytics,
-    GraphExport,
-    GraphNode,
-    GraphLink,
-    DotExportOptions,
-    GraphStatistics,
-} from './graph-types.ts';
+	GraphAnalytics,
+	GraphExport,
+	GraphNode,
+	GraphLink,
+	DotExportOptions,
+	GraphStatistics,
+} from "./graph-types.ts";

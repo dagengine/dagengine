@@ -9,16 +9,16 @@
  * ```
  */
 export function serveInngest() {
-    const handler = (global as any).__dagengine_inngest_serve;
+	const handler = (global as any).__dagengine_inngest_serve;
 
-    if (!handler) {
-        throw new Error(
-            'No DagEngine with Inngest found. Create an engine first:\n\n' +
-            '   const engine = new DagEngine({\n' +
-            '     inngest: { enabled: true }\n' +
-            '   });'
-        );
-    }
+	if (!handler) {
+		throw new Error(
+			"No DagEngine with Inngest found. Create an engine first:\n\n" +
+				"   const engine = new DagEngine({\n" +
+				"     inngest: { enabled: true }\n" +
+				"   });",
+		);
+	}
 
-    return handler;
+	return handler;
 }

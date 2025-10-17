@@ -44,68 +44,76 @@
  * ```
  */
 
-import { Plugin } from '../../plugin.ts';
-import { ProviderAdapter } from '../../providers/adapter.ts';
-import { ProviderRegistry } from '../../providers/registry.ts';
-import { SectionData, ProcessOptions, ProcessResult } from '../../types.ts';
+import type { Plugin } from "../../plugin.ts";
+import { ProviderAdapter } from "../../providers/adapter.ts";
+import type { ProviderRegistry } from "../../providers/registry.ts";
+import type { SectionData, ProcessOptions, ProcessResult } from "../../types.ts";
 
-import { PhaseExecutor } from './phase-executor.ts';
-import { createProcessState } from './state-manager';
-import { EngineConfig, mergeExecutionConfig, normalizeEngineConfig } from './engine-config.ts';
-import { DependencyGraphManager } from '../analysis/graph-manager.ts';
-import { ConfigValidator } from '../validation/config-validator.ts';
-import { GraphAnalytics } from '../graph-manager';
-import crypto from 'crypto';
-import { InngestOrchestrator } from '../../orchestration/inngest-orchestrator.ts';
+import { PhaseExecutor } from "./phase-executor.ts";
+import { createProcessState } from "./state-manager";
+import {
+	type EngineConfig,
+	mergeExecutionConfig,
+	normalizeEngineConfig,
+} from "./engine-config.ts";
+import { DependencyGraphManager } from "../analysis/graph-manager.ts";
+import { ConfigValidator } from "../validation/config-validator.ts";
+import type { GraphAnalytics } from "../graph-manager";
+import crypto from "crypto";
+import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.ts";
 
 /**
  * Provider initializer utility
  */
 class ProviderInitializer {
-    /**
-     * Initializes provider adapter from config
-     */
-    static initialize(config: EngineConfig): ProviderAdapter {
-        const adapter = config.providers
-            ? this.createFromProviders(config.providers)
-            : this.createFromRegistry(config.registry!);
+	/**
+	 * Initializes provider adapter from config
+	 */
+	static initialize(config: EngineConfig): ProviderAdapter {
+		const adapter = config.providers
+			? ProviderInitializer.createFromProviders(config.providers)
+			: ProviderInitializer.createFromRegistry(config.registry!);
 
-        ConfigValidator.validateProviderAdapter(adapter);
-        return adapter;
-    }
+		ConfigValidator.validateProviderAdapter(adapter);
+		return adapter;
+	}
 
-    private static createFromProviders(providers: ProviderAdapter | any): ProviderAdapter {
-        return providers instanceof ProviderAdapter
-            ? providers
-            : new ProviderAdapter(providers);
-    }
+	private static createFromProviders(
+		providers: ProviderAdapter | any,
+	): ProviderAdapter {
+		return providers instanceof ProviderAdapter
+			? providers
+			: new ProviderAdapter(providers);
+	}
 
-    private static createFromRegistry(registry: ProviderRegistry): ProviderAdapter {
-        const adapter = new ProviderAdapter({});
-        const registryProviders = registry.list();
+	private static createFromRegistry(
+		registry: ProviderRegistry,
+	): ProviderAdapter {
+		const adapter = new ProviderAdapter({});
+		const registryProviders = registry.list();
 
-        registryProviders.forEach(name => {
-            const provider = registry.get(name);
-            adapter.registerProvider(provider);
-        });
+		registryProviders.forEach((name) => {
+			const provider = registry.get(name);
+			adapter.registerProvider(provider);
+		});
 
-        return adapter;
-    }
+		return adapter;
+	}
 }
 
 /**
  * Graph export format
  */
 export interface GraphExport {
-    nodes: Array<{
-        id: string;
-        label: string;
-        type: 'global' | 'section';
-    }>;
-    links: Array<{
-        source: string;
-        target: string;
-    }>;
+	nodes: Array<{
+		id: string;
+		label: string;
+		type: "global" | "section";
+	}>;
+	links: Array<{
+		source: string;
+		target: string;
+	}>;
 }
 
 /**
@@ -119,288 +127,303 @@ export interface GraphExport {
  * - Flexible plugin architecture
  */
 export class DagEngine {
-    private readonly plugin: Plugin;
-    private readonly adapter: ProviderAdapter;
-    private readonly phaseExecutor: PhaseExecutor;
-    private readonly graphManager: DependencyGraphManager;
-    private readonly inngestOrchestrator?: InngestOrchestrator;
+	private readonly plugin: Plugin;
+	private readonly adapter: ProviderAdapter;
+	private readonly phaseExecutor: PhaseExecutor;
+	private readonly graphManager: DependencyGraphManager;
+	private readonly inngestOrchestrator?: InngestOrchestrator;
 
-    // Cached dependency graph for analytics
-    private cachedDependencyGraph?: Record<string, string[]>;
+	// Cached dependency graph for analytics
+	private cachedDependencyGraph?: Record<string, string[]>;
 
-    /**
-     * Creates a new DagEngine instance
-     *
-     * @param config - Engine configuration
-     * @throws {ConfigurationError} If configuration is invalid
-     * @throws {NoProvidersError} If no providers are configured
-     *
-     * @example
-     * ```typescript
-     * const engine = new DagEngine({
-     *   plugin: myPlugin,
-     *   providers: myAdapter,
-     *   execution: {
-     *     concurrency: 10,
-     *     timeout: 30000
-     *   }
-     * });
-     * ```
-     */
-    constructor(config: EngineConfig) {
-        // Validate configuration
-        ConfigValidator.validate(config);
+	/**
+	 * Creates a new DagEngine instance
+	 *
+	 * @param config - Engine configuration
+	 * @throws {ConfigurationError} If configuration is invalid
+	 * @throws {NoProvidersError} If no providers are configured
+	 *
+	 * @example
+	 * ```typescript
+	 * const engine = new DagEngine({
+	 *   plugin: myPlugin,
+	 *   providers: myAdapter,
+	 *   execution: {
+	 *     concurrency: 10,
+	 *     timeout: 30000
+	 *   }
+	 * });
+	 * ```
+	 */
+	constructor(config: EngineConfig) {
+		// Validate configuration
+		ConfigValidator.validate(config);
 
-        // Normalize configuration (handle legacy fields)
-        const normalizedConfig = normalizeEngineConfig(config);
+		// Normalize configuration (handle legacy fields)
+		const normalizedConfig = normalizeEngineConfig(config);
 
-        // Store core dependencies
-        this.plugin = normalizedConfig.plugin;
-        this.adapter = ProviderInitializer.initialize(normalizedConfig);
+		// Store core dependencies
+		this.plugin = normalizedConfig.plugin;
+		this.adapter = ProviderInitializer.initialize(normalizedConfig);
 
-        // Merge execution config with defaults
-        const executionConfig = mergeExecutionConfig(normalizedConfig);
+		// Merge execution config with defaults
+		const executionConfig = mergeExecutionConfig(normalizedConfig);
 
-        // Initialize managers
-        this.graphManager = new DependencyGraphManager(this.plugin);
-        this.phaseExecutor = new PhaseExecutor(
-            this.plugin,
-            this.adapter,
-            executionConfig,
-            normalizedConfig.pricing
-        );
+		// Initialize managers
+		this.graphManager = new DependencyGraphManager(this.plugin);
+		this.phaseExecutor = new PhaseExecutor(
+			this.plugin,
+			this.adapter,
+			executionConfig,
+			normalizedConfig.pricing,
+		);
 
-        if (config.inngest?.enabled) {
-            this.inngestOrchestrator = new InngestOrchestrator(
-                this.phaseExecutor,
-                config.inngest
-            );
-        }
-    }
+		if (config.inngest?.enabled) {
+			this.inngestOrchestrator = new InngestOrchestrator(
+				this.phaseExecutor,
+				config.inngest,
+			);
+		}
+	}
 
+	/**
+	 * Processes sections through all dimensions
+	 *
+	 * Executes the complete workflow:
+	 * 1. Pre-process (beforeProcessStart hook)
+	 * 2. Planning (build dependency graph)
+	 * 3. Execution (run dimensions in parallel groups)
+	 * 4. Finalization (aggregate results, calculate costs)
+	 * 5. Post-process (afterProcessComplete hook)
+	 *
+	 * @param sections - Sections to process
+	 * @param options - Process options for hooks and callbacks
+	 * @returns Process result with sections, global results, and costs
+	 * @throws {NoSectionsError} If no sections provided
+	 * @throws {CircularDependencyError} If circular dependencies detected
+	 * @throws {DimensionTimeoutError} If dimension times out
+	 *
+	 * @example
+	 * ```typescript
+	 * const result = await engine.process(sections, {
+	 *   onDimensionStart: (dim) => console.log(`Starting ${dim}`),
+	 *   onDimensionComplete: (dim, result) => {
+	 *     console.log(`Completed ${dim}:`, result);
+	 *   },
+	 *   onError: (context, error) => {
+	 *     console.error(`Error in ${context}:`, error);
+	 *   }
+	 * });
+	 *
+	 * console.log('Results:', result.sections);
+	 * console.log('Global:', result.globalResults);
+	 * console.log('Cost:', result.costs?.totalCost);
+	 * ```
+	 */
+	async process(
+		sections: SectionData[],
+		options: ProcessOptions = {},
+	): Promise<ProcessResult> {
+		// Route to Inngest if enabled
+		if (this.inngestOrchestrator) {
+			const processId = options.processId || crypto.randomUUID();
+			return await this.inngestOrchestrator.execute({
+				processId,
+				sections,
+				options,
+			});
+		}
 
-    /**
-     * Processes sections through all dimensions
-     *
-     * Executes the complete workflow:
-     * 1. Pre-process (beforeProcessStart hook)
-     * 2. Planning (build dependency graph)
-     * 3. Execution (run dimensions in parallel groups)
-     * 4. Finalization (aggregate results, calculate costs)
-     * 5. Post-process (afterProcessComplete hook)
-     *
-     * @param sections - Sections to process
-     * @param options - Process options for hooks and callbacks
-     * @returns Process result with sections, global results, and costs
-     * @throws {NoSectionsError} If no sections provided
-     * @throws {CircularDependencyError} If circular dependencies detected
-     * @throws {DimensionTimeoutError} If dimension times out
-     *
-     * @example
-     * ```typescript
-     * const result = await engine.process(sections, {
-     *   onDimensionStart: (dim) => console.log(`Starting ${dim}`),
-     *   onDimensionComplete: (dim, result) => {
-     *     console.log(`Completed ${dim}:`, result);
-     *   },
-     *   onError: (context, error) => {
-     *     console.error(`Error in ${context}:`, error);
-     *   }
-     * });
-     *
-     * console.log('Results:', result.sections);
-     * console.log('Global:', result.globalResults);
-     * console.log('Cost:', result.costs?.totalCost);
-     * ```
-     */
-    async process(
-        sections: SectionData[],
-        options: ProcessOptions = {}
-    ): Promise<ProcessResult> {
-        // Route to Inngest if enabled
-        if (this.inngestOrchestrator) {
-            const processId = options.processId || crypto.randomUUID();
-            return await this.inngestOrchestrator.execute({
-                processId,
-                sections,
-                options
-            });
-        }
+		// Original direct execution (unchanged)
+		const stateManager = createProcessState(sections);
+		try {
+			await this.phaseExecutor.preProcess(stateManager, options);
+			const plan = await this.phaseExecutor.planExecution(
+				stateManager,
+				options,
+			);
 
-        // Original direct execution (unchanged)
-        const stateManager = createProcessState(sections);
-        try {
-            await this.phaseExecutor.preProcess(stateManager, options);
-            const plan = await this.phaseExecutor.planExecution(stateManager, options);
+			this.cachedDependencyGraph = plan.dependencyGraph;
 
-            this.cachedDependencyGraph = plan.dependencyGraph;
+			await this.phaseExecutor.executeDimensions(stateManager, plan, options);
+			const result = await this.phaseExecutor.finalizeResults(
+				stateManager,
+				plan,
+				options,
+			);
+			return await this.phaseExecutor.postProcess(
+				stateManager,
+				result,
+				plan,
+				options,
+			);
+		} catch (error) {
+			return await this.phaseExecutor.handleFailure(
+				stateManager,
+				error,
+				options,
+			);
+		}
+	}
 
-            await this.phaseExecutor.executeDimensions(stateManager, plan, options);
-            const result = await this.phaseExecutor.finalizeResults(stateManager, plan, options);
-            return await this.phaseExecutor.postProcess(stateManager, result, plan, options);
-        } catch (error) {
-            return await this.phaseExecutor.handleFailure(stateManager, error, options);
-        }
-    }
+	async processWithInngest(
+		sections: SectionData[],
+		options: ProcessOptions = {},
+	): Promise<ProcessResult> {
+		const processId = options.processId || crypto.randomUUID();
 
-    async processWithInngest(
-        sections: SectionData[],
-        options: ProcessOptions = {}
-    ): Promise<ProcessResult> {
-        const processId = options.processId || crypto.randomUUID();
+		// Delegate to Inngest orchestrator
+		return await this.inngestOrchestrator.execute({
+			processId,
+			sections,
+			options,
+		});
+	}
 
-        // Delegate to Inngest orchestrator
-        return await this.inngestOrchestrator.execute({
-            processId,
-            sections,
-            options
-        });
-    }
+	// ============================================================================
+	// GRAPH ANALYTICS API
+	// ============================================================================
 
-    // ============================================================================
-    // GRAPH ANALYTICS API
-    // ============================================================================
+	/**
+	 * Gets comprehensive graph analytics
+	 *
+	 * Provides insights into the dependency graph including:
+	 * - Total dimensions and dependencies
+	 * - Maximum depth and critical path
+	 * - Parallel execution groups
+	 * - Independent dimensions
+	 * - Bottleneck identification
+	 *
+	 * @returns Graph analytics
+	 *
+	 * @example
+	 * ```typescript
+	 * const analytics = await engine.getGraphAnalytics();
+	 *
+	 * console.log('Total dimensions:', analytics.totalDimensions);
+	 * console.log('Max depth:', analytics.maxDepth);
+	 * console.log('Critical path:', analytics.criticalPath);
+	 * console.log('Bottlenecks:', analytics.bottlenecks);
+	 * ```
+	 */
+	async getGraphAnalytics(): Promise<GraphAnalytics> {
+		const dimensions = this.plugin.getDimensionNames();
+		const deps = this.cachedDependencyGraph ?? {};
+		return this.graphManager.getAnalytics(dimensions, deps);
+	}
 
-    /**
-     * Gets comprehensive graph analytics
-     *
-     * Provides insights into the dependency graph including:
-     * - Total dimensions and dependencies
-     * - Maximum depth and critical path
-     * - Parallel execution groups
-     * - Independent dimensions
-     * - Bottleneck identification
-     *
-     * @returns Graph analytics
-     *
-     * @example
-     * ```typescript
-     * const analytics = await engine.getGraphAnalytics();
-     *
-     * console.log('Total dimensions:', analytics.totalDimensions);
-     * console.log('Max depth:', analytics.maxDepth);
-     * console.log('Critical path:', analytics.criticalPath);
-     * console.log('Bottlenecks:', analytics.bottlenecks);
-     * ```
-     */
-    async getGraphAnalytics(): Promise<GraphAnalytics> {
-        const dimensions = this.plugin.getDimensionNames();
-        const deps = this.cachedDependencyGraph ?? {};
-        return this.graphManager.getAnalytics(dimensions, deps);
-    }
+	/**
+	 * Exports dependency graph as DOT format for visualization
+	 *
+	 * Use with Graphviz or other DOT visualization tools.
+	 *
+	 * @returns DOT format string
+	 *
+	 * @example
+	 * ```typescript
+	 * const dot = await engine.exportGraphDOT();
+	 *
+	 * // Save to file
+	 * await fs.writeFile('graph.dot', dot);
+	 *
+	 * // Render with Graphviz
+	 * // dot -Tpng graph.dot -o graph.png
+	 * ```
+	 */
+	async exportGraphDOT(): Promise<string> {
+		const dimensions = this.plugin.getDimensionNames();
+		const deps = this.cachedDependencyGraph ?? {};
+		return this.graphManager.exportDOT(dimensions, deps);
+	}
 
-    /**
-     * Exports dependency graph as DOT format for visualization
-     *
-     * Use with Graphviz or other DOT visualization tools.
-     *
-     * @returns DOT format string
-     *
-     * @example
-     * ```typescript
-     * const dot = await engine.exportGraphDOT();
-     *
-     * // Save to file
-     * await fs.writeFile('graph.dot', dot);
-     *
-     * // Render with Graphviz
-     * // dot -Tpng graph.dot -o graph.png
-     * ```
-     */
-    async exportGraphDOT(): Promise<string> {
-        const dimensions = this.plugin.getDimensionNames();
-        const deps = this.cachedDependencyGraph ?? {};
-        return this.graphManager.exportDOT(dimensions, deps);
-    }
+	/**
+	 * Exports dependency graph as JSON for programmatic use
+	 *
+	 * @returns JSON graph with nodes and links
+	 *
+	 * @example
+	 * ```typescript
+	 * const graph = await engine.exportGraphJSON();
+	 *
+	 * console.log('Nodes:', graph.nodes);
+	 * console.log('Links:', graph.links);
+	 *
+	 * // Use with D3.js, vis.js, etc.
+	 * ```
+	 */
+	async exportGraphJSON(): Promise<GraphExport> {
+		const dimensions = this.plugin.getDimensionNames();
+		const deps = this.cachedDependencyGraph ?? {};
+		return this.graphManager.exportJSON(dimensions, deps);
+	}
 
-    /**
-     * Exports dependency graph as JSON for programmatic use
-     *
-     * @returns JSON graph with nodes and links
-     *
-     * @example
-     * ```typescript
-     * const graph = await engine.exportGraphJSON();
-     *
-     * console.log('Nodes:', graph.nodes);
-     * console.log('Links:', graph.links);
-     *
-     * // Use with D3.js, vis.js, etc.
-     * ```
-     */
-    async exportGraphJSON(): Promise<GraphExport> {
-        const dimensions = this.plugin.getDimensionNames();
-        const deps = this.cachedDependencyGraph ?? {};
-        return this.graphManager.exportJSON(dimensions, deps);
-    }
+	// ============================================================================
+	// PROVIDER API
+	// ============================================================================
 
-    // ============================================================================
-    // PROVIDER API
-    // ============================================================================
+	/**
+	 * Gets the provider adapter instance
+	 *
+	 * @returns Provider adapter
+	 *
+	 * @example
+	 * ```typescript
+	 * const adapter = engine.getAdapter();
+	 *
+	 * // Register additional provider
+	 * adapter.registerProvider(newProvider);
+	 * ```
+	 */
+	getAdapter(): ProviderAdapter {
+		return this.adapter;
+	}
 
-    /**
-     * Gets the provider adapter instance
-     *
-     * @returns Provider adapter
-     *
-     * @example
-     * ```typescript
-     * const adapter = engine.getAdapter();
-     *
-     * // Register additional provider
-     * adapter.registerProvider(newProvider);
-     * ```
-     */
-    getAdapter(): ProviderAdapter {
-        return this.adapter;
-    }
+	/**
+	 * Gets list of available provider names
+	 *
+	 * @returns Array of provider names
+	 *
+	 * @example
+	 * ```typescript
+	 * const providers = engine.getAvailableProviders();
+	 * console.log('Available:', providers);
+	 * // ['openai', 'anthropic', 'custom-provider']
+	 * ```
+	 */
+	getAvailableProviders(): string[] {
+		return this.adapter.listProviders();
+	}
 
-    /**
-     * Gets list of available provider names
-     *
-     * @returns Array of provider names
-     *
-     * @example
-     * ```typescript
-     * const providers = engine.getAvailableProviders();
-     * console.log('Available:', providers);
-     * // ['openai', 'anthropic', 'custom-provider']
-     * ```
-     */
-    getAvailableProviders(): string[] {
-        return this.adapter.listProviders();
-    }
+	// ============================================================================
+	// QUEUE API (Advanced Usage)
+	// ============================================================================
 
-    // ============================================================================
-    // QUEUE API (Advanced Usage)
-    // ============================================================================
+	/**
+	 * Gets the internal execution queue
+	 *
+	 * Advanced usage only. Allows monitoring queue state.
+	 *
+	 * @returns PQueue instance
+	 *
+	 * @example
+	 * ```typescript
+	 * const queue = engine.getQueue();
+	 * console.log('Queue size:', queue.size);
+	 * console.log('Pending:', queue.pending);
+	 * ```
+	 */
+	getQueue() {
+		return this.phaseExecutor.getQueue();
+	}
 
-    /**
-     * Gets the internal execution queue
-     *
-     * Advanced usage only. Allows monitoring queue state.
-     *
-     * @returns PQueue instance
-     *
-     * @example
-     * ```typescript
-     * const queue = engine.getQueue();
-     * console.log('Queue size:', queue.size);
-     * console.log('Pending:', queue.pending);
-     * ```
-     */
-    getQueue() {
-        return this.phaseExecutor.getQueue();
-    }
-
-    getExecutionConfig() {
-        return {
-            concurrency: this.phaseExecutor.config.concurrency,
-            maxRetries: this.phaseExecutor.config.maxRetries,
-            retryDelay: this.phaseExecutor.config.retryDelay,
-            timeout: this.phaseExecutor.config.timeout,
-            continueOnError: this.phaseExecutor.config.continueOnError,
-            dimensionTimeouts: { ...this.phaseExecutor.config.dimensionTimeouts },
-        };
-    }
+	getExecutionConfig() {
+		return {
+			concurrency: this.phaseExecutor.config.concurrency,
+			maxRetries: this.phaseExecutor.config.maxRetries,
+			retryDelay: this.phaseExecutor.config.retryDelay,
+			timeout: this.phaseExecutor.config.timeout,
+			continueOnError: this.phaseExecutor.config.continueOnError,
+			dimensionTimeouts: { ...this.phaseExecutor.config.dimensionTimeouts },
+		};
+	}
 }

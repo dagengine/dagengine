@@ -25,20 +25,20 @@
  * ```
  */
 export const DEFAULT_ENGINE_CONFIG = {
-    /** Maximum number of retry attempts for failed operations */
-    MAX_RETRIES: 3,
+	/** Maximum number of retry attempts for failed operations */
+	MAX_RETRIES: 3,
 
-    /** Delay between retry attempts in milliseconds */
-    RETRY_DELAY: 1000,
+	/** Delay between retry attempts in milliseconds */
+	RETRY_DELAY: 1000,
 
-    /** Whether to continue execution when a dimension fails */
-    CONTINUE_ON_ERROR: true,
+	/** Whether to continue execution when a dimension fails */
+	CONTINUE_ON_ERROR: true,
 
-    /** Default timeout for dimension execution in milliseconds */
-    TIMEOUT: 60000, // 60 seconds
+	/** Default timeout for dimension execution in milliseconds */
+	TIMEOUT: 60000, // 60 seconds
 
-    /** Maximum concurrent dimension executions */
-    CONCURRENCY: 5,
+	/** Maximum concurrent dimension executions */
+	CONCURRENCY: 5,
 } as const;
 
 // ============================================================================
@@ -60,46 +60,47 @@ export const DEFAULT_ENGINE_CONFIG = {
  * ```
  */
 export const ERROR_MESSAGES = {
-    // Configuration errors
-    NO_PLUGIN: 'DagEngine requires a plugin',
-    INVALID_CONCURRENCY: 'Concurrency must be at least 1',
-    NO_PROVIDERS: 'DagEngine requires either "providers" or "registry"',
-    NO_PROVIDERS_CONFIGURED: 'DagEngine requires at least one provider to be configured',
-    NO_SECTIONS: 'DagEngine.process() requires at least one section',
+	// Configuration errors
+	NO_PLUGIN: "DagEngine requires a plugin",
+	INVALID_CONCURRENCY: "Concurrency must be at least 1",
+	NO_PROVIDERS: 'DagEngine requires either "providers" or "registry"',
+	NO_PROVIDERS_CONFIGURED:
+		"DagEngine requires at least one provider to be configured",
+	NO_SECTIONS: "DagEngine.process() requires at least one section",
 
-    // Dependency errors
-    DEPENDENCIES_FAILED: (dimension: string) =>
-        `Dependencies failed for dimension "${dimension}"`,
+	// Dependency errors
+	DEPENDENCIES_FAILED: (dimension: string) =>
+		`Dependencies failed for dimension "${dimension}"`,
 
-    DEPENDENCY_NOT_FOUND: (depName: string) =>
-        `Dependency "${depName}" not found in plugin dimensions`,
+	DEPENDENCY_NOT_FOUND: (depName: string) =>
+		`Dependency "${depName}" not found in plugin dimensions`,
 
-    GLOBAL_DEP_NOT_FOUND: (depName: string) =>
-        `Global dependency "${depName}" not found`,
+	GLOBAL_DEP_NOT_FOUND: (depName: string) =>
+		`Global dependency "${depName}" not found`,
 
-    SECTION_DEP_NOT_FOUND: (depName: string) =>
-        `Section dependency "${depName}" not found`,
+	SECTION_DEP_NOT_FOUND: (depName: string) =>
+		`Section dependency "${depName}" not found`,
 
-    SECTION_DEP_NOT_PROCESSED: (depName: string) =>
-        `Section dependency "${depName}" not yet processed`,
+	SECTION_DEP_NOT_PROCESSED: (depName: string) =>
+		`Section dependency "${depName}" not yet processed`,
 
-    // Execution errors
-    TIMEOUT: (dimension: string, timeout: number) =>
-        `Timeout after ${timeout}ms for dimension "${dimension}"`,
+	// Execution errors
+	TIMEOUT: (dimension: string, timeout: number) =>
+		`Timeout after ${timeout}ms for dimension "${dimension}"`,
 
-    // Graph errors
-    CIRCULAR_DEPENDENCY: (cycle: string[]) =>
-        `Circular dependency detected: ${cycle.join(' → ')}`,
+	// Graph errors
+	CIRCULAR_DEPENDENCY: (cycle: string[]) =>
+		`Circular dependency detected: ${cycle.join(" → ")}`,
 
-    EXECUTION_GROUPING: (remaining: string[]) =>
-        `Unable to create execution groups. Remaining dimensions: ${remaining.join(', ')}`,
+	EXECUTION_GROUPING: (remaining: string[]) =>
+		`Unable to create execution groups. Remaining dimensions: ${remaining.join(", ")}`,
 
-    // Provider errors
-    PROVIDER_NOT_FOUND: (provider: string, available: string[]) =>
-        `Provider "${provider}" not found. Available: ${available.join(', ')}`,
+	// Provider errors
+	PROVIDER_NOT_FOUND: (provider: string, available: string[]) =>
+		`Provider "${provider}" not found. Available: ${available.join(", ")}`,
 
-    ALL_PROVIDERS_FAILED: (dimension: string) =>
-        `All providers failed for dimension "${dimension}"`,
+	ALL_PROVIDERS_FAILED: (dimension: string) =>
+		`All providers failed for dimension "${dimension}"`,
 } as const;
 
 // ============================================================================
@@ -121,17 +122,17 @@ export const ERROR_MESSAGES = {
  * ```
  */
 export const SKIP_REASONS = {
-    /** Skipped by plugin's shouldSkipGlobalDimension hook */
-    PLUGIN_SKIP_GLOBAL: 'Skipped by plugin shouldSkipGlobalDimension',
+	/** Skipped by plugin's shouldSkipGlobalDimension hook */
+	PLUGIN_SKIP_GLOBAL: "Skipped by plugin shouldSkipGlobalDimension",
 
-    /** Skipped by plugin's shouldSkipDimension hook */
-    PLUGIN_SKIP_SECTION: 'Skipped by plugin shouldSkipDimension',
+	/** Skipped by plugin's shouldSkipDimension hook */
+	PLUGIN_SKIP_SECTION: "Skipped by plugin shouldSkipDimension",
 
-    /** Skipped due to cached result */
-    CACHED_RESULT: 'Skipped due to cached result',
+	/** Skipped due to cached result */
+	CACHED_RESULT: "Skipped due to cached result",
 
-    /** Skipped due to failed dependencies */
-    FAILED_DEPENDENCIES: 'Skipped due to failed dependencies',
+	/** Skipped due to failed dependencies */
+	FAILED_DEPENDENCIES: "Skipped due to failed dependencies",
 } as const;
 
 // ============================================================================
@@ -156,29 +157,29 @@ export const SKIP_REASONS = {
  * ```
  */
 export const METADATA_KEYS = {
-    /** Whether the result was cached */
-    CACHED: 'cached',
+	/** Whether the result was cached */
+	CACHED: "cached",
 
-    /** Provider used for this dimension */
-    PROVIDER: 'provider',
+	/** Provider used for this dimension */
+	PROVIDER: "provider",
 
-    /** Token usage information */
-    TOKENS: 'tokens',
+	/** Token usage information */
+	TOKENS: "tokens",
 
-    /** Whether the dimension was skipped */
-    SKIPPED: 'skipped',
+	/** Whether the dimension was skipped */
+	SKIPPED: "skipped",
 
-    /** Reason for skipping (if skipped) */
-    REASON: 'reason',
+	/** Reason for skipping (if skipped) */
+	REASON: "reason",
 
-    /** Model used for this dimension */
-    MODEL: 'model',
+	/** Model used for this dimension */
+	MODEL: "model",
 
-    /** Duration of execution in milliseconds */
-    DURATION: 'duration',
+	/** Duration of execution in milliseconds */
+	DURATION: "duration",
 
-    /** Timestamp of execution */
-    TIMESTAMP: 'timestamp',
+	/** Timestamp of execution */
+	TIMESTAMP: "timestamp",
 } as const;
 
 // ============================================================================
@@ -189,17 +190,17 @@ export const METADATA_KEYS = {
  * Timing-related constants
  */
 export const TIMING = {
-    /** Minimum duration for error reporting (to avoid test flakiness) */
-    MIN_ERROR_DURATION: 1, // milliseconds
+	/** Minimum duration for error reporting (to avoid test flakiness) */
+	MIN_ERROR_DURATION: 1, // milliseconds
 
-    /** Default delay between retry attempts */
-    DEFAULT_RETRY_DELAY: 1000, // milliseconds
+	/** Default delay between retry attempts */
+	DEFAULT_RETRY_DELAY: 1000, // milliseconds
 
-    /** Maximum backoff delay for retries */
-    MAX_RETRY_DELAY: 10000, // milliseconds
+	/** Maximum backoff delay for retries */
+	MAX_RETRY_DELAY: 10000, // milliseconds
 
-    /** Default timeout for dimension execution */
-    DEFAULT_TIMEOUT: 60000, // milliseconds (60 seconds)
+	/** Default timeout for dimension execution */
+	DEFAULT_TIMEOUT: 60000, // milliseconds (60 seconds)
 } as const;
 
 // ============================================================================
@@ -210,23 +211,23 @@ export const TIMING = {
  * Validation-related constants
  */
 export const VALIDATION = {
-    /** Minimum allowed concurrency */
-    MIN_CONCURRENCY: 1,
+	/** Minimum allowed concurrency */
+	MIN_CONCURRENCY: 1,
 
-    /** Maximum allowed concurrency (to prevent resource exhaustion) */
-    MAX_CONCURRENCY: 100,
+	/** Maximum allowed concurrency (to prevent resource exhaustion) */
+	MAX_CONCURRENCY: 100,
 
-    /** Minimum allowed retry attempts */
-    MIN_RETRIES: 0,
+	/** Minimum allowed retry attempts */
+	MIN_RETRIES: 0,
 
-    /** Maximum allowed retry attempts */
-    MAX_RETRIES: 10,
+	/** Maximum allowed retry attempts */
+	MAX_RETRIES: 10,
 
-    /** Minimum allowed timeout */
-    MIN_TIMEOUT: 100, // 1 second
+	/** Minimum allowed timeout */
+	MIN_TIMEOUT: 100, // 1 second
 
-    /** Maximum allowed timeout */
-    MAX_TIMEOUT: 600000, // 10 minutes
+	/** Maximum allowed timeout */
+	MAX_TIMEOUT: 600000, // 10 minutes
 } as const;
 
 // ============================================================================
@@ -236,12 +237,12 @@ export const VALIDATION = {
 /**
  * Type for skip reason values
  */
-export type SkipReason = typeof SKIP_REASONS[keyof typeof SKIP_REASONS];
+export type SkipReason = (typeof SKIP_REASONS)[keyof typeof SKIP_REASONS];
 
 /**
  * Type for metadata key values
  */
-export type MetadataKey = typeof METADATA_KEYS[keyof typeof METADATA_KEYS];
+export type MetadataKey = (typeof METADATA_KEYS)[keyof typeof METADATA_KEYS];
 
 /**
  * Minimum duration for error reporting (to avoid test flakiness)
