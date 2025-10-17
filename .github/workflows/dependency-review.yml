@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   dependency-review:
+    # Only run on public repos or repos with Advanced Security
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
