@@ -45,7 +45,7 @@
 		"LICENSE"
 	],
 	"scripts": {
-		"build": "npm run fix:extensions && rimraf dist && tsup",
+		"build": "tsup",
 		"build:watch": "tsup --watch",
 		"dev": "tsup --watch --onSuccess \"node dist/index.js\"",
 

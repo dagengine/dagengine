@@ -8,6 +8,12 @@ on:
   schedule:
     - cron: '0 0 * * 1'  # Weekly security scan
 
+# Add workflow-level permissions
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -113,6 +119,7 @@ jobs:
     permissions:
       security-events: write
       contents: read
+      actions: read  # Added this permission
     steps:
       - uses: actions/checkout@v4
 
@@ -129,18 +136,19 @@ jobs:
         uses: github/codeql-action/analyze@v3
 
   # ==================== DEPENDENCY REVIEW ====================
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+  # Note: Requires GitHub Advanced Security for private repos
+  # dependency-review:
+  #   name: Dependency Review
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Dependency Review
+  #       uses: actions/dependency-review-action@v4
+  #       with:
+  #         fail-on-severity: moderate
+  #         deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
 
   # ==================== OSSF SCORECARD ====================
   scorecard:
@@ -151,6 +159,7 @@ jobs:
       security-events: write
       id-token: write
       contents: read
+      actions: read  # Added this permission
     steps:
       - uses: actions/checkout@v4
         with:
