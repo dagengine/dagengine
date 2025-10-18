@@ -14,19 +14,12 @@ permissions:
   security-events: write
   actions: read
 
-# Global environment variables for manual overrides
-env:
-  ENABLE_CODEQL: ${{ vars.ENABLE_CODEQL || 'auto' }}
-  ENABLE_SNYK: ${{ vars.ENABLE_SNYK || 'auto' }}
-  ENABLE_DEPENDENCY_REVIEW: ${{ vars.ENABLE_DEPENDENCY_REVIEW || 'auto' }}
-  ENABLE_SCORECARD: ${{ vars.ENABLE_SCORECARD || 'auto' }}
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ==================== MAIN VALIDATION ====================
+  # ==================== MAIN VALIDATION (Always runs - FREE) ====================
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -72,7 +65,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-  # ==================== COMPATIBILITY CHECK ====================
+  # ==================== COMPATIBILITY CHECK (Always runs - FREE) ====================
   compatibility:
     name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
@@ -90,7 +83,7 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # ==================== SECURITY CHECKS ====================
+  # ==================== SECURITY CHECKS (Always runs - FREE) ====================
   security:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -118,9 +111,7 @@ jobs:
       # Snyk (Manual override: set ENABLE_SNYK=true or false)
       # Default: runs on public repos only
       - name: Run Snyk security scan
-        if: |
-          env.ENABLE_SNYK == 'true' || 
-          (env.ENABLE_SNYK == 'auto' && github.event.repository.visibility == 'public')
+        if: vars.ENABLE_SNYK == 'true' || (vars.ENABLE_SNYK != 'false' && github.event.repository.visibility == 'public')
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
@@ -128,15 +119,13 @@ jobs:
         with:
           args: --severity-threshold=high
 
-  # ==================== CODE SCANNING ====================
+  # ==================== CODE SCANNING - CodeQL (Manual override available) ====================
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     # Manual override: set ENABLE_CODEQL=true to force enable, false to force disable
-    # Default (auto): only runs on public repos
-    if: |
-      env.ENABLE_CODEQL == 'true' || 
-      (env.ENABLE_CODEQL == 'auto' && github.event.repository.visibility == 'public')
+    # Default: only runs on public repos
+    if: vars.ENABLE_CODEQL == 'true' || (vars.ENABLE_CODEQL != 'false' && github.event.repository.visibility == 'public')
     permissions:
       security-events: write
       contents: read
@@ -156,17 +145,13 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
-  # ==================== DEPENDENCY REVIEW ====================
+  # ==================== DEPENDENCY REVIEW (Manual override available) ====================
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     # Manual override: set ENABLE_DEPENDENCY_REVIEW=true to force enable
-    # Default (auto): only runs on public repos + PRs
-    if: |
-      github.event_name == 'pull_request' && (
-        env.ENABLE_DEPENDENCY_REVIEW == 'true' || 
-        (env.ENABLE_DEPENDENCY_REVIEW == 'auto' && github.event.repository.visibility == 'public')
-      )
+    # Default: only runs on public repos + PRs
+    if: github.event_name == 'pull_request' && (vars.ENABLE_DEPENDENCY_REVIEW == 'true' || (vars.ENABLE_DEPENDENCY_REVIEW != 'false' && github.event.repository.visibility == 'public'))
     steps:
       - uses: actions/checkout@v4
 
@@ -176,17 +161,13 @@ jobs:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
 
-  # ==================== OSSF SCORECARD ====================
+  # ==================== OSSF SCORECARD (Manual override available) ====================
   scorecard:
     name: OSSF Scorecard
     runs-on: ubuntu-latest
     # Manual override: set ENABLE_SCORECARD=true to force enable
-    # Default (auto): only runs on public repos, main branch
-    if: |
-      github.event_name == 'push' && github.ref == 'refs/heads/main' && (
-        env.ENABLE_SCORECARD == 'true' || 
-        (env.ENABLE_SCORECARD == 'auto' && github.event.repository.visibility == 'public')
-      )
+    # Default: only runs on public repos, main branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (vars.ENABLE_SCORECARD == 'true' || (vars.ENABLE_SCORECARD != 'false' && github.event.repository.visibility == 'public'))
     permissions:
       security-events: write
       id-token: write
@@ -209,7 +190,7 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  # ==================== AUTOMATED RELEASE ====================
+  # ==================== AUTOMATED RELEASE (Always runs - FREE) ====================
   release:
     name: Release
     needs: [validate, security]
