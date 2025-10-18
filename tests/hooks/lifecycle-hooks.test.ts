@@ -10,8 +10,8 @@ import type {
 	ProcessResult,
 	ProviderRequest,
 	ProviderResponse,
+	SectionData,
 } from "../../src/types";
-import { SectionData } from "../../dist/index";
 
 // ============================================================================
 // TEST TYPES & HELPERS
