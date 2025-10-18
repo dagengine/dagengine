@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ==================== MAIN VALIDATION ====================
+  # ==================== MAIN VALIDATION (Always runs - FREE) ====================
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -51,7 +51,12 @@ jobs:
         run: npm run build
 
       - name: Check bundle size
-        run: npm run size
+        run: |
+          if npm run | grep -q "size"; then
+            npm run size
+          else
+            echo "Bundle size check not configured, skipping..."
+          fi
         continue-on-error: true
 
       - name: Upload coverage to Codecov
@@ -60,7 +65,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-  # ==================== COMPATIBILITY CHECK ====================
+  # ==================== COMPATIBILITY CHECK (Always runs - FREE) ====================
   compatibility:
     name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
@@ -78,7 +83,7 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # ==================== SECURITY CHECKS ====================
+  # ==================== SECURITY CHECKS (Always runs - FREE) ====================
   security:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -93,18 +98,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # npm audit
+      # npm audit (FREE - always available)
       - name: Run npm audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
 
-      # License check
+      # License check (FREE - always available)
       - name: Check licenses
         run: npx license-checker --summary --production --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD"
         continue-on-error: true
 
-      # Check for known vulnerabilities with Snyk (optional)
+      # Snyk (FREE for public repos, requires token for private)
       - name: Run Snyk security scan
+        if: github.event.repository.visibility == 'public' || secrets.SNYK_TOKEN != ''
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
@@ -112,14 +118,16 @@ jobs:
         with:
           args: --severity-threshold=high
 
-  # ==================== CODE SCANNING (CodeQL) ====================
+  # ==================== CODE SCANNING - CodeQL (FREE for public repos only) ====================
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    # Only run on public repos OR if explicitly enabled via secret
+    if: github.event.repository.visibility == 'public' || secrets.ENABLE_CODEQL == 'true'
     permissions:
       security-events: write
       contents: read
-      actions: read  # Added this permission
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -135,31 +143,32 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
-  # ==================== DEPENDENCY REVIEW ====================
-  # Note: Requires GitHub Advanced Security for private repos
-  # dependency-review:
-  #   name: Dependency Review
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #
-  #     - name: Dependency Review
-  #       uses: actions/dependency-review-action@v4
-  #       with:
-  #         fail-on-severity: moderate
-  #         deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+  # ==================== DEPENDENCY REVIEW (FREE for public repos only) ====================
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    # Only run on public repos AND pull requests
+    if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+    steps:
+      - uses: actions/checkout@v4
 
-  # ==================== OSSF SCORECARD ====================
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+
+  # ==================== OSSF SCORECARD (FREE for public repos only) ====================
   scorecard:
     name: OSSF Scorecard
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only run on public repos, main branch pushes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.visibility == 'public'
     permissions:
       security-events: write
       id-token: write
       contents: read
-      actions: read  # Added this permission
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -177,10 +186,10 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  # ==================== AUTOMATED RELEASE ====================
+  # ==================== AUTOMATED RELEASE (Always runs - FREE) ====================
   release:
     name: Release
-    needs: [validate, security, codeql]
+    needs: [validate, security]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -207,5 +216,5 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
