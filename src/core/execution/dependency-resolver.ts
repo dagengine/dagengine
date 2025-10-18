@@ -1,6 +1,6 @@
-import type { Plugin } from "../../plugin.ts";
-import type { DimensionResult, DimensionDependencies } from "../../types.ts";
-import { ERROR_MESSAGES } from "../constants.ts";
+import type { Plugin } from "../../plugin.js";
+import type { DimensionResult, DimensionDependencies } from "../../types.js";
+import { ERROR_MESSAGES } from "../constants.js";
 
 /**
  * Handles resolution of dimension dependencies

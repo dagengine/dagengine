@@ -8,12 +8,12 @@
 
 import graphlib, { Graph } from "@dagrejs/graphlib";
 const alg = graphlib.alg;
-import type { Plugin } from "../../plugin.ts";
-import type { GraphAnalytics, GraphExport } from "./graph-types.ts";
+import type { Plugin } from "../../plugin.js";
+import type { GraphAnalytics, GraphExport } from "./graph-types.js";
 import {
 	CircularDependencyError,
 	ExecutionGroupingError,
-} from "../shared/errors.ts";
+} from "../shared/errors.js";
 
 /**
  * Manages dependency graph operations, analytics, and exports

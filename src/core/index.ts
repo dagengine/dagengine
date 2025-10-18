@@ -40,15 +40,15 @@
 // MAIN ENGINE
 // ============================================================================
 
-export { DagEngine } from "./engine/dag-engine.ts";
+export { DagEngine } from "./engine/dag-engine.js";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-export type { EngineConfig, ExecutionConfig } from "./engine/engine-config.ts";
+export type { EngineConfig, ExecutionConfig } from "./engine/engine-config.js";
 
-export { DEFAULT_EXECUTION_CONFIG } from "./engine/engine-config.ts";
+export { DEFAULT_EXECUTION_CONFIG } from "./engine/engine-config.js";
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -69,14 +69,14 @@ export type {
 	// Provider tracking
 	ProviderAttempt,
 	AttemptRecord,
-} from "./shared/types.ts";
+} from "./shared/types.js";
 
 // Type guards
 export {
 	isSkipWithResult,
 	isErrorResult,
 	isSuccessResult,
-} from "./shared/types.ts";
+} from "./shared/types.js";
 
 // ============================================================================
 // ERROR CLASSES
@@ -106,7 +106,7 @@ export {
 	normalizeError,
 	getErrorMessage,
 	createContextError,
-} from "./shared/errors.ts";
+} from "./shared/errors.js";
 
 // ============================================================================
 // CONSTANTS
@@ -119,9 +119,9 @@ export {
 	METADATA_KEYS,
 	TIMING,
 	VALIDATION,
-} from "./shared/constants.ts";
+} from "./shared/constants.js";
 
-export type { SkipReason, MetadataKey } from "./shared/constants.ts";
+export type { SkipReason, MetadataKey } from "./shared/constants.js";
 
 // ============================================================================
 // ANALYSIS & ANALYTICS
@@ -134,37 +134,37 @@ export type {
 	GraphLink,
 	DotExportOptions,
 	GraphStatistics,
-} from "./analysis/graph-types.ts";
+} from "./analysis/graph-types.js";
 
-export { CostCalculator } from "./analysis/cost-calculator.ts";
+export { CostCalculator } from "./analysis/cost-calculator.js";
 
-export { DependencyGraphManager } from "./analysis/graph-manager.ts";
+export { DependencyGraphManager } from "./analysis/graph-manager.js";
 
 // ============================================================================
 // EXECUTION COMPONENTS (Advanced Usage)
 // ============================================================================
 
-export { DimensionExecutor } from "./execution/dimension-executor.ts";
+export { DimensionExecutor } from "./execution/dimension-executor.js";
 
-export { DependencyResolver } from "./execution/dependency-resolver.ts";
+export { DependencyResolver } from "./execution/dependency-resolver.js";
 
-export { TransformationManager } from "./execution/transformation-manager.ts";
+export { TransformationManager } from "./execution/transformation-manager.js";
 
-export { ProviderExecutor } from "./execution/provider-executor.ts";
+export { ProviderExecutor } from "./execution/provider-executor.js";
 
 // ============================================================================
 // LIFECYCLE HOOKS (Advanced Usage)
 // ============================================================================
 
-export { HookExecutor } from "./lifecycle/hook-executor.ts";
+export { HookExecutor } from "./lifecycle/hook-executor.js";
 
 // ============================================================================
 // VALIDATION (Advanced Usage)
 // ============================================================================
 
-export { ConfigValidator } from "./validation/config-validator.ts";
+export { ConfigValidator } from "./validation/config-validator.js";
 
-export { DependencyValidator } from "./validation/dependency-validator.ts";
+export { DependencyValidator } from "./validation/dependency-validator.js";
 
 // ============================================================================
 // UTILITIES (Advanced Usage)
@@ -174,7 +174,6 @@ export {
 	// Dependencies
 	hasFailedDependencies,
 	getFailedDependencies,
-	hasSuccessfulDependencies,
 	// Results
 	countSuccessful,
 	countFailed,
@@ -184,18 +183,4 @@ export {
 	// Timeouts
 	executeWithTimeout,
 	createTimeoutPromise,
-	// Arrays
-	chunk,
-	unique,
-	// Objects
-	deepClone,
-	isEmpty,
-	pick,
-	omit,
-	// Timing
-	delay,
-	measureTime,
-	// Strings
-	truncate,
-	capitalize,
-} from "./shared/utils.ts";
+} from "./shared/utils.js";

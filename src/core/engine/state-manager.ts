@@ -8,9 +8,9 @@
  */
 
 import crypto from "crypto";
-import type { SectionData, DimensionResult } from "../../types.ts";
-import type { ProcessState, SerializedProcessState } from "../shared/types.ts";
-import { resetSectionResultsMap } from "../shared/utils.ts";
+import type { SectionData, DimensionResult } from "../../types.js";
+import type { ProcessState, SerializedProcessState } from "../shared/types.js";
+import { resetSectionResultsMap } from "../shared/utils.js";
 
 export type { SerializedProcessState };
 

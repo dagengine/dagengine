@@ -6,13 +6,13 @@
  * @module engine
  */
 
-export { DagEngine } from "./dag-engine.ts";
-export { PhaseExecutor } from "../execution/phase-executor.ts";
+export { DagEngine } from "./dag-engine.js";
+export { PhaseExecutor } from "../execution/phase-executor.js";
 
-export type { EngineConfig, ExecutionConfig } from "./engine-config.ts";
+export type { EngineConfig, ExecutionConfig } from "./engine-config.js";
 
 export {
 	DEFAULT_EXECUTION_CONFIG,
 	mergeExecutionConfig,
 	normalizeEngineConfig,
-} from "./engine-config.ts";
+} from "./engine-config.js";

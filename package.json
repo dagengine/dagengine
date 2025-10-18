@@ -20,9 +20,13 @@
 	"bugs": {
 		"url": "https://github.com/ivan629/dag-ai/issues"
 	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"@ivan629:registry": "https://npm.pkg.github.com"
+	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/ivan629/dag-ai.git"
+		"url": "https://github.com/ivan629/dag-ai.git"
 	},
 	"license": "MIT",
 	"author": "Ivan Holovach <ivan.holovach@example.com>",
@@ -45,13 +49,15 @@
 		"LICENSE"
 	],
 	"scripts": {
-		"build": "rimraf dist && tsup",
+		"build": "tsup",
 		"build:watch": "tsup --watch",
 		"dev": "tsup --watch --onSuccess \"node dist/index.js\"",
 		"format": "prettier --write \"src/**/*.{ts,json,md}\"",
 		"format:check": "prettier --check \"src/**/*.{ts,json,md}\"",
+		"format:all": "npm run format",
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
+		"fix": "npm run format && npm run lint:fix",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
@@ -64,11 +70,14 @@
 		"security:licenses": "license-checker --summary",
 		"security:check": "npm run security:audit && npm run security:licenses",
 		"validate": "npm run type-check && npm run lint && npm run format:check && npm run security:check && npm run test",
-		"prepare": "husky install",
-		"prepublishOnly": "npm run validate && npm run build"
+		"prepare": "husky",
+		"prepublishOnly": "npm run validate && npm run build",
+		"commit": "cz"
 	},
 	"dependencies": {
 		"@dagrejs/graphlib": "^2.2.4",
+		"@types/cli-progress": "^3.11.6",
+		"cli-progress": "^3.12.0",
 		"dotenv": "^17.2.3",
 		"inngest": "^3.44.3",
 		"jsonrepair": "^3.13.1",
@@ -76,6 +85,8 @@
 		"p-retry": "^7.1.0"
 	},
 	"devDependencies": {
+		"@commitlint/cli": "^20.1.0",
+		"@commitlint/config-conventional": "^20.0.0",
 		"@semantic-release/changelog": "^6.0.3",
 		"@semantic-release/git": "^10.0.1",
 		"@size-limit/preset-small-lib": "^11.2.0",
@@ -84,8 +95,12 @@
 		"@typescript-eslint/parser": "^8.41.0",
 		"@vitest/coverage-v8": "^3.2.4",
 		"@vitest/ui": "^3.2.4",
+		"commitizen": "^4.3.1",
+		"cz-conventional-changelog": "^3.3.0",
 		"eslint": "^9.34.0",
 		"eslint-config-prettier": "^10.1.8",
+		"eslint-import-resolver-typescript": "^4.4.4",
+		"eslint-plugin-import": "^2.32.0",
 		"globals": "^16.4.0",
 		"husky": "^9.1.7",
 		"license-checker": "^25.0.1",
@@ -104,11 +119,6 @@
 		"node": ">=18.0.0",
 		"npm": ">=9.0.0"
 	},
-	"publishConfig": {
-		"registry": "https://npm.pkg.github.com",
-		"access": "public",
-		"provenance": true
-	},
 	"lint-staged": {
 		"*.ts": [
 			"prettier --write",
@@ -118,5 +128,10 @@
 			"prettier --write"
 		]
 	},
-	"private": false
+	"private": false,
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-conventional-changelog"
+		}
+	}
 }

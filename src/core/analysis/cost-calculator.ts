@@ -5,7 +5,7 @@ import type {
 	CostSummary,
 	DimensionCost,
 	TokenUsage,
-} from "../../types.ts";
+} from "../../types.js";
 
 /**
  * Handles all cost calculation and pricing logic

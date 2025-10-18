@@ -3,9 +3,9 @@ import {
 	type ProviderConfig,
 	type ProviderRequest,
 	type ProviderResponse,
-} from "../types.ts";
-import { parseJSON } from "../../utils.ts";
-import { PortkeyAdapter, OpenAIResponse } from "../gateway/portkey-adapter.ts";
+} from "../types.js";
+import { parseJSON } from "../../utils.js";
+import { PortkeyAdapter, OpenAIResponse } from "../gateway/portkey-adapter.js";
 
 export class AnthropicProvider extends BaseProvider {
 	private readonly apiKey: string;

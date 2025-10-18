@@ -44,30 +44,31 @@
  * ```
  */
 import type PQueue from "p-queue";
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import {
 	ProviderAdapter,
 	type ProviderAdapterConfig,
-} from "../../providers/adapter.ts";
-import { ProviderRegistry } from "../../providers/registry.ts";
-import type {
-	SectionData,
-	ProcessOptions,
-	ProcessResult,
-} from "../../types.ts";
+} from "../../providers/adapter.js";
+import { ProviderRegistry } from "../../providers/registry.js";
 
-import { PhaseExecutor } from "../execution/phase-executor.ts";
-import { createProcessState } from "./state-manager.ts";
+import { PhaseExecutor } from "../execution/phase-executor.js";
+import { createProcessState } from "./state-manager.js";
 import {
 	type EngineConfig,
 	mergeExecutionConfig,
 	normalizeEngineConfig,
-} from "./engine-config.ts";
-import { DependencyGraphManager } from "../analysis/graph-manager.ts";
-import { ConfigValidator } from "../validation/config-validator.ts";
-import type { GraphAnalytics } from "../graph-manager.ts";
+} from "./engine-config.js";
+import { DependencyGraphManager } from "../analysis/graph-manager.js";
+import { ConfigValidator } from "../validation/config-validator.js";
+import type { GraphAnalytics } from "../analysis/graph-types.js";
 import crypto from "crypto";
-import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.ts";
+import type { ProgressUpdate } from "../../types";
+
+import type { ProgressDisplayOptions } from "../execution/progress-display";
+import type { ProcessOptions, ProcessResult, SectionData } from "../../types";
+
+import { InngestOrchestrator } from "../../orchestration/inngest-orchestrator.js";
+import type { PricingConfig } from "../../types";
 
 export interface ExecutionConfig {
 	concurrency: number;
@@ -76,6 +77,7 @@ export interface ExecutionConfig {
 	timeout: number;
 	continueOnError: boolean;
 	dimensionTimeouts: Record<string, number>;
+	pricing?: PricingConfig;
 }
 
 /**
@@ -178,51 +180,27 @@ export class DagEngine {
 	private readonly graphManager: DependencyGraphManager;
 	private readonly inngestOrchestrator?: InngestOrchestrator;
 
-	// Cached dependency graph for analytics
+	private readonly progressDisplayOptions?: ProgressDisplayOptions;
 	private cachedDependencyGraph?: Record<string, string[]>;
 
-	/**
-	 * Creates a new DagEngine instance
-	 *
-	 * @param config - Engine configuration
-	 * @throws {ConfigurationError} If configuration is invalid
-	 * @throws {NoProvidersError} If no providers are configured
-	 *
-	 * @example
-	 * ```typescript
-	 * const engine = new DagEngine({
-	 *   plugin: myPlugin,
-	 *   providers: myAdapter,
-	 *   execution: {
-	 *     concurrency: 10,
-	 *     timeout: 30000
-	 *   }
-	 * });
-	 * ```
-	 */
 	constructor(config: EngineConfig) {
-		// Validate configuration
 		ConfigValidator.validate(config);
-
-		// Normalize configuration (handle legacy fields)
 		const normalizedConfig = normalizeEngineConfig(config);
 
-		// Store core dependencies
 		this.plugin = normalizedConfig.plugin;
-
-		// Initialize and validate adapter (validation happens inside initialize )
 		this.adapter = ProviderInitializer.initialize(normalizedConfig);
 
-		// Merge execution config with defaults
+		this.progressDisplayOptions = this.resolveProgressDisplay(
+			config.progressDisplay,
+		);
+
 		const executionConfig = mergeExecutionConfig(normalizedConfig);
 
-		// Initialize managers
 		this.graphManager = new DependencyGraphManager(this.plugin);
 		this.phaseExecutor = new PhaseExecutor(
 			this.plugin,
 			this.adapter,
 			executionConfig,
-			normalizedConfig.pricing,
 		);
 
 		if (config.inngest?.enabled) {
@@ -233,45 +211,10 @@ export class DagEngine {
 		}
 	}
 
-	/**
-	 * Processes sections through all dimensions
-	 *
-	 * Executes the complete workflow:
-	 * 1. Pre-process (beforeProcessStart hook)
-	 * 2. Planning (build dependency graph)
-	 * 3. Execution (run dimensions in parallel groups)
-	 * 4. Finalization (aggregate results, calculate costs)
-	 * 5. Post-process (afterProcessComplete hook)
-	 *
-	 * @param sections - Sections to process
-	 * @param options - Process options for hooks and callbacks
-	 * @returns Process result with sections, global results, and costs
-	 * @throws {NoSectionsError} If no sections provided
-	 * @throws {CircularDependencyError} If circular dependencies detected
-	 * @throws {DimensionTimeoutError} If dimension times out
-	 *
-	 * @example
-	 * ```typescript
-	 * const result = await engine.process(sections, {
-	 *   onDimensionStart: (dim) => console.log(`Starting ${dim}`),
-	 *   onDimensionComplete: (dim, result) => {
-	 *     console.log(`Completed ${dim}:`, result);
-	 *   },
-	 *   onError: (context, error) => {
-	 *     console.error(`Error in ${context}:`, error);
-	 *   }
-	 * });
-	 *
-	 * console.log('Results:', result.sections);
-	 * console.log('Global:', result.globalResults);
-	 * console.log('Cost:', result.costs?.totalCost);
-	 * ```
-	 */
 	async process(
 		sections: SectionData[],
 		options: ProcessOptions = {},
 	): Promise<ProcessResult> {
-		// Route to Inngest if enabled
 		if (this.inngestOrchestrator) {
 			const processId = options.processId ?? crypto.randomUUID();
 			return await this.inngestOrchestrator.execute({
@@ -281,20 +224,50 @@ export class DagEngine {
 			});
 		}
 
-		// Original direct execution (unchanged)
+		const mergedOptions: ProcessOptions = {
+			...options,
+			progressDisplay: options.progressDisplay ?? this.progressDisplayOptions,
+		};
+
 		const stateManager = createProcessState(sections);
 		try {
-			await this.phaseExecutor.preProcess(stateManager, options);
+			await this.phaseExecutor.preProcess(stateManager, mergedOptions);
 			const plan = await this.phaseExecutor.planExecution(stateManager);
 
 			this.cachedDependencyGraph = plan.dependencyGraph;
 
-			await this.phaseExecutor.executeDimensions(stateManager, plan, options);
+			await this.phaseExecutor.executeDimensions(
+				stateManager,
+				plan,
+				mergedOptions,
+			);
 			const result = await this.phaseExecutor.finalizeResults(stateManager);
 			return await this.phaseExecutor.postProcess(stateManager, result, plan);
 		} catch (error) {
 			return await this.phaseExecutor.handleFailure(stateManager, error);
 		}
+	}
+
+	/**
+	 * Get current progress (for polling)
+	 * Returns undefined if not currently processing
+	 */
+	getProgress(): ProgressUpdate | undefined {
+		return this.phaseExecutor.getProgressTracker()?.getProgress();
+	}
+
+	private resolveProgressDisplay(
+		option: ProgressDisplayOptions | boolean | undefined,
+	): ProgressDisplayOptions | undefined {
+		if (option === undefined || option === false) {
+			return undefined;
+		}
+
+		if (option === true) {
+			return { display: "bar" };
+		}
+
+		return option;
 	}
 
 	/**
@@ -492,6 +465,7 @@ export class DagEngine {
 			timeout: this.phaseExecutor.config.timeout,
 			continueOnError: this.phaseExecutor.config.continueOnError,
 			dimensionTimeouts: { ...this.phaseExecutor.config.dimensionTimeouts },
+			pricing: this.phaseExecutor.config.pricing,
 		};
 	}
 }

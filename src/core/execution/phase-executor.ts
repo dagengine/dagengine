@@ -1,47 +1,36 @@
-/**
- * Phase executor for orchestrating workflow execution
- *
- * Handles the 5-phase execution model:
- * 1. Pre-process (beforeProcessStart hook)
- * 2. Planning (build dependency graph and execution plan)
- * 3. Execution (run dimensions in parallel groups)
- * 4. Finalization (finalizeResults hook and cost calculation)
- * 5. Post-process (afterProcessComplete hook)
- *
- * @module engine/phase-executor
- */
-
-import type { Plugin } from "../../plugin.ts";
-import type { ProviderAdapter } from "../../providers/adapter.ts";
+import type { Plugin } from "../../plugin";
+import type { ProviderAdapter } from "../../providers/adapter";
 import type {
 	ProcessOptions,
 	ProcessResult,
 	PricingConfig,
 	SectionData,
-} from "../../types.ts";
+	DimensionResult,
+} from "../../types";
 import PQueue from "p-queue";
 
-import { updateStateSections } from "../engine/state-manager.ts";
-import { HookExecutor } from "../lifecycle/hook-executor.ts";
-import { DependencyGraphManager } from "../analysis/graph-manager.ts";
-import { CostCalculator } from "../analysis/cost-calculator.ts";
-import { ProviderExecutor } from "./provider-executor.ts";
-import { DimensionExecutor } from "./dimension-executor.ts";
-import { DependencyResolver } from "./dependency-resolver.ts";
-import { TransformationManager } from "./transformation-manager.ts";
+import { updateStateSections } from "../engine/state-manager";
+import { HookExecutor } from "../lifecycle/hook-executor";
+import { DependencyGraphManager } from "../analysis/graph-manager";
+import { CostCalculator } from "../analysis/cost-calculator";
+import { ProviderExecutor } from "./provider-executor";
+import { DimensionExecutor } from "./dimension-executor";
+import { DependencyResolver } from "./dependency-resolver";
+import { TransformationManager } from "./transformation-manager";
+import { ProgressTracker } from "./progress-tracker";
+import {
+	ProgressDisplay,
+	type ProgressDisplayOptions,
+} from "./progress-display";
 
-import type { ExecutionPlan, ProcessState } from "../shared/types.ts";
-import { NoSectionsError } from "../shared/errors.ts";
-import { DimensionResult } from "../../types.ts";
+import type { ExecutionPlan, ProcessState } from "../shared/types";
+import { NoSectionsError } from "../shared/errors";
 import {
 	countSuccessful,
 	countFailed,
 	applyFinalizedResults,
-} from "../shared/utils.ts";
+} from "../shared/utils";
 
-/**
- * Execution configuration
- */
 interface ExecutionConfig {
 	concurrency: number;
 	maxRetries: number;
@@ -49,14 +38,9 @@ interface ExecutionConfig {
 	continueOnError: boolean;
 	timeout: number;
 	dimensionTimeouts: Record<string, number>;
+	pricing?: PricingConfig; // ← Add this
 }
 
-/**
- * Orchestrates the 5-phase execution model
- *
- * Separates the workflow into clear phases with single responsibilities.
- * Each phase can be tested independently and has well-defined inputs/outputs.
- */
 export class PhaseExecutor {
 	private readonly plugin: Plugin;
 	private readonly adapter: ProviderAdapter;
@@ -65,59 +49,53 @@ export class PhaseExecutor {
 	private readonly costCalculator?: CostCalculator;
 	private readonly queue: PQueue;
 
-	// Stateless managers (reusable)
+	// Stateless managers
 	private readonly dependencyResolver: DependencyResolver;
 	private readonly transformationManager: TransformationManager;
 
-	// Runtime executors (initialized per process)
+	// Runtime executors
 	private hookExecutor?: HookExecutor;
 	private providerExecutor?: ProviderExecutor;
 	private dimensionExecutor?: DimensionExecutor;
+
+	// Progress tracking
+	private progressTracker?: ProgressTracker;
+	private progressDisplay?: ProgressDisplay;
 
 	constructor(
 		plugin: Plugin,
 		adapter: ProviderAdapter,
 		config: ExecutionConfig,
-		pricing?: PricingConfig,
 	) {
 		this.plugin = plugin;
 		this.adapter = adapter;
 		this.config = config;
 
-		// Initialize managers
 		this.graphManager = new DependencyGraphManager(plugin);
 		this.dependencyResolver = new DependencyResolver(plugin);
 		this.transformationManager = new TransformationManager(plugin);
 
-		if (pricing) {
-			this.costCalculator = new CostCalculator(pricing);
+		if (this.config.pricing) {
+			this.costCalculator = new CostCalculator(this.config.pricing);
 		}
 
-		// Initialize execution queue
 		this.queue = new PQueue({ concurrency: config.concurrency });
 	}
 
 	getPlugin(): Plugin {
 		return this.plugin;
 	}
+
 	// ============================================================================
 	// PHASE 1: PRE-PROCESS
 	// ============================================================================
 
-	/**
-	 * Phase 1: Pre-process
-	 *
-	 * Executes beforeProcessStart hook and validates sections.
-	 * Hook can modify sections or add metadata.
-	 */
 	async preProcess(
 		state: ProcessState,
 		options: ProcessOptions,
 	): Promise<void> {
-		// Initialize hook executor
 		this.hookExecutor = new HookExecutor(this.plugin, options);
 
-		// Execute beforeProcessStart hook
 		const startResult = await this.hookExecutor.executeBeforeProcessStart(
 			state.id,
 			state.startTime,
@@ -142,14 +120,7 @@ export class PhaseExecutor {
 	// PHASE 2: PLANNING
 	// ============================================================================
 
-	/**
-	 * Phase 2: Planning
-	 *
-	 * Builds dependency graph, performs topological sort, and creates
-	 * parallel execution groups.
-	 */
 	async planExecution(state: ProcessState): Promise<ExecutionPlan> {
-		// Get dependency graph from plugin
 		const dependencyGraph = await this.hookExecutor!.executeDefineDependencies(
 			state.id,
 			state.startTime,
@@ -157,14 +128,12 @@ export class PhaseExecutor {
 			state.metadata,
 		);
 
-		// Build and sort dependency graph
 		const allDimensions = this.plugin.getDimensionNames();
 		const sortedDimensions = await this.graphManager.buildAndSort(
 			allDimensions,
 			dependencyGraph,
 		);
 
-		// Group dimensions for parallel execution
 		const executionGroups = this.graphManager.groupForParallelExecution(
 			sortedDimensions,
 			dependencyGraph,
@@ -192,40 +161,67 @@ export class PhaseExecutor {
 		plan: ExecutionPlan,
 		options: ProcessOptions,
 	): Promise<void> {
-		// Initialize runtime executors
-		this.initializeExecutors(options);
+		// Initialize progress display if configured
+		const displayOptions = this.resolveProgressDisplay(options.progressDisplay);
+		if (displayOptions) {
+			this.progressDisplay = new ProgressDisplay(displayOptions);
+		}
 
-		// Execute each group sequentially (groups run in parallel internally)
-		for (const group of plan.executionGroups) {
-			// Separate global and section dimensions
-			const globalDims = group.filter((dim) =>
-				this.plugin.isGlobalDimension(dim),
-			);
-			const sectionDims = group.filter(
-				(dim) => !this.plugin.isGlobalDimension(dim),
-			);
+		const globalDimensions = plan.sortedDimensions.filter((dim) =>
+			this.plugin.isGlobalDimension(dim),
+		);
 
-			// Execute global dimensions first (they may transform sections)
-			await this.executeGlobalDimensions(
-				globalDims,
-				state,
-				plan.dependencyGraph,
-				options,
-			);
+		// Create progress tracker with pricing config (not CostCalculator)
+		this.progressTracker = new ProgressTracker(
+			state.sections.length,
+			plan.sortedDimensions,
+			{
+				onProgress: (progress): void => {
+					// Update built-in display
+					this.progressDisplay?.update(progress);
 
-			// Execute section dimensions
-			await this.executeSectionDimensions(
-				sectionDims,
-				state,
-				plan.dependencyGraph,
-				options,
-			);
+					// Call user callback
+					options.onProgress?.(progress);
+				},
+				updateEvery: options.updateEvery ?? 1,
+				pricing: this.config.pricing,
+				globalDimensions,
+			},
+		);
+
+		// Initialize runtime executors with progress tracker
+		this.initializeExecutors(options, this.progressTracker);
+
+		try {
+			// Execute each group sequentially
+			for (const group of plan.executionGroups) {
+				const globalDims = group.filter((dim) =>
+					this.plugin.isGlobalDimension(dim),
+				);
+				const sectionDims = group.filter(
+					(dim) => !this.plugin.isGlobalDimension(dim),
+				);
+
+				await this.executeGlobalDimensions(
+					globalDims,
+					state,
+					plan.dependencyGraph,
+					options,
+				);
+
+				await this.executeSectionDimensions(
+					sectionDims,
+					state,
+					plan.dependencyGraph,
+					options,
+				);
+			}
+		} finally {
+			// Stop progress display
+			this.progressDisplay?.stop();
 		}
 	}
 
-	/**
-	 * Executes global dimensions in parallel
-	 */
 	public async executeGlobalDimensions(
 		dimensions: string[],
 		state: ProcessState,
@@ -249,6 +245,7 @@ export class PhaseExecutor {
 		// Apply transformations sequentially (order matters)
 		for (const dimension of dimensions) {
 			const result = state.globalResults[dimension];
+
 			const newSections = await this.transformationManager.applyTransformation(
 				dimension,
 				result,
@@ -257,9 +254,16 @@ export class PhaseExecutor {
 				options,
 			);
 
-			// Update sections if transformed
+			// If transformation changed sections, update state and progress
 			if (newSections !== state.sections) {
+				const oldCount = state.sections.length;
+				const newCount = newSections.length;
+
 				updateStateSections(state, newSections);
+
+				if (oldCount !== newCount && this.progressTracker) {
+					this.progressTracker.updateTotalSections(newCount);
+				}
 			}
 		}
 	}
@@ -283,44 +287,16 @@ export class PhaseExecutor {
 		}
 	}
 
-	public async executeGroup(
-		globalDims: string[],
-		sectionDims: string[],
-		state: ProcessState,
-		dependencyGraph: Record<string, string[]>,
-		options: ProcessOptions,
-	): Promise<void> {
-		await this.executeGlobalDimensions(
-			globalDims,
-			state,
-			dependencyGraph,
-			options,
-		);
-		await this.executeSectionDimensions(
-			sectionDims,
-			state,
-			dependencyGraph,
-			options,
-		);
-	}
-
 	// ============================================================================
 	// PHASE 4: FINALIZATION
 	// ============================================================================
 
-	/**
-	 * Phase 4: Finalization
-	 *
-	 * Aggregates results, executes finalizeResults hook, and calculates costs.
-	 */
 	async finalizeResults(state: ProcessState): Promise<ProcessResult> {
-		// Build section results
 		const sectionResults = state.sections.map((section, idx) => ({
 			section,
 			results: state.sectionResultsMap.get(idx) ?? {},
 		}));
 
-		// Aggregate all results for finalizeResults hook
 		const allResults = this.aggregateAllResults(
 			sectionResults,
 			state.globalResults,
@@ -364,12 +340,6 @@ export class PhaseExecutor {
 	// PHASE 5: POST-PROCESS
 	// ============================================================================
 
-	/**
-	 * Phase 5: Post-process
-	 *
-	 * Executes afterProcessComplete hook with statistics.
-	 * Hook can modify the final result.
-	 */
 	async postProcess(
 		state: ProcessState,
 		result: ProcessResult,
@@ -398,11 +368,6 @@ export class PhaseExecutor {
 	// ERROR HANDLING
 	// ============================================================================
 
-	/**
-	 * Handles process failure
-	 *
-	 * Builds partial results and executes handleProcessFailure hook.
-	 */
 	async handleFailure(
 		state: ProcessState,
 		error: unknown,
@@ -410,7 +375,6 @@ export class PhaseExecutor {
 		const err = error instanceof Error ? error : new Error(String(error));
 		const duration = Math.max(Date.now() - state.startTime, 1);
 
-		// Build partial result
 		const partialResult: ProcessResult = {
 			sections: state.sections.map((section, idx) => ({
 				section,
@@ -420,7 +384,6 @@ export class PhaseExecutor {
 			transformedSections: state.sections,
 		};
 
-		// Try to recover via hook
 		if (this.hookExecutor) {
 			const failureResult = await this.hookExecutor.handleProcessFailure(
 				err,
@@ -436,7 +399,6 @@ export class PhaseExecutor {
 			}
 		}
 
-		// No recovery, re-throw
 		throw error;
 	}
 
@@ -444,10 +406,10 @@ export class PhaseExecutor {
 	// HELPER METHODS
 	// ============================================================================
 
-	/**
-	 * Initializes runtime executors
-	 */
-	private initializeExecutors(_options: ProcessOptions): void {
+	private initializeExecutors(
+		options: ProcessOptions,
+		progressTracker?: ProgressTracker,
+	): void {
 		this.providerExecutor = new ProviderExecutor(
 			this.adapter,
 			this.plugin,
@@ -465,12 +427,10 @@ export class PhaseExecutor {
 			this.config.timeout,
 			this.config.dimensionTimeouts,
 			this.config.continueOnError,
+			progressTracker,
 		);
 	}
 
-	/**
-	 * Aggregates all results for finalizeResults hook
-	 */
 	private aggregateAllResults(
 		sectionResults: Array<{
 			section: SectionData;
@@ -489,9 +449,24 @@ export class PhaseExecutor {
 		return allResults;
 	}
 
-	/**
-	 * Gets the execution queue
-	 */
+	private resolveProgressDisplay(
+		option: ProgressDisplayOptions | boolean | undefined,
+	): ProgressDisplayOptions | undefined {
+		if (option === undefined || option === false) {
+			return undefined;
+		}
+
+		if (option === true) {
+			return { display: "bar" };
+		}
+
+		return option;
+	}
+
+	getProgressTracker(): ProgressTracker | undefined {
+		return this.progressTracker;
+	}
+
 	getQueue(): PQueue {
 		return this.queue;
 	}

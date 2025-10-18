@@ -7,26 +7,28 @@
  * @module execution/dimension-executor
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import {
 	type SectionData,
 	type DimensionContext,
 	type SectionDimensionContext,
 	type ProcessOptions,
-} from "../../types.ts";
+	type DimensionResult, // ← ADD THIS
+} from "../../types.js";
 import type PQueue from "p-queue";
 
-import type { HookExecutor } from "../lifecycle/hook-executor.ts";
-import type { ProviderExecutor } from "./provider-executor.ts";
-import type { DependencyResolver } from "./dependency-resolver.ts";
-import type { ProcessState } from "../shared/types.ts";
+import type { HookExecutor } from "../lifecycle/hook-executor.js";
+import type { ProviderExecutor } from "./provider-executor.js";
+import type { DependencyResolver } from "./dependency-resolver.js";
+import type { ProgressTracker } from "./progress-tracker.js";
+import type { ProcessState } from "../shared/types.js";
 import {
 	executeWithTimeout,
 	hasFailedDependencies,
 	getFailedDependencies,
-} from "../shared/utils.ts";
-import { SKIP_REASONS } from "../shared/constants.ts";
-import { DependencyError } from "../shared/errors.ts";
+} from "../shared/utils.js";
+import { SKIP_REASONS } from "../shared/constants.js";
+import { DependencyError } from "../shared/errors.js";
 
 /**
  * Handles the execution of individual dimensions (both global and section-level)
@@ -36,6 +38,7 @@ import { DependencyError } from "../shared/errors.ts";
  * - Dependency transformation and validation
  * - Timeout protection
  * - Error handling with configurable recovery
+ * - Progress tracking (optional)
  */
 export class DimensionExecutor {
 	constructor(
@@ -47,6 +50,7 @@ export class DimensionExecutor {
 		private readonly defaultTimeout: number,
 		private readonly dimensionTimeouts: Record<string, number>,
 		private readonly continueOnError: boolean,
+		private readonly progressTracker?: ProgressTracker,
 	) {}
 
 	/**
@@ -91,14 +95,6 @@ export class DimensionExecutor {
 		}
 	}
 
-	/**
-	 * Processes a section-level dimension across all sections
-	 *
-	 * @param dimension - Dimension name
-	 * @param state - Process state
-	 * @param dependencyGraph - Dependency graph
-	 * @param options - Process options
-	 */
 	/**
 	 * Processes a section-level dimension across all sections
 	 *
@@ -169,10 +165,13 @@ export class DimensionExecutor {
 			await this.hookExecutor.shouldSkipGlobalDimension(context);
 
 		if (skipResult === true) {
-			state.globalResults[dimension] = {
+			const result: DimensionResult = {
 				data: { skipped: true, reason: SKIP_REASONS.PLUGIN_SKIP_GLOBAL },
 			};
-			options.onDimensionComplete?.(dimension, state.globalResults[dimension]);
+			state.globalResults[dimension] = result;
+
+			this.progressTracker?.record(dimension, 0, true, true, 0, result);
+			options.onDimensionComplete?.(dimension, result);
 			return true;
 		}
 
@@ -182,11 +181,14 @@ export class DimensionExecutor {
 			skipResult.skip &&
 			skipResult.result
 		) {
-			state.globalResults[dimension] = {
+			const result: DimensionResult = {
 				...skipResult.result,
 				metadata: { ...skipResult.result.metadata, cached: true },
 			};
-			options.onDimensionComplete?.(dimension, state.globalResults[dimension]);
+			state.globalResults[dimension] = result;
+
+			this.progressTracker?.record(dimension, 0, true, true, 0, result);
+			options.onDimensionComplete?.(dimension, result);
 			return true;
 		}
 
@@ -219,6 +221,16 @@ export class DimensionExecutor {
 
 		const duration = Date.now() - startTime;
 		state.globalResults[dimension] = result;
+
+		const success = !result.error;
+		this.progressTracker?.record(
+			dimension,
+			0,
+			success,
+			false,
+			duration,
+			result,
+		);
 
 		await this.hookExecutor.executeAfterDimension({
 			...context,
@@ -288,7 +300,19 @@ export class DimensionExecutor {
 			sectionIdx,
 			state,
 		);
-		if (skipResult) return;
+		if (skipResult) {
+			const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
+			const result = sectionResults[dimension] ?? { data: { skipped: true } };
+			this.progressTracker?.record(
+				dimension,
+				sectionIdx,
+				true,
+				true,
+				0,
+				result,
+			);
+			return;
+		}
 
 		// Transform and validate dependencies
 		await this.transformAndValidateDependencies(context);
@@ -317,6 +341,16 @@ export class DimensionExecutor {
 		const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
 		sectionResults[dimension] = result;
 		state.sectionResultsMap.set(sectionIdx, sectionResults);
+
+		const success = !result.error;
+		this.progressTracker?.record(
+			dimension,
+			sectionIdx,
+			success,
+			false,
+			duration,
+			result,
+		);
 
 		await this.hookExecutor.executeAfterDimension({
 			...context,
@@ -437,7 +471,10 @@ export class DimensionExecutor {
 	): void {
 		const err = error instanceof Error ? error : new Error(String(error));
 		options.onError?.(`global-${dimension}`, err);
-		state.globalResults[dimension] = { error: err.message };
+
+		const result: DimensionResult = { error: err.message };
+		state.globalResults[dimension] = result;
+		this.progressTracker?.record(dimension, 0, false, false, 0, result);
 	}
 
 	private handleSectionError(
@@ -454,9 +491,19 @@ export class DimensionExecutor {
 		);
 		options.onError?.(`section-${sectionIdx}-${dimension}`, err);
 
+		const result: DimensionResult = { error: err.message };
 		const sectionResults = state.sectionResultsMap.get(sectionIdx) ?? {};
-		sectionResults[dimension] = { error: err.message };
+		sectionResults[dimension] = result;
 		state.sectionResultsMap.set(sectionIdx, sectionResults);
+
+		this.progressTracker?.record(
+			dimension,
+			sectionIdx,
+			false,
+			false,
+			0,
+			result,
+		);
 
 		if (!this.continueOnError) {
 			throw error;

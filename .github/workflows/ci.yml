@@ -5,29 +5,31 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly security scan
 
-# Cancel outdated runs for the same PR
+# Add workflow-level permissions
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ==================== QUALITY & TESTING ====================
+  # ==================== MAIN VALIDATION (Always runs - FREE) ====================
   validate:
-    name: Quality & Test (Node ${{ matrix.node-version }})
+    name: Validate
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18, 20, 22]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -49,36 +51,148 @@ jobs:
         run: npm run build
 
       - name: Check bundle size
-        if: matrix.node-version == 20
-        run: npm run size
+        run: |
+          if npm run | grep -q "size"; then
+            npm run size
+          else
+            echo "Bundle size check not configured, skipping..."
+          fi
         continue-on-error: true
 
-      - name: Upload coverage
-        if: matrix.node-version == 20
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-  # ==================== SECURITY AUDIT ====================
+  # ==================== COMPATIBILITY CHECK (Always runs - FREE) ====================
+  compatibility:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  # ==================== SECURITY CHECKS (Always runs - FREE) ====================
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - run: npm ci
-      - name: Run audit
+      - name: Install dependencies
+        run: npm ci
+
+      # npm audit (FREE - always available)
+      - name: Run npm audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
 
-  # ==================== AUTOMATED RELEASE ====================
+      # License check (FREE - always available)
+      - name: Check licenses
+        run: npx license-checker --summary --production --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD"
+        continue-on-error: true
+
+      # Snyk (Manual override: set ENABLE_SNYK=true or false)
+      # Default: runs on public repos only
+      - name: Run Snyk security scan
+        if: vars.ENABLE_SNYK == 'true' || (vars.ENABLE_SNYK != 'false' && github.event.repository.visibility == 'public')
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # ==================== CODE SCANNING - CodeQL (Manual override available) ====================
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    # Manual override: set ENABLE_CODEQL=true to force enable, false to force disable
+    # Default: only runs on public repos
+    if: vars.ENABLE_CODEQL == 'true' || (vars.ENABLE_CODEQL != 'false' && github.event.repository.visibility == 'public')
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ==================== DEPENDENCY REVIEW (Manual override available) ====================
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    # Manual override: set ENABLE_DEPENDENCY_REVIEW=true to force enable
+    # Default: only runs on public repos + PRs
+    if: github.event_name == 'pull_request' && (vars.ENABLE_DEPENDENCY_REVIEW == 'true' || (vars.ENABLE_DEPENDENCY_REVIEW != 'false' && github.event.repository.visibility == 'public'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+
+  # ==================== OSSF SCORECARD (Manual override available) ====================
+  scorecard:
+    name: OSSF Scorecard
+    runs-on: ubuntu-latest
+    # Manual override: set ENABLE_SCORECARD=true to force enable
+    # Default: only runs on public repos, main branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (vars.ENABLE_SCORECARD == 'true' || (vars.ENABLE_SCORECARD != 'false' && github.event.repository.visibility == 'public'))
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload to CodeQL
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  # ==================== AUTOMATED RELEASE (Always runs - FREE) ====================
   release:
-    name: Automated Release
+    name: Release
     needs: [validate, security]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -89,32 +203,24 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@ivan629'
+          registry-url: 'https://registry.npmjs.org'
+          # For GitHub Packages, change to:
+          # registry-url: 'https://npm.pkg.github.com'
+          # scope: '@ivan629'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: npm run build
-
-      - name: Configure Git
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - run: npm ci
+      - run: npm run build
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release

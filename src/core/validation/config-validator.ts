@@ -7,19 +7,19 @@
  * @module validation/config-validator
  */
 
-import type { Plugin } from "../../plugin.ts";
+import type { Plugin } from "../../plugin.js";
 import type {
 	ProviderAdapter,
 	ProviderAdapterConfig,
-} from "../../providers/adapter.ts";
-import type { ProviderRegistry } from "../../providers/registry.ts";
-import type { PricingConfig } from "../../types.ts";
+} from "../../providers/adapter.js";
+import type { ProviderRegistry } from "../../providers/registry.js";
+import type { PricingConfig } from "../../types.js";
 import {
 	ConfigurationError,
 	NoProvidersError,
 	ValidationError,
-} from "../shared/errors.ts";
-import { VALIDATION } from "../shared/constants.ts";
+} from "../shared/errors.js";
+import { VALIDATION } from "../shared/constants.js";
 
 /**
  * Execution configuration interface

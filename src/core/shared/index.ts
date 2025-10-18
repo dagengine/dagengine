@@ -14,9 +14,9 @@ export type {
 	SkipCheckResult,
 	ProviderAttempt,
 	AttemptRecord,
-} from "./types.ts";
+} from "./types.js";
 
-export { isSkipWithResult, isErrorResult, isSuccessResult } from "./types.ts";
+export { isSkipWithResult, isErrorResult, isSuccessResult } from "./types.js";
 
 // Errors
 export {
@@ -36,7 +36,7 @@ export {
 	normalizeError,
 	getErrorMessage,
 	createContextError,
-} from "./errors.ts";
+} from "./errors.js";
 
 // Constants
 export {
@@ -46,29 +46,17 @@ export {
 	METADATA_KEYS,
 	TIMING,
 	VALIDATION,
-} from "./constants.ts";
+} from "./constants.js";
 
-export type { SkipReason, MetadataKey } from "./constants.ts";
+export type { SkipReason, MetadataKey } from "./constants.js";
 
-// Utils
 export {
 	hasFailedDependencies,
 	getFailedDependencies,
-	hasSuccessfulDependencies,
 	countSuccessful,
 	countFailed,
 	resetSectionResultsMap,
 	applyFinalizedResults,
 	executeWithTimeout,
 	createTimeoutPromise,
-	chunk,
-	unique,
-	deepClone,
-	isEmpty,
-	pick,
-	omit,
-	delay,
-	measureTime,
-	truncate,
-	capitalize,
-} from "./utils.ts";
+} from "./utils.js";
