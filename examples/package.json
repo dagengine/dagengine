@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "hello": "tsx 01-hello-world/index.ts",
+    "blog": "tsx 02-blog-analyzer/index.ts",
+    "company": "tsx 03-company-research/index.ts"
+  }
+}
