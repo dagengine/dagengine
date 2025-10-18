@@ -308,7 +308,7 @@ selectProvider() {
 selectProvider(dimension, section) {
   // Route by dimension
   if (dimension === 'quick_filter') {
-    return { provider: 'gemini', options: { model: 'gemini-1.5-flash' } };
+    return { provider: 'gemini', options: { model: 'gemini-2.5-flash' } };
   }
   
   // Route by content length

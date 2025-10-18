@@ -136,7 +136,7 @@ selectProvider() {
 ```typescript
 selectProvider(dimension, section) {
   if (section && section.content.length < 1000) {
-    return { provider: 'gemini', options: { model: 'gemini-1.5-flash' } };
+    return { provider: 'gemini', options: { model: 'gemini-2.5-flash' } };
   }
   return { provider: 'anthropic', options: { model: 'claude-sonnet-4-5-20250929' } };
 }
@@ -477,7 +477,7 @@ class ContentAnalysis extends Plugin {
     if (dimension === 'sentiment' || dimension === 'topics') {
       return {
         provider: 'gemini',
-        options: { model: 'gemini-1.5-flash' },
+        options: { model: 'gemini-2.5-flash' },
         fallbacks: [{ provider: 'anthropic' }]
       };
     }
