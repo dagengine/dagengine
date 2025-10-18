@@ -14,6 +14,7 @@ import type {
 } from "../../providers/adapter.js";
 import type { ProviderRegistry } from "../../providers/registry.js";
 import type { PricingConfig } from "../../types.js";
+import type { ProgressDisplayOptions } from "../execution/progress-display.js";
 
 // ============================================================================
 // EXECUTION CONFIGURATION
@@ -99,6 +100,8 @@ export interface ExecutionConfig {
 	 * ```
 	 */
 	dimensionTimeouts?: Record<string, number>;
+
+	pricing?: PricingConfig;
 }
 
 // ============================================================================
@@ -323,7 +326,7 @@ export interface EngineConfig {
 	 */
 	inngest?: InngestConfig;
 
-	// ===== Legacy Fields (Deprecated - use execution instead) =====
+	progressDisplay?: ProgressDisplayOptions | boolean;
 
 	/**
 	 * @deprecated Use `execution.concurrency` instead
@@ -387,14 +390,14 @@ export interface EngineConfig {
  * };
  * ```
  */
-export const DEFAULT_EXECUTION_CONFIG: Required<ExecutionConfig> = {
+export const DEFAULT_EXECUTION_CONFIG = {
 	concurrency: 5,
 	maxRetries: 3,
 	retryDelay: 1000,
 	continueOnError: true,
 	timeout: 60000,
 	dimensionTimeouts: {},
-};
+} as const;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -413,7 +416,7 @@ export const DEFAULT_EXECUTION_CONFIG: Required<ExecutionConfig> = {
  */
 export function mergeExecutionConfig(
 	config: EngineConfig,
-): Required<ExecutionConfig> {
+): Required<Omit<ExecutionConfig, "pricing">> & { pricing?: PricingConfig } {
 	return {
 		concurrency:
 			config.execution?.concurrency ??
@@ -439,6 +442,7 @@ export function mergeExecutionConfig(
 			config.execution?.dimensionTimeouts ??
 			config.dimensionTimeouts ??
 			DEFAULT_EXECUTION_CONFIG.dimensionTimeouts,
+		pricing: config.execution?.pricing ?? config.pricing,
 	};
 }
 

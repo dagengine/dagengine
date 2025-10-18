@@ -11,6 +11,7 @@ import type {
 	ProviderRequest,
 	ProviderResponse,
 } from "../../src/types";
+import { SectionData } from "../../dist/index";
 
 // ============================================================================
 // TEST TYPES & HELPERS
@@ -214,9 +215,9 @@ describe("Lifecycle Hooks", () => {
 					await new Promise((resolve) => setTimeout(resolve, 50));
 					asyncCompleted = true;
 					return {
-						sections: context.sections.map((s) => ({
-							...s,
-							metadata: { ...s.metadata, processed: true },
+						sections: context.sections.map((section: SectionData) => ({
+							...section,
+							metadata: { ...section.metadata, processed: true },
 						})),
 					};
 				}

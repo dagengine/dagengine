@@ -1,4 +1,7 @@
-export type { PromptContext, ProviderSelection } from "./plugin";
+// src/types.ts
+
+export type { PromptContext, ProviderSelection } from "./plugin.js";
+import type { ProgressDisplayOptions } from "./core/execution/progress-display.js";
 
 export interface SectionData {
 	content: string;
@@ -25,6 +28,9 @@ export interface ProviderMetadata {
 	model?: string;
 	tokens?: TokenUsage;
 	provider?: string;
+	cost?: number;
+	cached?: boolean;
+	skipped?: boolean;
 	[key: string]: unknown;
 }
 
@@ -72,12 +78,48 @@ export interface CostSummary {
 }
 
 // ============================================================================
-// CONTEXT TYPES - Base
+// PROGRESS TRACKING
 // ============================================================================
 
 /**
- * Base context present in all hooks
+ * Progress update - all progress information in one object
  */
+export interface ProgressUpdate {
+	// Overall progress
+	completed: number;
+	total: number;
+	percent: number;
+
+	// Money
+	cost: number;
+	estimatedCost: number;
+
+	// Time
+	elapsedSeconds: number;
+	etaSeconds: number;
+
+	// What's happening right now
+	currentDimension: string;
+	currentSection: number;
+
+	// Per-dimension breakdown
+	dimensions: {
+		[dimension: string]: {
+			completed: number;
+			total: number;
+			percent: number;
+			cost: number;
+			estimatedCost: number;
+			failed: number;
+			etaSeconds: number;
+		};
+	};
+}
+
+// ============================================================================
+// CONTEXT TYPES - Base
+// ============================================================================
+
 export interface BaseContext {
 	processId: string;
 	timestamp: number;
@@ -87,26 +129,17 @@ export interface BaseContext {
 // PROCESS-LEVEL CONTEXTS
 // ============================================================================
 
-/**
- * Process-level context (start of process)
- */
 export interface ProcessContext extends BaseContext {
 	sections: SectionData[];
 	options: ProcessOptions;
 	metadata?: unknown;
 }
 
-/**
- * Result from beforeProcessStart hook
- */
 export interface ProcessStartResult {
 	sections?: SectionData[];
 	metadata?: unknown;
 }
 
-/**
- * Context after process completes
- */
 export interface ProcessResultContext extends ProcessContext {
 	result: ProcessResult;
 	duration: number;
@@ -115,9 +148,6 @@ export interface ProcessResultContext extends ProcessContext {
 	failedDimensions: number;
 }
 
-/**
- * Context when process fails
- */
 export interface ProcessFailureContext extends ProcessContext {
 	error: Error;
 	partialResults: Partial<ProcessResult>;
@@ -128,9 +158,6 @@ export interface ProcessFailureContext extends ProcessContext {
 // DIMENSION-LEVEL CONTEXTS
 // ============================================================================
 
-/**
- * Dimension-level context (base for dimension execution)
- */
 export interface DimensionContext extends BaseContext {
 	dimension: string;
 	isGlobal: boolean;
@@ -139,9 +166,6 @@ export interface DimensionContext extends BaseContext {
 	globalResults: Record<string, DimensionResult>;
 }
 
-/**
- * Section dimension context (includes section info)
- */
 export interface SectionDimensionContext extends DimensionContext {
 	section: SectionData;
 	sectionIndex: number;
@@ -151,56 +175,32 @@ export interface SectionDimensionContext extends DimensionContext {
 // PROVIDER CONTEXTS
 // ============================================================================
 
-/**
- * Context during provider execution (base)
- */
 export interface ProviderContext extends DimensionContext {
 	request: ProviderRequest;
 	provider: string;
 	providerOptions: Record<string, unknown>;
 }
 
-/**
- * Context before provider execution
- * Type alias for backward compatibility
- */
 export type BeforeProviderExecuteContext = ProviderContext;
 
-/**
- * Context after provider execution (with result)
- */
 export interface ProviderResultContext extends ProviderContext {
 	result: ProviderResponse;
 	duration: number;
 	tokensUsed?: TokenUsage;
 }
 
-/**
- * Alias for backward compatibility
- * @deprecated Use ProviderResultContext instead
- */
 export type AfterProviderExecuteContext = ProviderResultContext;
 
 // ============================================================================
 // RESULT CONTEXTS
 // ============================================================================
 
-/**
- * Context after dimension execution
- * Type alias for backward compatibility
- */
 export type DimensionResultContext = ProviderResultContext;
 
-/**
- * Context for section transformation
- */
 export interface TransformSectionsContext extends ProviderResultContext {
 	currentSections: SectionData[];
 }
 
-/**
- * Context for final result processing
- */
 export interface FinalizeContext extends BaseContext {
 	results: Record<string, DimensionResult>;
 	sections: SectionData[];
@@ -213,9 +213,6 @@ export interface FinalizeContext extends BaseContext {
 // RETRY & FALLBACK CONTEXTS
 // ============================================================================
 
-/**
- * Context during retry attempts
- */
 export interface RetryContext extends ProviderContext {
 	error: Error;
 	attempt: number;
@@ -228,9 +225,6 @@ export interface RetryContext extends ProviderContext {
 	}>;
 }
 
-/**
- * Response from retry handler
- */
 export interface RetryResponse {
 	shouldRetry?: boolean;
 	delayMs?: number;
@@ -238,27 +232,18 @@ export interface RetryResponse {
 	modifiedProvider?: string;
 }
 
-/**
- * Context during provider fallback
- */
 export interface FallbackContext extends RetryContext {
 	failedProvider: string;
 	fallbackProvider: string;
 	fallbackOptions: Record<string, unknown>;
 }
 
-/**
- * Response from fallback handler
- */
 export interface FallbackResponse {
 	shouldFallback?: boolean;
 	delayMs?: number;
 	modifiedRequest?: ProviderRequest;
 }
 
-/**
- * Context when dimension fails completely
- */
 export interface FailureContext extends RetryContext {
 	totalAttempts: number;
 	providers: string[];
@@ -268,9 +253,6 @@ export interface FailureContext extends RetryContext {
 // SKIP RESULT TYPES
 // ============================================================================
 
-/**
- * Skip result with cached data
- */
 export interface SkipWithResult {
 	skip: true;
 	result: DimensionResult;
@@ -280,62 +262,30 @@ export interface SkipWithResult {
 // PROCESS OPTIONS & RESULTS
 // ============================================================================
 
-/**
- * Core process options (required/known options)
- */
 export interface CoreProcessOptions {
-	/**
-	 * Unique process identifier
-	 * If not provided, a UUID will be generated
-	 */
 	processId?: string;
-
-	/**
-	 * Custom metadata to pass through the process
-	 */
 	metadata?: unknown;
 }
 
-/**
- * Process lifecycle callbacks
- */
 export interface ProcessCallbacks {
-	/**
-	 * Called when a dimension starts processing
-	 */
 	onDimensionStart?: (dimension: string) => void;
-
-	/**
-	 * Called when a dimension completes
-	 */
 	onDimensionComplete?: (dimension: string, result: DimensionResult) => void;
-
-	/**
-	 * Called when section processing starts
-	 */
 	onSectionStart?: (index: number, total: number) => void;
-
-	/**
-	 * Called when section processing completes
-	 */
 	onSectionComplete?: (index: number, total: number) => void;
-
-	/**
-	 * Called when an error occurs
-	 */
 	onError?: (context: string, error: Error) => void;
 }
 
-/**
- * Complete process options
- */
 export interface ProcessOptions extends CoreProcessOptions, ProcessCallbacks {
+	// Progress tracking
+	onProgress?: (progress: ProgressUpdate) => void;
+	updateEvery?: number;
+
+	// Can override engine-level progress display per-process
+	progressDisplay?: ProgressDisplayOptions | boolean;
+
 	[key: string]: unknown;
 }
 
-/**
- * Process result
- */
 export interface ProcessResult {
 	sections: Array<{
 		section: SectionData;
@@ -351,9 +301,6 @@ export interface ProcessResult {
 // PROVIDER REQUEST & RESPONSE
 // ============================================================================
 
-/**
- * Provider request
- */
 export interface ProviderRequest {
 	input: string | string[];
 	options?: Record<string, unknown>;
@@ -366,9 +313,6 @@ export interface ProviderRequest {
 	};
 }
 
-/**
- * Provider response
- */
 export interface ProviderResponse<T = unknown> {
 	data?: T;
 	error?: string;
@@ -376,8 +320,10 @@ export interface ProviderResponse<T = unknown> {
 }
 
 // ============================================================================
-// DEPRECATED ALIASES (for backward compatibility)
+// RE-EXPORT PROGRESS DISPLAY OPTIONS
 // ============================================================================
+
+export type { ProgressDisplayOptions };
 
 /**
  * Context for beforeProcessStart hook

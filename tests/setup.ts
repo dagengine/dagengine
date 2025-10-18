@@ -42,10 +42,36 @@ export class MockAIProvider extends BaseProvider {
 			return { error: "Mock provider error" };
 		}
 
-		const response = this.mockResponses.get(request.input as string) || {
-			result: "mock response",
+		// ✅ FIX: Check for mock response and handle structure correctly
+		const mockData = this.mockResponses.get(request.input as string);
+
+		if (mockData) {
+			// Check if mockData is already a ProviderResponse (has data/metadata/error)
+			if (typeof mockData === 'object' && mockData !== null) {
+				const obj = mockData as Record<string, unknown>;
+
+				// If it looks like a ProviderResponse, return it as-is
+				if ('data' in obj || 'metadata' in obj || 'error' in obj) {
+					return obj as ProviderResponse;
+				}
+			}
+
+			// Otherwise, wrap it as data
+			return {
+				data: mockData,
+				metadata: {
+					provider: "mock-ai",
+				},
+			};
+		}
+
+		// Default response with metadata
+		return {
+			data: { result: "mock response" },
+			metadata: {
+				provider: "mock-ai",
+			},
 		};
-		return { data: response };
 	}
 
 	/**
@@ -56,6 +82,7 @@ export class MockAIProvider extends BaseProvider {
 		this.lastRequest = null;
 		this.shouldFail = false;
 		this.delay = 0;
+		this.mockResponses.clear();  // ✅ Also clear mock responses
 	}
 
 	/**
