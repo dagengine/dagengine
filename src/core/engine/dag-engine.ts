@@ -60,7 +60,7 @@ import {
 } from "./engine-config.js";
 import { DependencyGraphManager } from "../analysis/graph-manager.js";
 import { ConfigValidator } from "../validation/config-validator.js";
-import type { GraphAnalytics } from "../graph-manager.js";
+import type { GraphAnalytics } from "../analysis/graph-types.js";
 import crypto from "crypto";
 import type { ProgressUpdate } from "../../types";
 

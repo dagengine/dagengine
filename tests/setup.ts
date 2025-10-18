@@ -16,8 +16,11 @@ export class MockAIProvider extends BaseProvider {
 	public shouldFail = false;
 	public delay = 0;
 
-	constructor(config: ProviderConfig = {}) {
-		super("mock-ai", config);
+
+	constructor(config: Partial<ProviderConfig & { name?: string }> = {}) {
+		const name = config.name ?? "mock-ai";
+		const { name: _unused, ...providerConfig } = config;
+		super(name, providerConfig);
 	}
 
 	/**

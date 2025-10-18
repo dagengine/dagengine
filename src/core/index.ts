@@ -174,7 +174,6 @@ export {
 	// Dependencies
 	hasFailedDependencies,
 	getFailedDependencies,
-	hasSuccessfulDependencies,
 	// Results
 	countSuccessful,
 	countFailed,
@@ -184,18 +183,4 @@ export {
 	// Timeouts
 	executeWithTimeout,
 	createTimeoutPromise,
-	// Arrays
-	chunk,
-	unique,
-	// Objects
-	deepClone,
-	isEmpty,
-	pick,
-	omit,
-	// Timing
-	delay,
-	measureTime,
-	// Strings
-	truncate,
-	capitalize,
 } from "./shared/utils.js";
