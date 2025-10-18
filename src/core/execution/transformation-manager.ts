@@ -15,7 +15,6 @@ import type {
 } from "../../types.js";
 import type { HookExecutor } from "../lifecycle/hook-executor.js";
 import type { ProcessState } from "../shared/types.js";
-import { resetSectionResultsMap } from "../shared/utils.js";
 
 /**
  * Manages transformation of sections after global dimension execution
@@ -106,7 +105,6 @@ export class TransformationManager {
 			);
 
 			if (Array.isArray(transformed) && transformed.length > 0) {
-				resetSectionResultsMap(sectionResultsMap, transformed.length);
 				return transformed;
 			}
 		} catch (error) {
@@ -148,7 +146,6 @@ export class TransformationManager {
 		});
 
 		if (transformed) {
-			resetSectionResultsMap(state.sectionResultsMap, transformed.length);
 			return transformed;
 		}
 

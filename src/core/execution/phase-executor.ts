@@ -9,7 +9,6 @@ import type {
 } from "../../types";
 import PQueue from "p-queue";
 
-import { updateStateSections } from "../engine/state-manager";
 import { HookExecutor } from "../lifecycle/hook-executor";
 import { DependencyGraphManager } from "../analysis/graph-manager";
 import { CostCalculator } from "../analysis/cost-calculator";
@@ -29,6 +28,7 @@ import {
 	countSuccessful,
 	countFailed,
 	applyFinalizedResults,
+	resetSectionResultsMap,
 } from "../shared/utils";
 
 interface ExecutionConfig {
@@ -38,7 +38,7 @@ interface ExecutionConfig {
 	continueOnError: boolean;
 	timeout: number;
 	dimensionTimeouts: Record<string, number>;
-	pricing?: PricingConfig; // ← Add this
+	pricing?: PricingConfig;
 }
 
 export class PhaseExecutor {
@@ -104,7 +104,14 @@ export class PhaseExecutor {
 
 		// Apply hook modifications
 		if (startResult?.sections) {
-			updateStateSections(state, startResult.sections);
+			const oldCount = state.sections.length;
+			const newCount = startResult.sections.length;
+
+			state.sections = startResult.sections;
+
+			if (oldCount !== newCount) {
+				resetSectionResultsMap(state.sectionResultsMap, newCount);
+			}
 		}
 		if (startResult?.metadata) {
 			state.metadata = startResult.metadata;
@@ -259,10 +266,15 @@ export class PhaseExecutor {
 				const oldCount = state.sections.length;
 				const newCount = newSections.length;
 
-				updateStateSections(state, newSections);
+				state.sections = newSections;
 
-				if (oldCount !== newCount && this.progressTracker) {
-					this.progressTracker.updateTotalSections(newCount);
+				// Only reset results map if section COUNT changed
+				if (oldCount !== newCount) {
+					resetSectionResultsMap(state.sectionResultsMap, newCount);
+
+					if (this.progressTracker) {
+						this.progressTracker.updateTotalSections(newCount);
+					}
 				}
 			}
 		}
