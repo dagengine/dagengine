@@ -231,21 +231,10 @@ export class ProgressTracker {
 	 * Update total sections after transformation
 	 */
 	updateTotalSections(newTotal: number): void {
-		console.log("🔍 ProgressTracker.updateTotalSections called:", {
-			oldTotal: this.totalSections,
-			newTotal: newTotal,
-			totalDimensions: this.totalDimensions,
-			oldTotalOps: this.totalSections * this.totalDimensions,
-			newTotalOps: newTotal * this.totalDimensions,
-		});
-
 		this.totalSections = newTotal;
 
 		if (this.callback) {
-			console.log("🔍 Calling callback with updated progress...");
 			this.callback(this.buildUpdate());
-		} else {
-			console.log("⚠️ No callback registered!");
 		}
 	}
 
