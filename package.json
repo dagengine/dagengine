@@ -70,8 +70,9 @@
 		"security:licenses": "license-checker --summary",
 		"security:check": "npm run security:audit && npm run security:licenses",
 		"validate": "npm run type-check && npm run lint && npm run format:check && npm run security:check && npm run test",
-		"prepare": "husky install",
-		"prepublishOnly": "npm run validate && npm run build"
+		"prepare": "husky",
+		"prepublishOnly": "npm run validate && npm run build",
+		"commit": "cz"
 	},
 	"dependencies": {
 		"@dagrejs/graphlib": "^2.2.4",
@@ -127,5 +128,10 @@
 			"prettier --write"
 		]
 	},
-	"private": false
+	"private": false,
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-conventional-changelog"
+		}
+	}
 }
