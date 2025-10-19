@@ -4,7 +4,7 @@
  * One function per dimension, clean and focused
  */
 
-import type { PromptContext, DimensionDependencies, SectionData } from '../../src';
+import type { PromptContext, DimensionDependencies, SectionData } from '../../../src';
 
 export function createPrompt(context: PromptContext): string {
 	const { dimension, sections, dependencies } = context;

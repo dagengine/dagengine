@@ -8,13 +8,13 @@ import {
 	FailureContext,
 	DimensionResult,
 	PromptContext,
-} from "../../src";
+} from "../../../src";
 import {
 	SkipStats,
 	QualityData,
 	GroupingResult,
 	SentimentData,
-} from "./types.js";
+} from "./types";
 
 import { PROVIDER_STRATEGIES } from "./config";
 import { createPrompt } from "./prompts";
