@@ -8,7 +8,7 @@ import {
 	type DimensionResult,
 	type SectionData,
 	type TransformSectionsContext,
-} from "../../src/index.js";
+} from "../../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 

@@ -2,7 +2,7 @@
  * Configuration constants
  */
 
-import type { ProviderSelection } from '../../src';
+import type { ProviderSelection } from '../../../src';
 
 export const PROVIDER_STRATEGIES: Record<string, ProviderSelection> = {
 	quality_check: {

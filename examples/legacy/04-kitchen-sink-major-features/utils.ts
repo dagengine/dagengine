@@ -2,8 +2,8 @@
  * Result display utilities
  */
 
-import type { ProcessResult } from '../../';
-import type { SmartReviewAnalyzer } from './plugin.js';
+import type { ProcessResult } from '../../../dist/index';
+import type { SmartReviewAnalyzer } from './plugin';
 import chalk from 'chalk';
 import gradient from 'gradient-string';
 

@@ -5,7 +5,7 @@ import {
 	Plugin,
 	type PromptContext,
 	type ProviderSelection,
-} from "../../src/index.js";
+} from "../../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 

@@ -6,8 +6,8 @@ import {
 	type PromptContext,
 	type ProviderSelection,
 	type DimensionResult,
-} from "../../src/index.js";
-import { ConsoleUI } from "../utils/console-ui.js";
+} from "../../../src";
+import { ConsoleUI } from "../../utils/console-ui";
 
 config({ path: resolve(process.cwd(), ".env") });
 

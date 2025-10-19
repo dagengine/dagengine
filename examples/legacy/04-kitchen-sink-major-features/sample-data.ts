@@ -2,7 +2,7 @@
  * Sample review data
  */
 
-import type { SectionData } from '../../src';
+import type { SectionData } from '../../../src';
 
 export const SAMPLE_REVIEWS: SectionData[] = [
 	{

@@ -9,12 +9,12 @@ import { config } from "dotenv";
 import { resolve } from "path";
 
 config({ path: resolve(process.cwd(), ".env") });
-import { DagEngine } from '../../src';
-import { SmartReviewAnalyzer } from './plugin.js';
-import { SAMPLE_REVIEWS } from './sample-data.js';
-import { MODEL_PRICING } from './config.js';
-import { displayResults } from './utils.js';
-import { ConsoleUI } from "../utils/console-ui";
+import { DagEngine } from '../../../src';
+import { SmartReviewAnalyzer } from './plugin';
+import { SAMPLE_REVIEWS } from './sample-data';
+import { MODEL_PRICING } from './config';
+import { displayResults } from './utils';
+import { ConsoleUI } from "../../utils/console-ui";
 
 
 
