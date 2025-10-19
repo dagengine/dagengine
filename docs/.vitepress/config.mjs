@@ -58,10 +58,31 @@ export default defineConfig({
 				],
 			},
 			{
-				text: "Recipes",
-				collapsed: false,
-				items: [{ text: "Examples", link: "/recipes/" }],
-			},
+				text: "Examples",
+				collapsed: true,
+				items: [
+					// Production Example
+					{
+						text: "🚀 Production Quickstart",
+						link: "/examples/00-quickstart.md"
+					},
+
+					// Separator (visual grouping)
+					{
+						text: "Fundamentals",
+						items: [
+							{ text: "Hello World", link: "/examples/01-hello-world" },
+							{ text: "Dependencies", link: "/examples/02-dependencies" },
+							{ text: "Section vs Global", link: "/examples/03-section-vs-global" },
+							{ text: "Transformations", link: "/examples/04-transformations" },
+							{ text: "Skip Logic", link: "/examples/05-skip-logic" },
+							{ text: "Providers", link: "/examples/06-providers" },
+							{ text: "Async Hooks", link: "/examples/07-async-hooks" },
+							{ text: "Error Handling", link: "/examples/08-error-handling" },
+							{ text: "Progress Monitoring", link: "/examples/09-progress-monitoring" },
+						],
+					}]
+			}
 		],
 
 		// ==========================================

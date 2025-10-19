@@ -112,7 +112,7 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 		expect(mockProvider.getTotalCalls()).toBe(1);
 
-		expect(result.globalResults.global_analysis?.data).toEqual({
+		expect(result.globalResults.global_analysis?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});
@@ -354,11 +354,11 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 
 		expect(mockProvider.getTotalCalls()).toBe(1);
 
-		expect(result.globalResults.global_A?.data).toEqual({
+		expect(result.globalResults.global_A?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});
-		expect(result.globalResults.global_C?.data).toEqual({
+		expect(result.globalResults.global_C?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});
@@ -661,7 +661,7 @@ describe("shouldSkipGlobalDimension - Integration", () => {
 
 		const result = await engine.process([{ content: "Test", metadata: {} }]);
 
-		expect(result.globalResults.global_A?.data).toEqual({
+		expect(result.globalResults.global_A?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});

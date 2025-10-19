@@ -11,7 +11,7 @@
  *
  * Use case: Classify 10 reviews → Group into 3 categories → Analyze each category
  *
- * Run: npm run guide:04
+ * Run: npm run 04
  */
 
 import { config } from "dotenv";
@@ -24,7 +24,8 @@ import {
 	type SectionData,
 	type DimensionResult,
 	type TransformSectionsContext,
-} from "../../src/index.js";
+	type ProcessResult,
+} from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -56,6 +57,20 @@ interface CategoryAnalysis {
 	recommendation: string;
 }
 
+interface SectionResult {
+	section: SectionData;
+	results: Record<string, DimensionResult<unknown>>;
+}
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+const PRICING = {
+	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
+	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+};
+
 // ============================================================================
 // PLUGIN
 // ============================================================================
@@ -75,93 +90,77 @@ class ReviewGroupAnalyzer extends Plugin {
 		super(
 			"review-group-analyzer",
 			"Review Group Analyzer",
-			"Classify, group, and analyze reviews"
+			"Classify, group, and analyze reviews",
 		);
 
 		this.dimensions = [
-			"classify",                            // Section: Classify each review
-			{ name: "group_by_category", scope: "global" }, // Global: Group into categories
-			"analyze_category"                     // Section: Analyze each category
+			"classify",
+			{ name: "group_by_category", scope: "global" },
+			"analyze_category",
 		];
 	}
 
 	defineDependencies(): Record<string, string[]> {
 		return {
 			group_by_category: ["classify"],
-			analyze_category: ["group_by_category"]
+			analyze_category: ["group_by_category"],
 		};
 	}
 
 	/**
-	 * ✅ NEW HOOK: transformSections
+	 * transformSections - Reshape data between dimensions
 	 *
 	 * Called after a dimension completes.
-	 * Allows reshaping the sections before the next dimension.
-	 *
 	 * Use case: Transform 10 reviews → 3 category groups
-	 *
-	 * @param ctx - Context with current sections and result
-	 * @returns New sections array (or unchanged if no transformation)
 	 */
 	transformSections(ctx: TransformSectionsContext): SectionData[] {
-		// Only transform after the grouping dimension
 		if (ctx.dimension !== "group_by_category") {
 			return ctx.currentSections;
 		}
 
-		// ✅ TRANSFORMATION: 10 reviews → 3 groups
 		const result = ctx.result as DimensionResult<GroupingResult>;
 		const groups = result.data?.groups || [];
 
-		console.log(`\n🔄 TRANSFORMATION: ${ctx.currentSections.length} reviews → ${groups.length} groups\n`);
+		console.log(
+			`\n🔄 TRANSFORMATION: ${ctx.currentSections.length} reviews → ${groups.length} groups\n`,
+		);
 
-		// Create new sections (one per category group)
 		return groups.map((group) => ({
 			content: group.reviews.join("\n\n---\n\n"),
 			metadata: {
 				category: group.category,
 				count: group.count,
-				original_review_ids: group.reviews.map((_, idx) => idx + 1)
-			}
+				original_review_ids: group.reviews.map((_, idx) => idx + 1),
+			},
 		}));
 	}
 
 	createPrompt(ctx: PromptContext): string {
 		const { dimension, sections, dependencies } = ctx;
 
-		// ============================================================================
-		// DIMENSION 1: classify (section scope)
-		// ============================================================================
-
 		if (dimension === "classify") {
 			const review = sections[0]?.content || "";
 
 			return `Classify this review into ONE category:
 
-Review: "${review}"
+"${review}"
 
-Categories:
-- pricing: about price, value, cost
-- support: about customer service, help, response time
-- features: about functionality, capabilities, usability
+Categories: pricing (cost/value), support (service), features (functionality)
 
 Return JSON:
 {
-  "category": "pricing" or "support" or "features",
+  "category": "pricing|support|features",
   "reasoning": "brief explanation"
 }`;
 		}
 
-		// ============================================================================
-		// DIMENSION 2: group_by_category (global scope)
-		// ============================================================================
-
 		if (dimension === "group_by_category") {
-			// Get all classifications
-			const classifyData = dependencies.classify as DimensionResult<{
-				sections: Array<DimensionResult<CategoryResult>>;
-				aggregated: boolean;
-			}> | undefined;
+			const classifyData = dependencies.classify as
+				| DimensionResult<{
+						sections: Array<DimensionResult<CategoryResult>>;
+						aggregated: boolean;
+				  }>
+				| undefined;
 
 			if (!classifyData?.data?.aggregated) {
 				return "Error: Expected aggregated classification data";
@@ -169,7 +168,7 @@ Return JSON:
 
 			const classifications = classifyData.data.sections.map((s, idx) => ({
 				review: sections[idx]?.content || "",
-				category: s.data?.category || "features"
+				category: s.data?.category || "features",
 			}));
 
 			return `Group these reviews by category:
@@ -181,7 +180,7 @@ Return JSON:
   "groups": [
     {
       "category": "pricing",
-      "reviews": ["review text 1", "review text 2"],
+      "reviews": ["review 1", "review 2"],
       "count": 2
     }
   ],
@@ -189,28 +188,23 @@ Return JSON:
 }`;
 		}
 
-		// ============================================================================
-		// DIMENSION 3: analyze_category (section scope, but operating on groups!)
-		// ============================================================================
-
 		if (dimension === "analyze_category") {
-			// ✅ After transformation, sections are now category groups
+			// After transformation, sections are now category groups
 			const category = (sections[0]?.metadata?.category as string) || "unknown";
 			const count = (sections[0]?.metadata?.count as number) || 0;
 			const reviews = sections[0]?.content || "";
 
-			return `Analyze ${count} reviews in the "${category}" category:
+			return `Analyze ${count} reviews in "${category}" category:
 
-Reviews:
 ${reviews}
 
 Return JSON:
 {
   "category": "${category}",
   "review_count": ${count},
-  "summary": "1-2 sentence summary of this category",
+  "summary": "1-2 sentence summary",
   "key_issues": ["issue 1", "issue 2", "issue 3"],
-  "recommendation": "specific action to take"
+  "recommendation": "specific action"
 }`;
 		}
 
@@ -218,24 +212,24 @@ Return JSON:
 	}
 
 	selectProvider(dimension: string): ProviderSelection {
-		// Use fast model for classification (simple task)
+		// Fast model for classification
 		if (dimension === "classify") {
 			return {
 				provider: "anthropic",
 				options: {
 					model: "claude-3-5-haiku-20241022",
-					temperature: 0.1
-				}
+					temperature: 0.1,
+				},
 			};
 		}
 
-		// Use powerful model for analysis (complex task)
+		// Powerful model for analysis
 		return {
 			provider: "anthropic",
 			options: {
 				model: "claude-3-5-sonnet-20241022",
-				temperature: 0.3
-			}
+				temperature: 0.3,
+			},
 		};
 	}
 }
@@ -248,10 +242,7 @@ async function main(): Promise<void> {
 	console.log("\n📚 Fundamentals 04: Transformations\n");
 	console.log("Learn to reshape data mid-workflow.\n");
 
-	// ============================================================================
-	// SETUP
-	// ============================================================================
-
+	// Setup
 	const reviews: SectionData[] = [
 		{ content: "Too expensive for what you get.", metadata: { id: 1 } },
 		{ content: "Great value! Worth every penny.", metadata: { id: 2 } },
@@ -270,21 +261,34 @@ async function main(): Promise<void> {
 		providers: {
 			anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
 		},
-		pricing: {
-			models: {
-				"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-				"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
-			}
-		}
+		pricing: { models: PRICING }
 	});
 
 	console.log(`✓ Created engine with ReviewGroupAnalyzer`);
 	console.log(`✓ Prepared ${reviews.length} reviews\n`);
 
-	// ============================================================================
-	// EXPLAIN THE PATTERN
-	// ============================================================================
+	// Explain pattern
+	printPattern();
 
+	// Process
+	console.log("Processing...\n");
+
+	const startTime = Date.now();
+	const result = await engine.process(reviews);
+	const duration = Date.now() - startTime;
+
+	// Display results
+	printResults(result, duration);
+
+	// Explanation
+	printExplanation();
+}
+
+// ============================================================================
+// DISPLAY HELPERS
+// ============================================================================
+
+function printPattern(): void {
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("THE PATTERN: Many Items → Few Groups");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
@@ -302,21 +306,15 @@ async function main(): Promise<void> {
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	// ============================================================================
-	// EXECUTION FLOW
-	// ============================================================================
-
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("EXECUTION FLOW");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
 	console.log("Phase 1: CLASSIFY (section, parallel)");
-	console.log("  Classify 10 reviews into categories");
-	console.log("  All 10 run in parallel\n");
+	console.log("  Classify 10 reviews into categories\n");
 
 	console.log("Phase 2: GROUP (global, sequential)");
-	console.log("  Group 10 reviews into 3 categories");
-	console.log("  1 call to organize reviews\n");
+	console.log("  Group 10 reviews into 3 categories\n");
 
 	console.log("Phase 3: TRANSFORMATION 🔄");
 	console.log("  transformSections() called");
@@ -325,45 +323,31 @@ async function main(): Promise<void> {
 
 	console.log("Phase 4: ANALYZE (section, parallel)");
 	console.log("  Analyze 3 category groups");
-	console.log("  All 3 run in parallel");
-	console.log("  ✅ Processing 3 groups instead of 10 reviews!\n");
+	console.log("  ✅ Processing 3 groups instead of 10!\n");
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// PROCESS
-	// ============================================================================
-
-	console.log("Processing...\n");
-
-	const startTime = Date.now();
-	const result = await engine.process(reviews);
-	const duration = Date.now() - startTime;
-
-	// ============================================================================
-	// DISPLAY RESULTS
-	// ============================================================================
-
+function printResults(result: ProcessResult, duration: number): void {
 	console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("CATEGORY ANALYSES");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	// After transformation, sections represent category groups
-	result.sections.forEach((section) => {
+	result.sections.forEach((section: SectionResult) => {
 		const analysis = section.results.analyze_category as DimensionResult<CategoryAnalysis> | undefined;
 
 		if (analysis?.data) {
-			const a = analysis.data;
-			const emoji = a.category === "pricing" ? "💰" :
-				a.category === "support" ? "🎧" : "✨";
+			const analysisData = analysis.data;
+			const emoji = analysisData.category === "pricing" ? "💰" :
+				analysisData.category === "support" ? "🎧" : "✨";
 
-			console.log(`${emoji} ${a.category.toUpperCase()} (${a.review_count} reviews)`);
-			console.log(`   Summary: ${a.summary}`);
+			console.log(`${emoji} ${analysisData.category.toUpperCase()} (${analysisData.review_count} reviews)`);
+			console.log(`   Summary: ${analysisData.summary}`);
 			console.log(`   Key Issues:`);
-			a.key_issues.forEach((issue) => {
+			analysisData.key_issues.forEach((issue) => {
 				console.log(`     • ${issue}`);
 			});
-			console.log(`   💡 Recommendation: ${a.recommendation}\n`);
+			console.log(`   💡 Recommendation: ${analysisData.recommendation}\n`);
 		}
 	});
 
@@ -372,19 +356,18 @@ async function main(): Promise<void> {
 
 	if (result.costs) {
 		const totalCost = result.costs.totalCost;
-		const withoutTransformation = totalCost / 0.7; // Approximate if we analyzed each review
+		const withoutTransformation = totalCost / 0.7;
 		const savings = ((withoutTransformation - totalCost) / withoutTransformation) * 100;
 
 		console.log(`💰 Cost: $${totalCost.toFixed(4)}`);
-		console.log(`📊 Savings: ${savings.toFixed(0)}% (vs analyzing all reviews individually)`);
+		console.log(`📊 Savings: ~${savings.toFixed(0)}% (vs analyzing individually)`);
+		console.log(`🎫 Tokens: ${result.costs.totalTokens.toLocaleString()}`);
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// EXPLANATION
-	// ============================================================================
-
+function printExplanation(): void {
 	console.log("✨ What just happened?\n");
 
 	console.log("1. CLASSIFY dimension (section):");
@@ -401,7 +384,7 @@ async function main(): Promise<void> {
 	console.log("   - transformSections() was called");
 	console.log("   - Received: 10 review sections");
 	console.log("   - Returned: 3 category group sections");
-	console.log("   - Next dimension will process 3 sections (not 10!)\n");
+	console.log("   - Next dimension processes 3 sections!\n");
 
 	console.log("4. ANALYZE dimension (section on transformed data):");
 	console.log("   - Ran 3 times (once per category group)");
@@ -420,18 +403,18 @@ async function main(): Promise<void> {
 	console.log("Process 100 items as 5 groups = 95% fewer expensive calls.\n");
 
 	console.log("📊 When to use transformations:\n");
-	console.log("USE transformations when:");
-	console.log("  ✓ You want to group similar items");
-	console.log("  ✓ You want to filter/reduce items");
-	console.log("  ✓ You want to split items into chunks");
-	console.log("  ✓ The next dimension should process groups, not individuals\n");
+	console.log("USE when:");
+	console.log("  ✓ Grouping similar items");
+	console.log("  ✓ Filtering/reducing items");
+	console.log("  ✓ Splitting items into chunks");
+	console.log("  ✓ Next dimension processes groups, not individuals\n");
 
-	console.log("DON'T use transformations when:");
+	console.log("DON'T use when:");
 	console.log("  ✗ Each item needs independent analysis");
 	console.log("  ✗ No grouping/filtering needed");
 	console.log("  ✗ Data shape doesn't need to change\n");
 
-	console.log("⏭️  Next: npm run guide:05 (skip logic)\n");
+	console.log("⏭️  Next: npm run 05 (skip logic)\n");
 }
 
 // ============================================================================

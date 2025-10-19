@@ -74,7 +74,6 @@ export function displayResults(result: ProcessResult, duration: number): void {
 		summaryData.top_priorities.forEach((p, i) => {
 			console.log(`   ${i + 1}. ${p}`);
 		});
-		console.log(`\n💰 Estimated Impact: ${summaryData.estimated_impact}`);
 	}
 
 	// Show detailed cost breakdown

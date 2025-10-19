@@ -166,7 +166,14 @@ export class DimensionExecutor {
 
 		if (skipResult === true) {
 			const result: DimensionResult = {
-				data: { skipped: true, reason: SKIP_REASONS.PLUGIN_SKIP_GLOBAL },
+				data: {
+					skipped: true,
+					reason: SKIP_REASONS.PLUGIN_SKIP_GLOBAL
+				},
+				metadata: {
+					skipped: true,
+					reason: SKIP_REASONS.PLUGIN_SKIP_GLOBAL
+				}
 			};
 			state.globalResults[dimension] = result;
 
@@ -405,7 +412,14 @@ export class DimensionExecutor {
 
 		if (skipResult === true) {
 			sectionResults[dimension] = {
-				data: { skipped: true, reason: SKIP_REASONS.PLUGIN_SKIP_SECTION },
+				data: {
+					skipped: true,
+					reason: SKIP_REASONS.PLUGIN_SKIP_SECTION
+				},
+				metadata: {
+					skipped: true,
+					reason: SKIP_REASONS.PLUGIN_SKIP_SECTION
+				}
 			};
 			state.sectionResultsMap.set(sectionIdx, sectionResults);
 			return true;

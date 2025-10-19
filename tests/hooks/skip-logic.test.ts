@@ -556,7 +556,7 @@ describe("Skip Logic Hooks", () => {
 			expect(mockProvider.getDimensionCallCount("global_process")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("global_skip")).toBe(0);
 
-			const globalSkipData = result.globalResults.global_skip?.data as TestData | undefined;
+			const globalSkipData = result.globalResults.global_skip?.metadata;
 			expect(globalSkipData?.skipped).toBe(true);
 			expect(globalSkipData?.reason).toBe("Skipped by plugin shouldSkipGlobalDimension");
 		});
@@ -670,7 +670,7 @@ describe("Skip Logic Hooks", () => {
 			]);
 			expect(mockProvider.getDimensionCallCount("global_summary")).toBe(0);
 
-			const summaryData1 = result1.globalResults.global_summary?.data as TestData | undefined;
+			const summaryData1 = result1.globalResults.global_summary?.metadata;
 			expect(summaryData1?.skipped).toBe(true);
 
 			// Test 2: At least one long - should process
@@ -763,7 +763,7 @@ describe("Skip Logic Hooks", () => {
 			expect(mockProvider.getDimensionCallCount("section_check")).toBe(1);
 			expect(mockProvider.getDimensionCallCount("global_summary")).toBe(0);
 
-			const summaryData = result.globalResults.global_summary?.data as TestData | undefined;
+			const summaryData = result.globalResults.global_summary?.metadata
 			expect(summaryData?.skipped).toBe(true);
 		});
 

@@ -68,11 +68,11 @@ describe("shouldSkipDimension - Edge Cases", () => {
 
 		// All sections should have skipped markers for all dimensions
 		result.sections.forEach((s) => {
-			expect(s.results.dim1?.data).toEqual({
+			expect(s.results.dim1?.metadata).toEqual({
 				skipped: true,
 				reason: "Skipped by plugin shouldSkipDimension",
 			});
-			expect(s.results.dim2?.data).toEqual({
+			expect(s.results.dim2?.metadata).toEqual({
 				skipped: true,
 				reason: "Skipped by plugin shouldSkipDimension",
 			});
@@ -115,17 +115,17 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		expect(mockProvider.callCount).toBe(2);
 
 		// Verify which sections were skipped
-		expect(result.sections[0]?.results.process?.data).not.toHaveProperty(
+		expect(result.sections[0]?.results.process?.metadata).not.toHaveProperty(
 			"skipped",
 		);
-		expect(result.sections[1]?.results.process?.data).toEqual({
+		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
-		expect(result.sections[2]?.results.process?.data).not.toHaveProperty(
+		expect(result.sections[2]?.results.process?.metadata).not.toHaveProperty(
 			"skipped",
 		);
-		expect(result.sections[3]?.results.process?.data).toEqual({
+		expect(result.sections[3]?.results.process?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
@@ -173,7 +173,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		]);
 
 		// extract should be skipped/
-		expect(result.sections[0]?.results.extract?.data).toEqual({
+		expect(result.sections[0]?.results.extract?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
@@ -216,15 +216,15 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		// Should only process the third section
 		expect(mockProvider.callCount).toBe(1);
 
-		expect(result.sections[0]?.results.process?.data).toEqual({
+		expect(result.sections[0]?.results.process?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
-		expect(result.sections[1]?.results.process?.data).toEqual({
+		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
-		expect(result.sections[2]?.results.process?.data).not.toHaveProperty(
+		expect(result.sections[2]?.results.process?.metadata).not.toHaveProperty(
 			"skipped",
 		);
 	});
@@ -477,7 +477,7 @@ describe("shouldSkipGlobalDimension - Edge Cases", () => {
 
 		// Should skip
 		expect(mockProvider.callCount).toBe(0);
-		expect(result.globalResults.global_analysis?.data).toEqual({
+		expect(result.globalResults.global_analysis?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});
@@ -522,7 +522,7 @@ describe("shouldSkipGlobalDimension - Edge Cases", () => {
 		expect(mockProvider.callCount).toBe(2);
 
 		// Verify global_B is skipped
-		expect(result.globalResults.global_B?.data).toEqual({
+		expect(result.globalResults.global_B?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipGlobalDimension",
 		});

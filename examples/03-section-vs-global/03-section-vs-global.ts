@@ -9,9 +9,7 @@
  * - When to use each scope
  * - How data flows between scopes
  *
- * This is what makes dag-ai different from other frameworks.
- *
- * Run: npm run guide:03
+ * Run: npm run 03
  */
 
 import { config } from "dotenv";
@@ -23,7 +21,8 @@ import {
 	type ProviderSelection,
 	type SectionData,
 	type DimensionResult,
-} from "../../src/index.js";
+	type ProcessResult,
+} from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -52,6 +51,21 @@ interface OverallAnalysis {
 	recommendation: string;
 }
 
+// Custom type for section results
+interface SectionResult {
+	section: SectionData;
+	results: Record<string, DimensionResult<unknown>>;
+}
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+const PRICING = {
+	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
+	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+};
+
 // ============================================================================
 // PLUGIN
 // ============================================================================
@@ -61,15 +75,8 @@ interface OverallAnalysis {
  *
  * Demonstrates section vs global scope:
  *
- * SECTION dimension: "analyze_sentiment"
- * - Runs once PER review (parallel)
- * - Analyzes each review independently
- * - Fast, distributed processing
- *
- * GLOBAL dimension: "overall_analysis"
- * - Runs once ACROSS ALL reviews (sequential)
- * - Aggregates all sentiment results
- * - Cross-review synthesis
+ * SECTION: "analyze_sentiment" - Runs once per review (parallel)
+ * GLOBAL: "overall_analysis" - Runs once across all reviews (sequential)
  */
 class ReviewAnalyzer extends Plugin {
 	constructor() {
@@ -80,22 +87,13 @@ class ReviewAnalyzer extends Plugin {
 		);
 
 		this.dimensions = [
-			// ✅ SECTION DIMENSION (default scope)
-			// Runs once per review, in parallel
-			"analyze_sentiment",
-
-			// ✅ GLOBAL DIMENSION (explicit scope)
-			// Runs once across all reviews, sequentially
-			{
-				name: "overall_analysis",
-				scope: "global"
-			}
+			"analyze_sentiment",                           // Section (default)
+			{ name: "overall_analysis", scope: "global" }  // Global (explicit)
 		];
 	}
 
 	defineDependencies(): Record<string, string[]> {
 		return {
-			// overall_analysis needs all sentiment results
 			overall_analysis: ["analyze_sentiment"]
 		};
 	}
@@ -103,17 +101,11 @@ class ReviewAnalyzer extends Plugin {
 	createPrompt(ctx: PromptContext): string {
 		const { dimension, sections, dependencies } = ctx;
 
-		// ============================================================================
-		// SECTION DIMENSION: analyze_sentiment
-		// ============================================================================
-
 		if (dimension === "analyze_sentiment") {
-			// ✅ SECTION SCOPE: ctx.sections contains ONE review
+			// SECTION: ctx.sections contains ONE review
 			const review = sections[0]?.content || "";
 
-			return `Analyze the sentiment of this review:
-
-"${review}"
+			return `Analyze sentiment: "${review}"
 
 Return JSON:
 {
@@ -122,37 +114,32 @@ Return JSON:
 }`;
 		}
 
-		// ============================================================================
-		// GLOBAL DIMENSION: overall_analysis
-		// ============================================================================
-
 		if (dimension === "overall_analysis") {
-			// ✅ GLOBAL SCOPE: ctx.dependencies contains ALL sentiment results
+			// GLOBAL: ctx.dependencies contains ALL sentiment results
 			const sentimentData = dependencies.analyze_sentiment as DimensionResult<AggregatedSentiments> | undefined;
 
 			if (!sentimentData?.data?.aggregated) {
 				return "Error: Expected aggregated sentiment data";
 			}
 
-			// Extract all sentiment results
 			const allSentiments = sentimentData.data.sections.map((s) => ({
 				sentiment: s.data?.sentiment || "neutral",
 				score: s.data?.score || 0
 			}));
 
-			return `Analyze these sentiment results from ${allSentiments.length} reviews:
+			return `Analyze ${allSentiments.length} reviews:
 
 ${JSON.stringify(allSentiments, null, 2)}
 
 Return JSON:
 {
   "total_reviews": ${allSentiments.length},
-  "positive_count": count of positive reviews,
-  "negative_count": count of negative reviews,
-  "neutral_count": count of neutral reviews,
-  "average_score": average sentiment score,
-  "overall_sentiment": "positive" or "negative" or "neutral",
-  "recommendation": "business recommendation based on analysis"
+  "positive_count": number,
+  "negative_count": number,
+  "neutral_count": number,
+  "average_score": number,
+  "overall_sentiment": "positive|negative|neutral",
+  "recommendation": "business recommendation"
 }`;
 		}
 
@@ -160,7 +147,7 @@ Return JSON:
 	}
 
 	selectProvider(dimension: string): ProviderSelection {
-		// Use fast model for sentiment (simple task)
+		// Fast model for simple task (sentiment)
 		if (dimension === "analyze_sentiment") {
 			return {
 				provider: "anthropic",
@@ -171,7 +158,7 @@ Return JSON:
 			};
 		}
 
-		// Use powerful model for analysis (complex task)
+		// Powerful model for complex task (analysis)
 		return {
 			provider: "anthropic",
 			options: {
@@ -190,10 +177,7 @@ async function main(): Promise<void> {
 	console.log("\n📚 Fundamentals 03: Section vs Global\n");
 	console.log("THE killer feature of dag-ai.\n");
 
-	// ============================================================================
-	// SETUP
-	// ============================================================================
-
+	// Setup
 	const sections: SectionData[] = [
 		{ content: "Amazing product! Exceeded all expectations.", metadata: { id: 1 } },
 		{ content: "Good quality, fair price. Happy with purchase.", metadata: { id: 2 } },
@@ -207,21 +191,35 @@ async function main(): Promise<void> {
 		providers: {
 			anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
 		},
-		pricing: {
-			models: {
-				"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-				"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
-			}
-		}
+		pricing: { models: PRICING }
 	});
 
 	console.log(`✓ Created engine with ReviewAnalyzer`);
 	console.log(`✓ Prepared ${sections.length} reviews\n`);
 
-	// ============================================================================
-	// EXPLAIN THE CONCEPT
-	// ============================================================================
+	// Explain concept
+	printConcept(sections.length);
 
+	// Process
+	console.log("Processing...\n");
+
+	const startTime = Date.now();
+	const result = await engine.process(sections);
+	const duration = Date.now() - startTime;
+
+	// Display results
+	printSectionResults(result);
+	printGlobalResults(result, duration);
+
+	// Explanation
+	printExplanation(sections.length);
+}
+
+// ============================================================================
+// DISPLAY HELPERS
+// ============================================================================
+
+function printConcept(numReviews: number): void {
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("THE CONCEPT: Section vs Global");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
@@ -233,26 +231,22 @@ async function main(): Promise<void> {
 	console.log("   - Fast, distributed\n");
 
 	console.log("   Example: analyze_sentiment");
-	console.log("   ├─ Review 1 → sentiment (parallel)");
-	console.log("   ├─ Review 2 → sentiment (parallel)");
-	console.log("   ├─ Review 3 → sentiment (parallel)");
-	console.log("   ├─ Review 4 → sentiment (parallel)");
-	console.log("   └─ Review 5 → sentiment (parallel)\n");
+	for (let i = 1; i <= numReviews; i++) {
+		const prefix = i === numReviews ? "└─" : "├─";
+		console.log(`   ${prefix} Review ${i} → sentiment (parallel)`);
+	}
+	console.log("");
 
 	console.log("🌍 GLOBAL DIMENSIONS");
 	console.log("   - Run once ACROSS ALL items");
-	console.log("   - Execute SEQUENTIALLY (after dependencies)");
+	console.log("   - Execute SEQUENTIALLY");
 	console.log("   - Cross-item synthesis");
 	console.log("   - Aggregation, comparison\n");
 
 	console.log("   Example: overall_analysis");
-	console.log("   └─ All 5 sentiments → overall analysis (1 call)\n");
+	console.log(`   └─ All ${numReviews} sentiments → overall (1 call)\n`);
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-
-	// ============================================================================
-	// EXECUTION FLOW
-	// ============================================================================
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("EXECUTION FLOW");
@@ -260,73 +254,56 @@ async function main(): Promise<void> {
 
 	console.log("Phase 1: SECTION dimension (parallel)");
 	console.log("────────────────────────────────────────");
-	console.log("  analyze_sentiment runs 5 times (one per review)");
-	console.log("  All 5 run in parallel");
-	console.log("  Time: ~1-2 seconds\n");
+	console.log(`  analyze_sentiment runs ${numReviews} times`);
+	console.log(`  All ${numReviews} run in parallel\n`);
 
 	console.log("Phase 2: GLOBAL dimension (sequential)");
 	console.log("────────────────────────────────────────");
-	console.log("  overall_analysis runs 1 time (across all reviews)");
-	console.log("  Receives ALL 5 sentiment results automatically");
-	console.log("  Time: ~1-2 seconds\n");
+	console.log("  overall_analysis runs 1 time");
+	console.log(`  Receives ALL ${numReviews} sentiment results\n`);
 
-	console.log("Total: ~3 seconds for complete analysis\n");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// PROCESS
-	// ============================================================================
-
-	console.log("Processing...\n");
-
-	const startTime = Date.now();
-	const result = await engine.process(sections);
-	const duration = Date.now() - startTime;
-
-	// ============================================================================
-	// DISPLAY SECTION RESULTS
-	// ============================================================================
-
+function printSectionResults(result: ProcessResult): void {
 	console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("SECTION RESULTS (per review)");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	result.sections.forEach((section, idx) => {
+	result.sections.forEach((section: SectionResult, idx: number) => {
 		const review = section.section.content;
-		const sentimentResult = section.results.analyze_sentiment as DimensionResult<SentimentResult> | undefined;
+		const sentiment = section.results.analyze_sentiment as DimensionResult<SentimentResult> | undefined;
 
-		if (sentimentResult?.data) {
-			const s = sentimentResult.data;
+		if (sentiment?.data) {
+			const s = sentiment.data;
 			const emoji = s.sentiment === "positive" ? "😊" : s.sentiment === "negative" ? "😞" : "😐";
 
 			console.log(`${idx + 1}. "${review}"`);
 			console.log(`   ${emoji} Sentiment: ${s.sentiment} (${s.score.toFixed(2)})\n`);
 		}
 	});
+}
 
-	// ============================================================================
-	// DISPLAY GLOBAL RESULTS
-	// ============================================================================
-
+function printGlobalResults(result: ProcessResult, duration: number): void {
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("GLOBAL RESULTS (across all reviews)");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	const overallResult = result.globalResults.overall_analysis as DimensionResult<OverallAnalysis> | undefined;
+	const overall = result.globalResults.overall_analysis as DimensionResult<OverallAnalysis> | undefined;
 
-	if (overallResult?.data) {
-		const analysis = overallResult.data;
+	if (overall?.data) {
+		const overallData = overall.data;
 
-		console.log(`📊 Total Reviews: ${analysis.total_reviews}`);
-		console.log(`   ├─ 😊 Positive: ${analysis.positive_count}`);
-		console.log(`   ├─ 😞 Negative: ${analysis.negative_count}`);
-		console.log(`   └─ 😐 Neutral: ${analysis.neutral_count}\n`);
+		console.log(`📊 Total Reviews: ${overallData.total_reviews}`);
+		console.log(`   ├─ 😊 Positive: ${overallData.positive_count}`);
+		console.log(`   ├─ 😞 Negative: ${overallData.negative_count}`);
+		console.log(`   └─ 😐 Neutral: ${overallData.neutral_count}\n`);
 
-		console.log(`📈 Average Score: ${analysis.average_score.toFixed(2)}`);
-		console.log(`🎯 Overall Sentiment: ${analysis.overall_sentiment}\n`);
+		console.log(`📈 Average Score: ${overallData.average_score.toFixed(2)}`);
+		console.log(`🎯 Overall Sentiment: ${overallData.overall_sentiment}\n`);
 
 		console.log(`💡 Recommendation:`);
-		console.log(`   ${analysis.recommendation}\n`);
+		console.log(`   ${overallData.recommendation}\n`);
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -334,30 +311,29 @@ async function main(): Promise<void> {
 
 	if (result.costs) {
 		console.log(`💰 Cost: $${result.costs.totalCost.toFixed(4)}`);
+		console.log(`🎫 Tokens: ${result.costs.totalTokens.toLocaleString()}`);
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// EXPLANATION
-	// ============================================================================
-
+function printExplanation(numReviews: number): void {
 	console.log("✨ What just happened?\n");
 
 	console.log("1. SECTION dimension (analyze_sentiment):");
-	console.log("   - Ran 5 times (once per review)");
-	console.log("   - All 5 ran in PARALLEL");
+	console.log(`   - Ran ${numReviews} times (once per review)`);
+	console.log(`   - All ${numReviews} ran in PARALLEL`);
 	console.log("   - Each got ONE review to analyze");
-	console.log("   - Results: 5 individual sentiments\n");
+	console.log(`   - Results: ${numReviews} individual sentiments\n`);
 
 	console.log("2. dag-ai automatically aggregated:");
-	console.log("   - Collected all 5 sentiment results");
+	console.log(`   - Collected all ${numReviews} sentiment results`);
 	console.log("   - Packaged them for global dimension");
 	console.log("   - Made available via ctx.dependencies\n");
 
 	console.log("3. GLOBAL dimension (overall_analysis):");
 	console.log("   - Ran 1 time (across all reviews)");
-	console.log("   - Received ALL 5 sentiment results");
+	console.log(`   - Received ALL ${numReviews} sentiment results`);
 	console.log("   - Created cross-review analysis");
 	console.log("   - Result: 1 overall analysis\n");
 
@@ -389,7 +365,7 @@ async function main(): Promise<void> {
 	console.log("  ✓ Grouping/clustering");
 	console.log("  ✓ Any cross-item synthesis\n");
 
-	console.log("⏭️  Next: npm run guide:04 (transformations)\n");
+	console.log("⏭️  Next: npm run 04 (transformations)\n");
 }
 
 // ============================================================================

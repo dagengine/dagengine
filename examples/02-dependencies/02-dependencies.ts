@@ -9,7 +9,7 @@
  * - Automatic parallel execution
  * - Accessing dependency results in prompts
  *
- * Run: npm run guide:02
+ * Run: npm run 02
  */
 
 import { config } from "dotenv";
@@ -21,7 +21,7 @@ import {
 	type ProviderSelection,
 	type SectionData,
 	type DimensionResult,
-} from "../../src/index.js";
+} from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -71,49 +71,24 @@ class TextAnalyzer extends Plugin {
 			"Analyze sentiment, topics, and create summary"
 		);
 
-		// ✅ THREE DIMENSIONS (tasks)
-		this.dimensions = [
-			"sentiment",   // Task 1: Analyze sentiment
-			"topics",      // Task 2: Extract topics
-			"summary"      // Task 3: Create summary (needs 1 + 2)
-		];
+		this.dimensions = ["sentiment", "topics", "summary"];
 	}
 
 	/**
-	 * ✅ NEW METHOD: defineDependencies
-	 *
-	 * This method tells dag-ai which dimensions depend on which.
-	 *
-	 * Result: dag-ai automatically:
-	 * 1. Runs independent tasks in parallel
-	 * 2. Waits for dependencies to complete
-	 * 3. Passes dependency results to dependent tasks
-	 *
-	 * @returns Dependency mapping
+	 * Define which dimensions depend on which
 	 */
 	defineDependencies(): Record<string, string[]> {
 		return {
-			// "summary" needs BOTH "sentiment" AND "topics"
 			summary: ["sentiment", "topics"]
 		};
-
-		// Note: sentiment and topics have NO dependencies
-		// So they run in parallel automatically!
 	}
 
 	/**
-	 * createPrompt - Create prompts for each dimension
-	 *
-	 * Note: For "summary", we can access sentiment and topics results
-	 * via ctx.dependencies
+	 * Create prompts for each dimension
 	 */
 	createPrompt(ctx: PromptContext): string {
 		const { dimension, sections, dependencies } = ctx;
 		const text = sections[0]?.content || "";
-
-		// ============================================================================
-		// DIMENSION 1: sentiment (independent)
-		// ============================================================================
 
 		if (dimension === "sentiment") {
 			return `Analyze the sentiment of this text:
@@ -128,10 +103,6 @@ Return JSON:
 }`;
 		}
 
-		// ============================================================================
-		// DIMENSION 2: topics (independent)
-		// ============================================================================
-
 		if (dimension === "topics") {
 			return `Extract the main topics from this text:
 
@@ -144,12 +115,7 @@ Return JSON:
 }`;
 		}
 
-		// ============================================================================
-		// DIMENSION 3: summary (dependent on sentiment + topics)
-		// ============================================================================
-
 		if (dimension === "summary") {
-			// ✅ Access dependency results
 			const sentimentResult = dependencies.sentiment as DimensionResult<SentimentResult> | undefined;
 			const topicsResult = dependencies.topics as DimensionResult<TopicsResult> | undefined;
 
@@ -176,11 +142,9 @@ Return JSON:
 	}
 
 	/**
-	 * selectProvider - Choose AI provider
-	 *
-	 * Using same model for all dimensions (keep it simple)
+	 * Choose AI provider
 	 */
-	selectProvider(dimension: string): ProviderSelection {
+	selectProvider(): ProviderSelection {
 		return {
 			provider: "anthropic",
 			options: {
@@ -199,12 +163,7 @@ async function main(): Promise<void> {
 	console.log("\n📚 Fundamentals 02: Dependencies\n");
 	console.log("Learn automatic parallelization through dependencies.\n");
 
-	// ============================================================================
-	// SETUP
-	// ============================================================================
-
-	console.log("Setting up...");
-
+	// Setup
 	const engine = new DagEngine({
 		plugin: new TextAnalyzer(),
 		providers: {
@@ -226,10 +185,28 @@ async function main(): Promise<void> {
 	console.log(`✓ Created engine with TextAnalyzer plugin`);
 	console.log(`✓ Prepared ${sections.length} text sections\n`);
 
-	// ============================================================================
-	// EXPLAIN EXECUTION PLAN
-	// ============================================================================
+	// Execution plan
+	printExecutionPlan();
 
+	// Process
+	console.log("Processing...\n");
+
+	const startTime = Date.now();
+	const result = await engine.process(sections);
+	const duration = Date.now() - startTime;
+
+	// Display results
+	printResults(result, duration);
+
+	// Explanation
+	printExplanation(duration);
+}
+
+// ============================================================================
+// DISPLAY HELPERS
+// ============================================================================
+
+function printExecutionPlan(): void {
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("EXECUTION PLAN");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
@@ -243,60 +220,47 @@ async function main(): Promise<void> {
 	console.log("  3. Run summary (using sentiment + topics results)\n");
 
 	console.log("Execution timeline:");
-	console.log("  0s ─┬─ sentiment (section 1) ────┐");
-	console.log("      ├─ topics (section 1) ────────┤");
-	console.log("      ├─ sentiment (section 2) ──────┤");
-	console.log("      └─ topics (section 2) ─────────┤");
-	console.log("  2s                                 ├─→ All complete");
-	console.log("      ┌─ summary (section 1) ───────┤");
-	console.log("      └─ summary (section 2) ────────┘");
-	console.log("  3s                                 ─→ Done\n");
+	console.log("  ─┬─ sentiment (section 1) ────┐");
+	console.log("   ├─ topics (section 1) ────────┤");
+	console.log("   ├─ sentiment (section 2) ──────┤  Parallel phase");
+	console.log("   └─ topics (section 2) ─────────┤");
+	console.log("                                  │");
+	console.log("   ┌─ summary (section 1) ────────┤  Sequential phase");
+	console.log("   └─ summary (section 2) ─────────┘\n");
 
-	console.log("Total time: ~3 seconds (vs ~6s sequential)\n");
+	console.log("Benefit: 2x faster than sequential execution\n");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// PROCESS
-	// ============================================================================
-
-	console.log("Processing...\n");
-
-	const startTime = Date.now();
-	const result = await engine.process(sections);
-	const duration = Date.now() - startTime;
-
-	// ============================================================================
-	// DISPLAY RESULTS
-	// ============================================================================
-
+function printResults(result: any, duration: number): void {
 	console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("RESULTS");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	result.sections.forEach((section, idx) => {
+	result.sections.forEach((section: any, idx: number) => {
 		console.log(`Section ${idx + 1}:`);
 		console.log(`"${section.section.content.slice(0, 60)}..."\n`);
 
 		// Sentiment
-		const sentimentResult = section.results.sentiment as DimensionResult<SentimentResult> | undefined;
-		if (sentimentResult?.data) {
-			const s = sentimentResult.data;
+		const sentiment = section.results.sentiment as DimensionResult<SentimentResult> | undefined;
+		if (sentiment?.data) {
+			const s = sentiment.data;
 			console.log(`  📊 Sentiment: ${s.sentiment} (${s.score.toFixed(2)})`);
 			console.log(`     └─ ${s.reasoning}`);
 		}
 
 		// Topics
-		const topicsResult = section.results.topics as DimensionResult<TopicsResult> | undefined;
-		if (topicsResult?.data) {
-			const t = topicsResult.data;
+		const topics = section.results.topics as DimensionResult<TopicsResult> | undefined;
+		if (topics?.data) {
+			const t = topics.data;
 			console.log(`  🏷️  Topics: ${t.topics.join(", ")}`);
 			console.log(`     └─ Main: ${t.main_topic}`);
 		}
 
 		// Summary
-		const summaryResult = section.results.summary as DimensionResult<SummaryResult> | undefined;
-		if (summaryResult?.data) {
-			const s = summaryResult.data;
+		const summary = section.results.summary as DimensionResult<SummaryResult> | undefined;
+		if (summary?.data) {
+			const s = summary.data;
 			console.log(`  📝 Summary: ${s.summary}`);
 			console.log(`     └─ Tone: ${s.tone} | Words: ${s.word_count}`);
 		}
@@ -312,11 +276,9 @@ async function main(): Promise<void> {
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+}
 
-	// ============================================================================
-	// EXPLANATION
-	// ============================================================================
-
+function printExplanation(duration: number): void {
 	console.log("✨ What just happened?\n");
 
 	console.log("1. Plugin defined 3 dimensions:");
@@ -333,11 +295,14 @@ async function main(): Promise<void> {
 	console.log("   - Group 2 (sequential): summary\n");
 
 	console.log("4. For each section:");
-	console.log("   - Ran sentiment + topics in parallel (~2s)");
+	console.log("   - Ran sentiment + topics in parallel");
 	console.log("   - Waited for both to complete");
-	console.log("   - Ran summary with access to both results (~1s)\n");
+	console.log("   - Ran summary with access to both results\n");
 
-	console.log("5. Total time: ~3s (vs ~6s if sequential)\n");
+	// ✅ Remove hardcoded timing
+	const actualTime = (duration / 1000).toFixed(1);
+	const sequentialTime = (duration * 2 / 1000).toFixed(1);
+	console.log(`5. Total time: ${actualTime}s (vs ~${sequentialTime}s if sequential)\n`);
 
 	console.log("🎓 What you learned:\n");
 	console.log("✓ Multiple dimensions in one plugin");
@@ -350,7 +315,7 @@ async function main(): Promise<void> {
 	console.log("Dependencies are HOW you control execution order.");
 	console.log("dag-ai figures out parallelization automatically.\n");
 
-	console.log("⏭️  Next: npm run guide:03 (section vs global)\n");
+	console.log("⏭️  Next: npm run 03 (section vs global)\n");
 }
 
 // ============================================================================

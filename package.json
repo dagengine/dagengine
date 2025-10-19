@@ -72,7 +72,8 @@
 		"validate": "npm run type-check && npm run lint && npm run format:check && npm run security:check && npm run test",
 		"prepare": "husky",
 		"prepublishOnly": "npm run validate && npm run build",
-		"commit": "cz"
+		"commit": "cz",
+		"docs:prepare": "node scripts/copy-example-docs.js"
 	},
 	"dependencies": {
 		"@dagrejs/graphlib": "^2.2.4",

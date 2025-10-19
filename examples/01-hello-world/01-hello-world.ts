@@ -20,7 +20,7 @@ import {
 	type PromptContext,
 	type ProviderSelection,
 	type SectionData,
-} from "../../src/index.js";
+} from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -54,13 +54,13 @@ class HelloWorldPlugin extends Plugin {
 			"Say hello to names"     // 3. Description
 		);
 
-		// ✅ DIMENSIONS: The "tasks" in your workflow
+		// DIMENSIONS: The "tasks" in your workflow
 		// This plugin has ONE task: greet
 		this.dimensions = ["greet"];
 	}
 
 	/**
-	 * ✅ REQUIRED METHOD 1: createPrompt
+	 * REQUIRED METHOD 1: createPrompt
 	 *
 	 * This method tells dag-ai what to ask the AI.
 	 * It's called once per section.
@@ -83,7 +83,7 @@ Return JSON with this structure:
 	}
 
 	/**
-	 * ✅ REQUIRED METHOD 2: selectProvider
+	 * REQUIRED METHOD 2: selectProvider
 	 *
 	 * This method tells dag-ai which AI provider to use.
 	 *

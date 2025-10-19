@@ -146,7 +146,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 		expect(mockProvider.getDimensionCallCount("dim3")).toBe(1);
 
 		const sectionResults = result.sections[0]?.results;
-		expect(sectionResults?.dim2?.data).toEqual({
+		expect(sectionResults?.dim2?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
@@ -1271,8 +1271,8 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		const result = await engine.process(sections);
 
 		expect(result.sections).toHaveLength(2);
-		expect(result.sections[0]?.results.process?.data).toBeDefined();
-		expect(result.sections[1]?.results.process?.data).toEqual({
+		expect(result.sections[0]?.results.process?.metadata).toBeDefined();
+		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
 			reason: "Skipped by plugin shouldSkipDimension",
 		});
