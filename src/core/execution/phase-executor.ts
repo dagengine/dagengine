@@ -48,6 +48,10 @@ export class PhaseExecutor {
 	private readonly graphManager: DependencyGraphManager;
 	private readonly costCalculator?: CostCalculator;
 	private readonly queue: PQueue;
+	private originalSectionResults?: Array<{
+		section: SectionData;
+		results: Record<string, DimensionResult>;
+	}>;
 
 	// Stateless managers
 	private readonly dependencyResolver: DependencyResolver;
@@ -266,6 +270,13 @@ export class PhaseExecutor {
 				const oldCount = state.sections.length;
 				const newCount = newSections.length;
 
+				if (oldCount !== newCount && !this.originalSectionResults) {
+					this.originalSectionResults = state.sections.map((section, idx) => ({
+						section,
+						results: state.sectionResultsMap.get(idx) ?? {},
+					}));
+				}
+
 				state.sections = newSections;
 
 				// Only reset results map if section COUNT changed
@@ -328,17 +339,30 @@ export class PhaseExecutor {
 		// Apply finalized results if hook modified them
 		const finalSectionResults = finalizedResults
 			? applyFinalizedResults(
-					sectionResults,
-					finalizedResults,
-					state.globalResults,
-				)
+				sectionResults,
+				finalizedResults,
+				state.globalResults,
+			)
 			: sectionResults;
 
-		// Calculate costs if pricing is configured
+		// ✅ FIX: Merge original and transformed section results for cost calculation
+		let costsInput = finalSectionResults;
+
+		if (this.originalSectionResults) {
+			// Combine original results (before transformation) with current results (after transformation)
+			costsInput = [
+				...this.originalSectionResults,  // Has: filter_spam, sentiment, categorize
+				...finalSectionResults            // Has: analyze_category
+			];
+		}
+
 		const costs = this.costCalculator?.calculate(
-			finalSectionResults,
+			costsInput,
 			state.globalResults,
 		);
+
+		// Clear stored results after use
+		this.originalSectionResults = undefined;
 
 		return {
 			sections: finalSectionResults,

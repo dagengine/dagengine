@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "00-quickstart": "tsx 01-quickstart/index.ts",
+    "00-quickstart": "tsx 00-quickstart/index.ts",
     "01-hello-world": "tsx legacy/01-hello-world/index.ts",
     "2-blog-analyzer_dependencies": "tsx legacy/02-blog-analyzer_dependencies/index.ts",
     "3-content-splitter_transformations": "tsx legacy/03-content-splitter_transformations/index.ts",
