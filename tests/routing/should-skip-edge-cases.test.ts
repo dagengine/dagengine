@@ -25,7 +25,7 @@ class MockProvider {
 	}
 }
 
-describe("shouldSkipDimension - Edge Cases", () => {
+describe("shouldSkipSectionDimension - Edge Cases", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -50,7 +50,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(): boolean {
+			shouldSkipSectionDimension(): boolean {
 				return true; // Always skip
 			}
 		}
@@ -70,11 +70,11 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		result.sections.forEach((s) => {
 			expect(s.results.dim1?.metadata).toEqual({
 				skipped: true,
-				reason: "Skipped by plugin shouldSkipDimension",
+				reason: "Skipped by plugin shouldSkipSectionDimension",
 			});
 			expect(s.results.dim2?.metadata).toEqual({
 				skipped: true,
-				reason: "Skipped by plugin shouldSkipDimension",
+				reason: "Skipped by plugin shouldSkipSectionDimension",
 			});
 		});
 	});
@@ -94,7 +94,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip odd-indexed sections
 				return (section.metadata.index as number) % 2 === 1;
@@ -120,14 +120,14 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		);
 		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 		expect(result.sections[2]?.results.process?.metadata).not.toHaveProperty(
 			"skipped",
 		);
 		expect(result.sections[3]?.results.process?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 	});
 
@@ -152,7 +152,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				if (dimension === "extract") {
 					return section.metadata.skipExtract === true;
@@ -175,7 +175,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 		// extract should be skipped/
 		expect(result.sections[0]?.results.extract?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 
 		// analyze should still run (with dependency error or continue)
@@ -197,7 +197,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip if content is empty or whitespace only
 				return section.content.trim().length === 0;
@@ -218,11 +218,11 @@ describe("shouldSkipDimension - Edge Cases", () => {
 
 		expect(result.sections[0]?.results.process?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 		expect(result.sections[2]?.results.process?.metadata).not.toHaveProperty(
 			"skipped",
@@ -244,7 +244,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip sections divisible by 5
 				return (section.metadata.index as number) % 5 === 0;
@@ -285,7 +285,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip if contains emoji or special unicode
 				return /[\u{1F600}-\u{1F64F}]/u.test(section.content);
@@ -324,7 +324,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip based on nested metadata
 				const config = section.metadata.config as any;
@@ -369,7 +369,7 @@ describe("shouldSkipDimension - Edge Cases", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				// Skip every third call (simulating stateful logic)
 				skipCount++;

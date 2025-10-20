@@ -579,9 +579,9 @@ describe("Transformation Hooks", () => {
 
 			expect(capturedContext).toBeDefined();
 			expect(capturedContext!.results).toBeDefined();
-			expect(capturedContext!.sections).toBeDefined();
+			expect(capturedContext!.originalSections).toBeDefined();
 			expect(capturedContext!.globalResults).toBeDefined();
-			expect(capturedContext!.transformedSections).toBeDefined();
+			expect(capturedContext!.currentSections).toBeDefined();
 			expect(capturedContext!.processId).toBeDefined();
 			expect(capturedContext!.duration).toBeGreaterThanOrEqual(0);
 		});

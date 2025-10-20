@@ -109,10 +109,10 @@ Return ONLY valid JSON:
 
 		// Only include reviews that have BOTH sentiment AND category (skip spam)
 		const reviews: ReviewWithAnalysis[] = sentiments
-			.map((s, idx) => {
-				const sentiment = s?.data?.sentiment;
-				const category = categories[idx]?.data?.category;
-				const content = sections[idx]?.content;
+			.map((sentimentResult, reviewIndex) => {
+				const sentiment = sentimentResult?.data?.sentiment;
+				const category = categories[reviewIndex]?.data?.category;
+				const content = sections[reviewIndex]?.content;
 
 				// Skip if missing sentiment or category (these are spam reviews)
 				if (!sentiment || !category || !content) {
@@ -123,9 +123,9 @@ Return ONLY valid JSON:
 					sentiment,
 					category,
 					content: this.sanitize(content, 200),
-				} as ReviewWithAnalysis; // ✅ Type assertion instead of type guard
+				} as ReviewWithAnalysis;
 			})
-			.filter((review): review is ReviewWithAnalysis => review !== null); // ✅ Simple null check
+			.filter((review): review is ReviewWithAnalysis => review !== null);
 
 		return `Group these reviews by category and calculate stats:
 
@@ -180,7 +180,7 @@ Return ONLY valid JSON:
 	 */
 	static executiveSummary(dependencies: GlobalSummaryDependencies): string {
 		const analyses = dependencies.analyze_category?.data?.sections || [];
-		const analysisData = analyses.map((a) => a?.data).filter(Boolean);
+		const analysisData = analyses.map((analysis) => analysis?.data).filter(Boolean);
 
 		return `Create executive summary from category analyses:
 

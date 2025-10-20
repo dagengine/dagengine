@@ -58,7 +58,7 @@ Execution timeline:
    ┌─ summary (section 1) ──────┤  Sequential phase
    └─ summary (section 2) ──────┘
 
-Benefit: ~2x faster than sequential execution
+Benefit: Independent tasks run in parallel
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESULTS
@@ -86,12 +86,13 @@ Section 2:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚡ Completed in 4.92s
+💰 Cost: $0.0032
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 **What happened?**
 - 2 sections processed with 3 dimensions each
-- sentiment + topics ran **in parallel** (~2x faster)
+- sentiment + topics ran **in parallel**
 - summary **waited** for both, then used their results
 - Total: **6 API calls** (4 parallel + 2 sequential)
 
@@ -168,10 +169,10 @@ createPrompt(ctx: PromptContext): string {
 ```typescript
 const result = await engine.process(sections);
 
-result.sections.forEach(section => {
-  const sentiment = section.results.sentiment?.data;
-  const topics = section.results.topics?.data;
-  const summary = section.results.summary?.data;
+result.sections.forEach(sectionResult => {
+  const sentiment = sectionResult.results.sentiment?.data;
+  const topics = sectionResult.results.topics?.data;
+  const summary = sectionResult.results.summary?.data;
   
   console.log('Sentiment:', sentiment.sentiment);
   console.log('Topics:', topics.topics.join(', '));
@@ -233,7 +234,7 @@ Sequential Phase:
   Section 1 → summary ───┐  } 2 calls (waits for parallel phase)
   Section 2 → summary ───┘
 
-Result: 3 seconds (vs 6 seconds sequential)
+Result: Independent tasks execute in parallel
 ```
 
 ---
@@ -243,14 +244,14 @@ Result: 3 seconds (vs 6 seconds sequential)
 **Dependent dimensions receive results via `ctx.dependencies`:**
 ```typescript
 createPrompt(ctx) {
-  if (ctx.dimension === 'summary') {
-    // Access completed dependency results
-    const sentimentData = ctx.dependencies.sentiment?.data;
-    const topicsData = ctx.dependencies.topics?.data;
-    
-    // Use them in your prompt
-    return `Summarize with sentiment: ${sentimentData.sentiment}...`;
-  }
+	if (ctx.dimension === 'summary') {
+		// Access completed dependency results
+		const sentimentData = ctx.dependencies.sentiment?.data;
+		const topicsData = ctx.dependencies.topics?.data;
+
+		// Use them in your prompt
+		return `Summarize with sentiment: ${sentimentData.sentiment}...`;
+	}
 }
 ```
 
@@ -261,9 +262,9 @@ createPrompt(ctx) {
 ### Pattern 1: Parallel (This Example)
 ```typescript
 defineDependencies() {
-  return {
-    summary: ['sentiment', 'topics']
-  };
+	return {
+		summary: ['sentiment', 'topics']
+	};
 }
 ```
 
@@ -274,10 +275,10 @@ Execution: `sentiment, topics` (parallel) → `summary`
 ### Pattern 2: Sequential Chain
 ```typescript
 defineDependencies() {
-  return {
-    step2: ['step1'],
-    step3: ['step2']
-  };
+	return {
+		step2: ['step1'],
+		step3: ['step2']
+	};
 }
 ```
 
@@ -288,9 +289,9 @@ Execution: `step1` → `step2` → `step3` (sequential)
 ### Pattern 3: Multiple Dependencies
 ```typescript
 defineDependencies() {
-  return {
-    final: ['task1', 'task2', 'task3']
-  };
+	return {
+		final: ['task1', 'task2', 'task3']
+	};
 }
 ```
 
@@ -305,9 +306,9 @@ Execution: `task1, task2, task3` (all parallel) → `final`
 this.dimensions = ['sentiment', 'topics', 'language', 'summary'];
 
 defineDependencies() {
-  return {
-    summary: ['sentiment', 'topics', 'language']  // Now waits for 3
-  };
+	return {
+		summary: ['sentiment', 'topics', 'language']  // Now waits for 3
+	};
 }
 ```
 
@@ -318,10 +319,10 @@ defineDependencies() {
 Make sequential instead of parallel:
 ```typescript
 defineDependencies() {
-  return {
-    topics: ['sentiment'],    // topics waits for sentiment
-    summary: ['topics']        // summary waits for topics
-  };
+	return {
+		topics: ['sentiment'],    // topics waits for sentiment
+		summary: ['topics']        // summary waits for topics
+	};
 }
 ```
 
@@ -367,7 +368,7 @@ const sentiment = ctx.dependencies.sentiment?.data;  // undefined
 ```typescript
 this.dimensions = ['sentiment'];           // ← Name here
 defineDependencies() {
-  return { summary: ['sentiment'] };       // ← Must match exactly
+	return { summary: ['sentiment'] };       // ← Must match exactly
 }
 ```
 
@@ -379,17 +380,17 @@ defineDependencies() {
 ```typescript
 // ❌ Sequential (dependency chain)
 defineDependencies() {
-  return {
-    topics: ['sentiment'],
-    summary: ['topics']
-  };
+	return {
+		topics: ['sentiment'],
+		summary: ['topics']
+	};
 }
 
 // ✅ Parallel
 defineDependencies() {
-  return {
-    summary: ['sentiment', 'topics']  // Both independent
-  };
+	return {
+		summary: ['sentiment', 'topics']  // Both independent
+	};
 }
 ```
 

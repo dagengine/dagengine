@@ -122,9 +122,9 @@ Return JSON:
 				return "Error: Expected aggregated sentiment data";
 			}
 
-			const allSentiments = sentimentData.data.sections.map((s) => ({
-				sentiment: s.data?.sentiment || "neutral",
-				score: s.data?.score || 0
+			const allSentiments = sentimentData.data.sections.map((sectionResult) => ({
+				sentiment: sectionResult.data?.sentiment || "neutral",
+				score: sectionResult.data?.score || 0
 			}));
 
 			return `Analyze ${allSentiments.length} reviews:
@@ -210,9 +210,6 @@ async function main(): Promise<void> {
 	// Display results
 	printSectionResults(result);
 	printGlobalResults(result, duration);
-
-	// Explanation
-	printExplanation(sections.length);
 }
 
 // ============================================================================
@@ -231,9 +228,9 @@ function printConcept(numReviews: number): void {
 	console.log("   - Fast, distributed\n");
 
 	console.log("   Example: analyze_sentiment");
-	for (let i = 1; i <= numReviews; i++) {
-		const prefix = i === numReviews ? "└─" : "├─";
-		console.log(`   ${prefix} Review ${i} → sentiment (parallel)`);
+	for (let reviewIndex = 1; reviewIndex <= numReviews; reviewIndex++) {
+		const prefix = reviewIndex === numReviews ? "└─" : "├─";
+		console.log(`   ${prefix} Review ${reviewIndex} → sentiment (parallel)`);
 	}
 	console.log("");
 
@@ -270,16 +267,17 @@ function printSectionResults(result: ProcessResult): void {
 	console.log("SECTION RESULTS (per review)");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	result.sections.forEach((section: SectionResult, idx: number) => {
-		const review = section.section.content;
-		const sentiment = section.results.analyze_sentiment as DimensionResult<SentimentResult> | undefined;
+	result.sections.forEach((sectionResult: SectionResult, reviewIndex: number) => {
+		const review = sectionResult.section.content;
+		const sentiment = sectionResult.results.analyze_sentiment as DimensionResult<SentimentResult> | undefined;
 
 		if (sentiment?.data) {
-			const s = sentiment.data;
-			const emoji = s.sentiment === "positive" ? "😊" : s.sentiment === "negative" ? "😞" : "😐";
+			const sentimentData = sentiment.data;
+			const emoji = sentimentData.sentiment === "positive" ? "😊" :
+				sentimentData.sentiment === "negative" ? "😞" : "😐";
 
-			console.log(`${idx + 1}. "${review}"`);
-			console.log(`   ${emoji} Sentiment: ${s.sentiment} (${s.score.toFixed(2)})\n`);
+			console.log(`${reviewIndex + 1}. "${review}"`);
+			console.log(`   ${emoji} Sentiment: ${sentimentData.sentiment} (${sentimentData.score.toFixed(2)})\n`);
 		}
 	});
 }
@@ -315,57 +313,6 @@ function printGlobalResults(result: ProcessResult, duration: number): void {
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-}
-
-function printExplanation(numReviews: number): void {
-	console.log("✨ What just happened?\n");
-
-	console.log("1. SECTION dimension (analyze_sentiment):");
-	console.log(`   - Ran ${numReviews} times (once per review)`);
-	console.log(`   - All ${numReviews} ran in PARALLEL`);
-	console.log("   - Each got ONE review to analyze");
-	console.log(`   - Results: ${numReviews} individual sentiments\n`);
-
-	console.log("2. dag-ai automatically aggregated:");
-	console.log(`   - Collected all ${numReviews} sentiment results`);
-	console.log("   - Packaged them for global dimension");
-	console.log("   - Made available via ctx.dependencies\n");
-
-	console.log("3. GLOBAL dimension (overall_analysis):");
-	console.log("   - Ran 1 time (across all reviews)");
-	console.log(`   - Received ALL ${numReviews} sentiment results`);
-	console.log("   - Created cross-review analysis");
-	console.log("   - Result: 1 overall analysis\n");
-
-	console.log("🎓 What you learned:\n");
-	console.log("✓ Section dimensions run per-item (parallel)");
-	console.log("✓ Global dimensions run across-all-items (sequential)");
-	console.log("✓ dag-ai automatically aggregates section results");
-	console.log("✓ Global dimensions receive aggregated data");
-	console.log("✓ Use section for independent analysis");
-	console.log("✓ Use global for cross-item synthesis\n");
-
-	console.log("💡 Key insight:\n");
-	console.log("This is THE killer feature.");
-	console.log("Other frameworks treat everything the same.");
-	console.log("dag-ai has TWO scopes = elegant workflows.\n");
-
-	console.log("📊 When to use each:\n");
-	console.log("SECTION scope:");
-	console.log("  ✓ Sentiment analysis");
-	console.log("  ✓ Topic extraction");
-	console.log("  ✓ Entity recognition");
-	console.log("  ✓ Classification");
-	console.log("  ✓ Any independent per-item task\n");
-
-	console.log("GLOBAL scope:");
-	console.log("  ✓ Summary of all results");
-	console.log("  ✓ Comparison across items");
-	console.log("  ✓ Aggregation (counts, averages)");
-	console.log("  ✓ Grouping/clustering");
-	console.log("  ✓ Any cross-item synthesis\n");
-
-	console.log("⏭️  Next: npm run 04 (transformations)\n");
 }
 
 // ============================================================================

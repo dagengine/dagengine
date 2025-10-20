@@ -38,7 +38,7 @@ export const ERROR_MESSAGES = {
  */
 export const SKIP_REASONS = {
 	PLUGIN_SKIP_GLOBAL: "Skipped by plugin shouldSkipGlobalDimension",
-	PLUGIN_SKIP_SECTION: "Skipped by plugin shouldSkipDimension",
+	PLUGIN_SKIP_SECTION: "Skipped by plugin shouldSkipSectionDimension",
 } as const;
 
 /**

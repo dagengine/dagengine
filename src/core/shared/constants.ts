@@ -125,8 +125,8 @@ export const SKIP_REASONS = {
 	/** Skipped by plugin's shouldSkipGlobalDimension hook */
 	PLUGIN_SKIP_GLOBAL: "Skipped by plugin shouldSkipGlobalDimension",
 
-	/** Skipped by plugin's shouldSkipDimension hook */
-	PLUGIN_SKIP_SECTION: "Skipped by plugin shouldSkipDimension",
+	/** Skipped by plugin's shouldSkipSectionDimension hook */
+	PLUGIN_SKIP_SECTION: "Skipped by plugin shouldSkipSectionDimension",
 
 	/** Skipped due to cached result */
 	CACHED_RESULT: "Skipped due to cached result",

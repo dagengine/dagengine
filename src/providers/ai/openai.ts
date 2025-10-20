@@ -101,7 +101,7 @@ export class OpenAIProvider extends BaseProvider {
 		request: ProviderRequest,
 	): Promise<ProviderResponse> {
 		const model = (request.options?.model as string) || "gpt-4o";
-		const maxTokens = (request.options?.maxTokens as number) || 4096;
+		const max_tokens = (request.options?.max_tokens as number) || 4096;
 		const temperature = (request.options?.temperature as number) ?? 0.1;
 
 		const response = await fetch(
@@ -114,7 +114,7 @@ export class OpenAIProvider extends BaseProvider {
 				},
 				body: JSON.stringify({
 					model,
-					max_tokens: maxTokens,
+					max_tokens: max_tokens,
 					temperature,
 					messages: [{ role: "user", content: request.input }],
 				}),

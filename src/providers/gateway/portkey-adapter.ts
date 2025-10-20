@@ -65,7 +65,7 @@ export class PortkeyAdapter {
 				"claude-sonnet-4-5-20250929",
 			),
 			messages,
-			max_tokens: this.getMaxTokens(request.options?.maxTokens, 4096),
+			max_tokens: this.getMaxTokens(request.options?.max_tokens, 4096),
 			temperature: this.getTemperature(request.options?.temperature),
 			top_p: this.getTopP(request.options?.topP),
 		};
@@ -87,7 +87,7 @@ export class PortkeyAdapter {
 		return {
 			model: this.getModelOption(request.options?.model, "gpt-4o"),
 			messages,
-			max_tokens: this.getMaxTokens(request.options?.maxTokens, 4096),
+			max_tokens: this.getMaxTokens(request.options?.max_tokens, 4096),
 			temperature: this.getTemperature(request.options?.temperature),
 			top_p: this.getTopP(request.options?.topP),
 		};
@@ -109,7 +109,7 @@ export class PortkeyAdapter {
 		return {
 			model: this.getModelOption(request.options?.model, "gemini-1.5-pro"),
 			messages,
-			max_tokens: this.getMaxTokens(request.options?.maxTokens, 4096),
+			max_tokens: this.getMaxTokens(request.options?.max_tokens, 4096),
 			temperature: this.getTemperature(request.options?.temperature),
 			top_p: this.getTopP(request.options?.topP),
 		};

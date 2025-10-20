@@ -117,14 +117,14 @@ GLOBAL RESULTS (across all reviews)
 ### Step 1: Define Section and Global Dimensions
 ```typescript
 class ReviewAnalyzer extends Plugin {
-  constructor() {
-    super('review-analyzer', 'Review Analyzer', 'Dual scope demo');
-    
-    this.dimensions = [
-      'analyze_sentiment',                           // Section (default)
-      { name: 'overall_analysis', scope: 'global' }  // Global (explicit)
-    ];
-  }
+	constructor() {
+		super('review-analyzer', 'Review Analyzer', 'Dual scope demo');
+
+		this.dimensions = [
+			'analyze_sentiment',                           // Section (default)
+			{ name: 'overall_analysis', scope: 'global' }  // Global (explicit)
+		];
+	}
 }
 ```
 
@@ -137,9 +137,9 @@ class ReviewAnalyzer extends Plugin {
 ### Step 2: Define Dependencies
 ```typescript
 defineDependencies() {
-  return {
-    overall_analysis: ['analyze_sentiment']
-  };
+	return {
+		overall_analysis: ['analyze_sentiment']
+	};
 }
 ```
 
@@ -150,25 +150,25 @@ Global dimension waits for **all** section results.
 ### Step 3: Create Prompts for Each Scope
 ```typescript
 createPrompt(ctx: PromptContext): string {
-  const { dimension, sections, dependencies } = ctx;
-  
-  if (dimension === 'analyze_sentiment') {
-    // SECTION: ctx.sections contains ONE review
-    const review = sections[0]?.content || '';
-    
-    return `Analyze sentiment: "${review}"
+	const { dimension, sections, dependencies } = ctx;
+
+	if (dimension === 'analyze_sentiment') {
+		// SECTION: ctx.sections contains ONE review
+		const review = sections[0]?.content || '';
+
+		return `Analyze sentiment: "${review}"
     Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
-  }
-  
-  if (dimension === 'overall_analysis') {
-    // GLOBAL: ctx.dependencies contains ALL sentiment results
-    const sentimentData = dependencies.analyze_sentiment?.data;
-    const allSentiments = sentimentData.sections.map(s => ({
-      sentiment: s.data?.sentiment,
-      score: s.data?.score
-    }));
-    
-    return `Analyze ${allSentiments.length} reviews:
+	}
+
+	if (dimension === 'overall_analysis') {
+		// GLOBAL: ctx.dependencies contains ALL sentiment results
+		const sentimentData = dependencies.analyze_sentiment?.data;
+		const allSentiments = sentimentData.sections.map(sectionResult => ({
+			sentiment: sectionResult.data?.sentiment,
+			score: sectionResult.data?.score
+		}));
+
+		return `Analyze ${allSentiments.length} reviews:
     ${JSON.stringify(allSentiments)}
     
     Return JSON: {
@@ -179,7 +179,7 @@ createPrompt(ctx: PromptContext): string {
       "overall_sentiment": "positive|negative|neutral",
       "recommendation": "business recommendation"
     }`;
-  }
+	}
 }
 ```
 
@@ -194,8 +194,8 @@ createPrompt(ctx: PromptContext): string {
 const result = await engine.process(sections);
 
 // Section results (per-item)
-result.sections.forEach(section => {
-  const sentiment = section.results.analyze_sentiment?.data;
+result.sections.forEach(sectionResult => {
+  const sentiment = sectionResult.results.analyze_sentiment?.data;
   console.log('Review sentiment:', sentiment.sentiment);
 });
 
@@ -224,12 +224,6 @@ this.dimensions = ['analyze_sentiment'];  // Section by default
 - Fast and scalable
 - Per-item results
 
-**Example execution:**
-```
-5 reviews → 5 parallel API calls → 5 results
-Time: ~2 seconds
-```
-
 ---
 
 ### 2. Global Dimensions (Explicit)
@@ -246,12 +240,6 @@ this.dimensions = [
 - Cross-item synthesis
 - Aggregation and comparison
 - Single result for all items
-
-**Example execution:**
-```
-5 results → 1 API call → 1 overall analysis
-Time: ~1 second
-```
 
 ---
 
@@ -327,19 +315,18 @@ Output: 5 section results + 1 global result
 ---
 
 ## Execution Pattern
+
+**Section dimensions run in parallel, global dimensions run sequentially:**
 ```
 Section (parallel) → Aggregation (automatic) → Global (sequential)
-
-Example with 100 reviews:
-  Section: 100 parallel calls (~2s with concurrency)
-  Global: 1 sequential call (~1s)
-  Total: ~3 seconds
-
-vs Sequential approach:
-  100 calls + 1 call = 101 sequential calls (~101s)
-  
-Speedup: 33x faster!
 ```
+
+With this example's 5 reviews:
+- Section calls run in parallel (5 simultaneous calls)
+- Global call runs after all section calls complete (1 call)
+- Total: 6 API calls
+
+**Benefit:** Parallel execution of independent work, with automatic aggregation for synthesis.
 
 ---
 
@@ -469,7 +456,7 @@ Alternate between scopes for complex workflows!
 
 - Add a `categorize` section dimension to group reviews
 - Add a `comparison` global dimension to compare categories
-- Try with 50+ reviews to see parallelization at scale
+- Try with more reviews to see parallelization
 
 ---
 
@@ -486,7 +473,7 @@ const overall = result.globalResults.overall_analysis?.data;  // undefined
 ```typescript
 // Make sure name matches and scope is 'global'
 this.dimensions = [
-  { name: 'overall_analysis', scope: 'global' }  // ✓
+	{ name: 'overall_analysis', scope: 'global' }  // ✓
 ];
 ```
 
@@ -504,8 +491,8 @@ const sentimentData = ctx.dependencies.analyze_sentiment?.data;
 **Fix:** Make sure dependent dimension is section-scoped:
 ```typescript
 this.dimensions = [
-  'analyze_sentiment',  // Section (default) ✓
-  { name: 'overall', scope: 'global' }
+	'analyze_sentiment',  // Section (default) ✓
+	{ name: 'overall', scope: 'global' }
 ];
 ```
 
@@ -518,7 +505,7 @@ this.dimensions = [
 // ✓ Correct
 const sentimentData = ctx.dependencies.analyze_sentiment?.data;
 if (sentimentData?.aggregated) {
-  const allResults = sentimentData.sections;  // Array of results
+	const allResults = sentimentData.sections;  // Array of results
 }
 
 // ✗ Wrong

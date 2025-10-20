@@ -298,7 +298,7 @@ describe("shouldSkipGlobalDimension - Basic Functionality", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				return section.content.length < 10;
 			}

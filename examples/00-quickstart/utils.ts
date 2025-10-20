@@ -39,7 +39,7 @@ export function displayResults(result: ProcessResult, duration: number): void {
 
 	// Count spam filtered
 	const totalAnalyzed = result.transformedSections
-		.map((s) => (s.metadata?.count as number) || 0)
+		.map((section) => (section.metadata?.count as number) || 0)
 		.reduce((sum, count) => sum + count, 0);
 	const spamCount = SAMPLE_REVIEWS.length - totalAnalyzed;
 
@@ -48,7 +48,7 @@ export function displayResults(result: ProcessResult, duration: number): void {
 
 	// Show category analyses
 	const categoryAnalyses = result.sections
-		.map((s) => s.results.analyze_category?.data)
+		.map((section) => section.results.analyze_category?.data)
 		.filter((data): data is CategoryAnalysis =>
 			data !== undefined ? isCategoryAnalysis(data) : false,
 		);
@@ -71,8 +71,8 @@ export function displayResults(result: ProcessResult, duration: number): void {
 		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 		console.log(summaryData.summary);
 		console.log("\n🎯 Top Priorities:");
-		summaryData.top_priorities.forEach((p, i) => {
-			console.log(`   ${i + 1}. ${p}`);
+		summaryData.top_priorities.forEach((priority, priorityIndex) => {
+			console.log(`   ${priorityIndex + 1}. ${priority}`);
 		});
 	}
 
@@ -85,16 +85,16 @@ export function displayResults(result: ProcessResult, duration: number): void {
 		// Calculate metrics
 		const { totalCost, totalTokens, byDimension } = result.costs;
 		const totalCalls = Object.values(byDimension).length > 0
-			? Object.entries(byDimension).reduce((sum, [dim]) => {
+			? Object.entries(byDimension).reduce((sum, [dimensionName]) => {
 				// Count calls per dimension
-				if (dim === "filter_spam") return sum + SAMPLE_REVIEWS.length;
-				if (dim === "sentiment" || dim === "categorize") return sum + totalAnalyzed;
-				if (dim === "analyze_category") return sum + categoryAnalyses.length;
+				if (dimensionName === "filter_spam") return sum + SAMPLE_REVIEWS.length;
+				if (dimensionName === "sentiment" || dimensionName === "categorize") return sum + totalAnalyzed;
+				if (dimensionName === "analyze_category") return sum + categoryAnalyses.length;
 				return sum + 1; // Global dimensions
 			}, 0)
 			: 0;
 
-		// Calculate skipped calls
+		// Calculate skipped calls from actual data
 		const skippedSentimentCalls = spamCount;
 		const skippedCategorizeCalls = spamCount;
 		const totalSkippedCalls = skippedSentimentCalls + skippedCategorizeCalls;
@@ -111,24 +111,24 @@ export function displayResults(result: ProcessResult, duration: number): void {
 			"executive_summary"
 		];
 
-		dimensionOrder.forEach(dim => {
-			const dimCost = byDimension[dim];
-			if (!dimCost) return;
+		dimensionOrder.forEach(dimensionName => {
+			const dimensionCost = byDimension[dimensionName];
+			if (!dimensionCost) return;
 
-			const tokens = dimCost.tokens;
-			const model = dimCost.model.includes("haiku") ? "Haiku" : "Sonnet";
+			const tokens = dimensionCost.tokens;
+			const model = dimensionCost.model.includes("haiku") ? "Haiku" : "Sonnet";
 
 			// Calculate calls for this dimension
 			let calls = 1;
-			if (dim === "filter_spam") calls = SAMPLE_REVIEWS.length;
-			else if (dim === "sentiment" || dim === "categorize") calls = totalAnalyzed;
-			else if (dim === "analyze_category") calls = categoryAnalyses.length;
+			if (dimensionName === "filter_spam") calls = SAMPLE_REVIEWS.length;
+			else if (dimensionName === "sentiment" || dimensionName === "categorize") calls = totalAnalyzed;
+			else if (dimensionName === "analyze_category") calls = categoryAnalyses.length;
 
-			console.log(`   ${dim}:`);
+			console.log(`   ${dimensionName}:`);
 			console.log(`   ├─ Calls:  ${calls}`);
 			console.log(`   ├─ Model:  ${model}`);
 			console.log(`   ├─ Tokens: ${formatNumber(tokens.totalTokens)} (${formatNumber(tokens.inputTokens)} in, ${formatNumber(tokens.outputTokens)} out)`);
-			console.log(`   └─ Cost:   $${dimCost.cost.toFixed(4)}\n`);
+			console.log(`   └─ Cost:   $${dimensionCost.cost.toFixed(4)}\n`);
 		});
 
 		// Show summary metrics
@@ -142,7 +142,7 @@ export function displayResults(result: ProcessResult, duration: number): void {
 		console.log(`📞 API Calls Made:  ${totalCalls}`);
 		console.log(`⏭️  API Calls Saved: ${totalSkippedCalls} (spam filtered)`);
 
-		// Calculate savings percentage
+		// Calculate savings percentage from actual data
 		const totalPossibleCalls = totalCalls + totalSkippedCalls;
 		const savingsPercent = totalSkippedCalls > 0
 			? ((totalSkippedCalls / totalPossibleCalls) * 100).toFixed(0)

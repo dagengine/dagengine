@@ -24,6 +24,7 @@ import type {
 	ProviderRequest,
 	ProviderResponse,
 	SkipWithResult,
+	BeforeProcessStartContext
 } from "./types";
 
 export interface PluginConfig {
@@ -67,8 +68,6 @@ export abstract class Plugin {
 		this.dimensions = [];
 	}
 
-	// ===== HELPER METHODS
-
 	getDimensionNames(): string[] {
 		return this.dimensions.map((d) => (typeof d === "string" ? d : d.name));
 	}
@@ -88,8 +87,6 @@ export abstract class Plugin {
 	isGlobalDimension(name: string): boolean {
 		return this.getDimensionConfig(name).scope === "global";
 	}
-
-	// ===== TIER 1: ESSENTIAL (3 required - kept as abstract for legacy) =====
 
 	/**
 	 * Build prompt for each dimension (REQUIRED)
@@ -111,8 +108,6 @@ export abstract class Plugin {
 		section?: SectionData,
 	): ProviderSelection | Promise<ProviderSelection>;
 
-	// ===== TIER 2: CONTROL FLOW (3 optional) =====
-
 	/**
 	 * Define dimension dependencies (optional)
 	 * Called once at process start
@@ -131,7 +126,7 @@ export abstract class Plugin {
 	 * @param context - Section dimension context with all data
 	 * @returns true to skip, false to execute, or {skip: true, result: cached}
 	 */
-	shouldSkipDimension?(
+	shouldSkipSectionDimension?(
 		context: SectionDimensionContext,
 	): boolean | SkipWithResult | Promise<boolean | SkipWithResult>;
 
@@ -145,8 +140,6 @@ export abstract class Plugin {
 	shouldSkipGlobalDimension?(
 		context: DimensionContext,
 	): boolean | SkipWithResult | Promise<boolean | SkipWithResult>;
-
-	// ===== TIER 3: DATA TRANSFORMATION (3 optional) =====
 
 	/**
 	 * Transform dependencies before use (optional)
@@ -181,8 +174,6 @@ export abstract class Plugin {
 		context: FinalizeContext,
 	): Record<string, DimensionResult> | Promise<Record<string, DimensionResult>>;
 
-	// ===== TIER 4: LIFECYCLE (7 optional) =====
-
 	/**
 	 * Called before process starts (optional)
 	 * Setup phase for entire workflow
@@ -191,7 +182,7 @@ export abstract class Plugin {
 	 * @returns Modified sections and/or metadata
 	 */
 	beforeProcessStart?(
-		context: ProcessContext,
+		context: BeforeProcessStartContext,
 	): ProcessStartResult | Promise<ProcessStartResult>;
 
 	/**
@@ -253,8 +244,6 @@ export abstract class Plugin {
 	afterProviderExecute?(
 		context: ProviderResultContext,
 	): ProviderResponse | Promise<ProviderResponse>;
-
-	// ===== TIER 5: ERROR RECOVERY (3 optional) =====
 
 	/**
 	 * Handle retry attempts (optional)

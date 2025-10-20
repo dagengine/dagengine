@@ -1,5 +1,3 @@
-// src/types.ts
-
 export type { PromptContext, ProviderSelection } from "./plugin.js";
 import type { ProgressDisplayOptions } from "./core/execution/progress-display.js";
 
@@ -85,24 +83,15 @@ export interface CostSummary {
  * Progress update - all progress information in one object
  */
 export interface ProgressUpdate {
-	// Overall progress
 	completed: number;
 	total: number;
 	percent: number;
-
-	// Money
 	cost: number;
 	estimatedCost: number;
-
-	// Time
 	elapsedSeconds: number;
 	etaSeconds: number;
-
-	// What's happening right now
 	currentDimension: string;
 	currentSection: number;
-
-	// Per-dimension breakdown
 	dimensions: {
 		[dimension: string]: {
 			completed: number;
@@ -128,6 +117,11 @@ export interface BaseContext {
 // ============================================================================
 // PROCESS-LEVEL CONTEXTS
 // ============================================================================
+
+export interface BeforeProcessStartContext extends BaseContext {
+	sections: SectionData[];
+	options: ProcessOptions;
+}
 
 export interface ProcessContext extends BaseContext {
 	sections: SectionData[];
@@ -195,7 +189,21 @@ export type AfterProviderExecuteContext = ProviderResultContext;
 // RESULT CONTEXTS
 // ============================================================================
 
-export type DimensionResultContext = ProviderResultContext;
+export interface DimensionResultContext extends BaseContext {
+	dimension: string;
+	isGlobal: boolean;
+	sections: SectionData[];
+	dependencies: DimensionDependencies;
+	globalResults: Record<string, DimensionResult>;
+	section?: SectionData;
+	sectionIndex?: number;
+	result: DimensionResult;
+	duration: number;
+	provider: string;
+	model?: string;
+	tokensUsed?: TokenUsage;
+	cost?: number;
+}
 
 export interface TransformSectionsContext extends ProviderResultContext {
 	currentSections: SectionData[];
@@ -203,9 +211,9 @@ export interface TransformSectionsContext extends ProviderResultContext {
 
 export interface FinalizeContext extends BaseContext {
 	results: Record<string, DimensionResult>;
-	sections: SectionData[];
+	originalSections: SectionData[];
+	currentSections: SectionData[];
 	globalResults: Record<string, DimensionResult>;
-	transformedSections: SectionData[];
 	duration: number;
 }
 
@@ -276,13 +284,9 @@ export interface ProcessCallbacks {
 }
 
 export interface ProcessOptions extends CoreProcessOptions, ProcessCallbacks {
-	// Progress tracking
 	onProgress?: (progress: ProgressUpdate) => void;
 	updateEvery?: number;
-
-	// Can override engine-level progress display per-process
 	progressDisplay?: ProgressDisplayOptions | boolean;
-
 	[key: string]: unknown;
 }
 
@@ -324,12 +328,6 @@ export interface ProviderResponse<T = unknown> {
 // ============================================================================
 
 export type { ProgressDisplayOptions };
-
-/**
- * Context for beforeProcessStart hook
- * @deprecated Use ProcessContext instead
- */
-export type BeforeProcessStartContext = ProcessContext;
 
 /**
  * Context for afterProcessComplete hook

@@ -7,9 +7,6 @@
  * - Dynamic section transformation (grouping)
  * - Multi-model orchestration (Haiku + Sonnet)
  * - Full cost tracking with token usage
- *
- * Time: ~25 seconds for 20 reviews
- * Cost: ~$0.03 (with spam filtering)
  */
 
 import { config } from "dotenv";
@@ -97,7 +94,7 @@ class ReviewAnalyzer extends Plugin {
 	 * Saves API costs by skipping sentiment/categorize for spam.
 	 * This demonstrates conditional execution based on dependencies.
 	 */
-	shouldSkipDimension(ctx: SectionDimensionContext): boolean {
+	shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 		// Only check skip logic for sentiment and categorize
 		if (ctx.dimension === "sentiment" || ctx.dimension === "categorize") {
 			const filterResult = ctx.dependencies.filter_spam;
@@ -122,7 +119,7 @@ class ReviewAnalyzer extends Plugin {
 	/**
 	 * Transform sections after grouping
 	 *
-	 * Converts 20 individual review sections → 5 category group sections.
+	 * Converts individual review sections into category group sections.
 	 * This demonstrates dynamic section transformation.
 	 */
 	transformSections(ctx: TransformSectionsContext): SectionData[] {
@@ -137,12 +134,12 @@ class ReviewAnalyzer extends Plugin {
 			}
 
 			// Transform: create one section per category
-			return result.data.categories.map((cat) => ({
-				content: cat.reviews.join("\n\n---\n\n"), // Combine reviews
+			return result.data.categories.map((category) => ({
+				content: category.reviews.join("\n\n---\n\n"), // Combine reviews
 				metadata: {
-					category: cat.name,
-					count: cat.reviews.length,
-					avg_sentiment: cat.avg_sentiment,
+					category: category.name,
+					count: category.reviews.length,
+					avg_sentiment: category.avg_sentiment,
 				},
 			}));
 		}

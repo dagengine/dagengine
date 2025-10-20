@@ -1,19 +1,10 @@
-/**
- * Dimension executor
- *
- * Handles the execution of individual dimensions (both global and section-level)
- * with skip checking, dependency validation, timeout protection, and error handling.
- *
- * @module execution/dimension-executor
- */
-
 import type { Plugin } from "../../plugin.js";
 import {
 	type SectionData,
 	type DimensionContext,
 	type SectionDimensionContext,
 	type ProcessOptions,
-	type DimensionResult, // ← ADD THIS
+	type DimensionResult,
 } from "../../types.js";
 import type PQueue from "p-queue";
 
@@ -30,16 +21,6 @@ import {
 import { SKIP_REASONS } from "../shared/constants.js";
 import { DependencyError } from "../shared/errors.js";
 
-/**
- * Handles the execution of individual dimensions (both global and section-level)
- *
- * This executor manages:
- * - Skip checking via plugin hooks
- * - Dependency transformation and validation
- * - Timeout protection
- * - Error handling with configurable recovery
- * - Progress tracking (optional)
- */
 export class DimensionExecutor {
 	constructor(
 		private readonly plugin: Plugin,
@@ -53,14 +34,6 @@ export class DimensionExecutor {
 		private readonly progressTracker?: ProgressTracker,
 	) {}
 
-	/**
-	 * Processes a global dimension across all sections
-	 *
-	 * @param dimension - Dimension name
-	 * @param state - Process state
-	 * @param dependencyGraph - Dependency graph
-	 * @param options - Process options
-	 */
 	async processGlobalDimension(
 		dimension: string,
 		state: ProcessState,
@@ -76,7 +49,6 @@ export class DimensionExecutor {
 				dependencyGraph,
 			);
 
-			// Check if should skip
 			const skipResult = await this.checkGlobalSkip(
 				context,
 				dimension,
@@ -85,24 +57,14 @@ export class DimensionExecutor {
 			);
 			if (skipResult) return;
 
-			// Transform and validate dependencies
 			await this.transformAndValidateDependencies(context);
 
-			// Execute dimension
 			await this.executeGlobalDimension(dimension, state, context, options);
 		} catch (error) {
 			this.handleGlobalError(dimension, error, state, options);
 		}
 	}
 
-	/**
-	 * Processes a section-level dimension across all sections
-	 *
-	 * @param dimension - Dimension name
-	 * @param state - Process state
-	 * @param dependencyGraph - Dependency graph
-	 * @param options - Process options
-	 */
 	async processSectionDimension(
 		dimension: string,
 		state: ProcessState,
@@ -127,8 +89,6 @@ export class DimensionExecutor {
 			data: "Section dimension complete",
 		});
 	}
-
-	// ==================== PRIVATE: GLOBAL EXECUTION ====================
 
 	private async createGlobalContext(
 		dimension: string,
@@ -240,19 +200,23 @@ export class DimensionExecutor {
 		);
 
 		await this.hookExecutor.executeAfterDimension({
-			...context,
-			request: { input: "", options: {} },
-			provider: result.metadata?.provider ?? "unknown",
-			providerOptions: {},
+			processId: context.processId,
+			timestamp: context.timestamp,
+			dimension: context.dimension,
+			isGlobal: context.isGlobal,
+			sections: context.sections,
+			dependencies: context.dependencies,
+			globalResults: context.globalResults,
 			result,
 			duration,
-			...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
+			provider: result.metadata?.provider ?? "unknown",
+			model: result.metadata?.model,
+			tokensUsed: result.metadata?.tokens,
+			cost: result.metadata?.cost,
 		});
 
 		options.onDimensionComplete?.(dimension, result);
 	}
-
-	// ==================== PRIVATE: SECTION EXECUTION ====================
 
 	private createSectionTask(
 		dimension: string,
@@ -300,7 +264,6 @@ export class DimensionExecutor {
 			dependencyGraph,
 		);
 
-		// Check if should skip
 		const skipResult = await this.checkSectionSkip(
 			context,
 			dimension,
@@ -321,10 +284,8 @@ export class DimensionExecutor {
 			return;
 		}
 
-		// Transform and validate dependencies
 		await this.transformAndValidateDependencies(context);
 
-		// Execute dimension
 		await this.hookExecutor.executeBeforeDimension(context);
 
 		const startTime = Date.now();
@@ -360,13 +321,21 @@ export class DimensionExecutor {
 		);
 
 		await this.hookExecutor.executeAfterDimension({
-			...context,
-			request: { input: "", options: {} },
-			provider: result.metadata?.provider ?? "unknown",
-			providerOptions: {},
+			processId: context.processId,
+			timestamp: context.timestamp,
+			dimension: context.dimension,
+			isGlobal: context.isGlobal,
+			sections: context.sections,
+			dependencies: context.dependencies,
+			globalResults: context.globalResults,
+			section: context.section,
+			sectionIndex: context.sectionIndex,
 			result,
 			duration,
-			...(result.metadata?.tokens && { tokensUsed: result.metadata.tokens }),
+			provider: result.metadata?.provider ?? "unknown",
+			model: result.metadata?.model,
+			tokensUsed: result.metadata?.tokens,
+			cost: result.metadata?.cost,
 		});
 	}
 
@@ -442,13 +411,6 @@ export class DimensionExecutor {
 		return false;
 	}
 
-	// ==================== PRIVATE: SHARED ====================
-
-	/**
-	 * Transforms and validates dependencies before execution
-	 *
-	 * Checks for failed dependencies and throws detailed error if found.
-	 */
 	private async transformAndValidateDependencies(
 		context: DimensionContext | SectionDimensionContext,
 	): Promise<void> {
@@ -457,7 +419,6 @@ export class DimensionExecutor {
 		context.dependencies = transformedDeps;
 
 		if (hasFailedDependencies(transformedDeps)) {
-			// Only throw if continueOnError is false
 			if (!this.continueOnError) {
 				const failedDeps = getFailedDependencies(transformedDeps);
 				const failedDepErrors: Record<string, string> = {};
@@ -469,7 +430,6 @@ export class DimensionExecutor {
 				throw new DependencyError(context.dimension, failedDepErrors);
 			}
 
-			// If continueOnError: true, just log a warning and continue
 			const failedDeps = getFailedDependencies(transformedDeps);
 			console.warn(
 				`Dimension "${context.dimension}" executing with failed dependencies: ${failedDeps.join(", ")}`,

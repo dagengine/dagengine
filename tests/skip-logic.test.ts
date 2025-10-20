@@ -47,7 +47,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 		registry.register(mockProvider);
 	});
 
-	test("should skip dimensions based on shouldSkipDimension with dependency access", async () => {
+	test("should skip dimensions based on shouldSkipSectionDimension with dependency access", async () => {
 		class SkipPlugin extends Plugin {
 			constructor() {
 				super("skip", "Skip", "Test skip");
@@ -68,7 +68,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 				};
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
@@ -97,7 +97,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 		const analysisData = getResultData(result.sections[0]?.results?.analysis);
 		expect(analysisData).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 	});
 
@@ -122,7 +122,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 				};
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
@@ -171,7 +171,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 				return { provider: "mock-ai", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				// Skip if content is too short
 				return section.content.length < 10;
@@ -194,7 +194,7 @@ describe("DagEngine - Dynamic Skipping", () => {
 		const section0Data = getResultData(result.sections[0]?.results?.process);
 		expect(section0Data).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 
 		// Second section processed
@@ -236,7 +236,7 @@ describe("Dependency-Based Skipping", () => {
 				return { analysis: ["check"] };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {
@@ -265,7 +265,7 @@ describe("Dependency-Based Skipping", () => {
 		const analysisData = getResultData(result.sections[0]?.results?.analysis);
 		expect(analysisData).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 	});
 
@@ -288,7 +288,7 @@ describe("Dependency-Based Skipping", () => {
 				return { analysis: ["check"] };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, dependencies } = context;
 
 				if (dimension === "analysis") {

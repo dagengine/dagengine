@@ -149,8 +149,8 @@ describe("Hook Integration Tests", () => {
 				return {};
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
-				executionLog.push("3-shouldSkipDimension");
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
+				executionLog.push("3-shouldSkipSectionDimension");
 				return false;
 			}
 
@@ -212,7 +212,7 @@ describe("Hook Integration Tests", () => {
 		expect(executionLog).toEqual([
 			"1-beforeProcessStart",
 			"2-defineDependencies",
-			"3-shouldSkipDimension",
+			"3-shouldSkipSectionDimension",
 			"4-transformDependencies",
 			"5-beforeDimensionExecute",
 			"6-createPrompt",
@@ -335,7 +335,7 @@ describe("Hook Integration Tests", () => {
 				return context.currentSections;
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				if (context.dimension === "enrich") {
 					return context.section.metadata.type === "summary";
 				}

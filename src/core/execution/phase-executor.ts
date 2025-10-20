@@ -104,6 +104,7 @@ export class PhaseExecutor {
 			state.id,
 			state.startTime,
 			state.sections,
+			options,
 		);
 
 		// Apply hook modifications
@@ -112,6 +113,10 @@ export class PhaseExecutor {
 			const newCount = startResult.sections.length;
 
 			state.sections = startResult.sections;
+
+			if (oldCount !== newCount) {
+				state.originalSections = [...startResult.sections];
+			}
 
 			if (oldCount !== newCount) {
 				resetSectionResultsMap(state.sectionResultsMap, newCount);
@@ -325,12 +330,11 @@ export class PhaseExecutor {
 			state.globalResults,
 		);
 
-		// Execute finalizeResults hook
 		const finalizedResults = await this.hookExecutor!.finalizeResults(
 			allResults,
+			state.originalSections,
 			state.sections,
 			state.globalResults,
-			state.sections,
 			state.id,
 			Date.now() - state.startTime,
 			state.startTime,

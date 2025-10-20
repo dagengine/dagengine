@@ -90,7 +90,7 @@ entities ───┘
 
 ```typescript
 // Skip expensive processing intelligently:
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   const quality = context.dependencies.quick_check?.data?.quality;
   return quality < 7;  // Don't analyze low-quality content
 }

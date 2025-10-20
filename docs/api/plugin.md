@@ -160,12 +160,12 @@ defineDependencies(): Record<string, string[]> {
 }
 ```
 
-#### shouldSkipDimension()
+#### shouldSkipSectionDimension()
 
 Skip section dimensions:
 
 ```typescript
-shouldSkipDimension(context): boolean {
+shouldSkipSectionDimension(context): boolean {
   if (context.section.content.length < 50) return true;
   
   if (context.dimension === 'deep_analysis') {
@@ -180,7 +180,7 @@ shouldSkipDimension(context): boolean {
 Return cached result:
 
 ```typescript
-shouldSkipDimension(context): boolean | { skip: true; result: DimensionResult } {
+shouldSkipSectionDimension(context): boolean | { skip: true; result: DimensionResult } {
   const cached = this.cache.get(context.section.content);
   if (cached) {
     return { skip: true, result: cached };
@@ -437,7 +437,7 @@ class ContentAnalysis extends Plugin {
     };
   }
 
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     if (context.section.content.length < 50) return true;
     
     const cached = this.cache.get(context.section.content);

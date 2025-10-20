@@ -116,7 +116,7 @@ const response = await adapter.execute('anthropic', {
   options: {
     model: 'claude-sonnet-4-5-20250929',
     temperature: 0.1,
-    maxTokens: 4096
+    max_tokens: 4096
   }
 });
 ```
@@ -143,7 +143,7 @@ const response = await adapter.execute('openai', {
   options: {
     model: 'gpt-4o',
     temperature: 0.1,
-    maxTokens: 4096
+    max_tokens: 4096
   }
 });
 ```
@@ -171,7 +171,7 @@ const response = await adapter.execute('gemini', {
   options: {
     model: 'gemini-1.5-pro',
     temperature: 0,
-    maxTokens: 4096
+    max_tokens: 4096
   }
 });
 ```

@@ -4,7 +4,7 @@
  * Learn cost optimization through smart skipping.
  *
  * Demonstrates:
- * - shouldSkipDimension() hook
+ * - shouldSkipSectionDimension() hook
  * - Quality filter pattern (cheap check → skip → expensive analysis)
  * - Real cost savings measurement
  *
@@ -76,7 +76,7 @@ class SmartReviewAnalyzer extends Plugin {
 		};
 	}
 
-	shouldSkipDimension(ctx: SectionDimensionContext): boolean {
+	shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 		if (ctx.dimension !== "deep_analysis") {
 			return false;
 		}
@@ -205,29 +205,29 @@ function printResults(
 	let analyzedCount = 0;
 	let skippedCount = 0;
 
-	result.sections.forEach((section, idx: number) => {
+	result.sections.forEach((section, reviewIndex: number) => {
 		const review = section.section.content;
 		const quality = section.results.quality_check as
 			DimensionResult<QualityCheckResult> | undefined;
 		const analysis = section.results.deep_analysis as
 			DimensionResult<DeepAnalysisResult> | undefined;
 
-		console.log(`${idx + 1}. "${review.slice(0, 50)}${review.length > 50 ? '...' : ''}"`);
+		console.log(`${reviewIndex + 1}. "${review.slice(0, 50)}${review.length > 50 ? '...' : ''}"`);
 
 		if (quality?.data) {
-			const q = quality.data;
-			const emoji = q.is_high_quality ? "✅" : "❌";
-			console.log(`   ${emoji} Quality: ${q.quality_score.toFixed(2)} - ${q.reasoning}`);
+			const qualityData = quality.data;
+			const emoji = qualityData.is_high_quality ? "✅" : "❌";
+			console.log(`   ${emoji} Quality: ${qualityData.quality_score.toFixed(2)} - ${qualityData.reasoning}`);
 		}
 
 		const wasSkipped = analysis?.metadata?.skipped === true;
 
 		if (analysis?.data && !wasSkipped) {
 			analyzedCount++;
-			const a = analysis.data;
-			console.log(`   📊 Sentiment: ${a.sentiment}`);
-			console.log(`   🏷️  Topics: ${a.topics.join(", ")}`);
-			console.log(`   💡 Insights: ${a.key_insights.length} found`);
+			const analysisData = analysis.data;
+			console.log(`   📊 Sentiment: ${analysisData.sentiment}`);
+			console.log(`   🏷️  Topics: ${analysisData.topics.join(", ")}`);
+			console.log(`   💡 Insights: ${analysisData.key_insights.length} found`);
 		} else {
 			skippedCount++;
 			console.log(`   ⏭️  Deep analysis skipped`);

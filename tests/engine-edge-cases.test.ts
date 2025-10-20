@@ -230,7 +230,7 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 		expect(dim2Data?.result).toBe("dim2 executed with partial deps");
 	});
 
-	test("should not skip when plugin does not implement shouldSkipDimension", async () => {
+	test("should not skip when plugin does not implement shouldSkipSectionDimension", async () => {
 		class NoSkipPlugin extends Plugin {
 			constructor() {
 				super("no-skip", "No Skip", "Test");
@@ -244,7 +244,7 @@ describe("DagEngine - Edge Cases for 100% Coverage", () => {
 			selectProvider(): ProviderSelection {
 				return { provider: "mock-ai", options: {} };
 			}
-			// Note: NO shouldSkipDimension method
+			// Note: NO shouldSkipSectionDimension method
 		}
 
 		const engine = new DagEngine({

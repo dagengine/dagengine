@@ -39,6 +39,7 @@ export function createProcessState(
 		startTime: Date.now(),
 		metadata,
 		sections: [...sections],
+		originalSections: [...sections],  // ADD THIS LINE
 		globalResults: {},
 		sectionResultsMap: new Map(sections.map((_, idx) => [idx, {}])),
 	};
@@ -114,7 +115,12 @@ export function setSectionResult(
  */
 export function serializeState(state: ProcessState): SerializedProcessState {
 	return {
-		...state,
+		id: state.id,
+		startTime: state.startTime,
+		metadata: state.metadata,
+		sections: state.sections,
+		originalSections: state.originalSections,
+		globalResults: state.globalResults,
 		sectionResultsMap: Array.from(state.sectionResultsMap.entries()),
 	};
 }
@@ -131,7 +137,12 @@ export function deserializeState(
 	serialized: SerializedProcessState,
 ): ProcessState {
 	return {
-		...serialized,
+		id: serialized.id,
+		startTime: serialized.startTime,
+		metadata: serialized.metadata,
+		sections: serialized.sections,
+		originalSections: serialized.originalSections,
+		globalResults: serialized.globalResults,
 		sectionResultsMap: new Map(serialized.sectionResultsMap),
 	};
 }

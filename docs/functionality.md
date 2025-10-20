@@ -117,7 +117,7 @@
 - ✅ Conditional execution logic
 - ✅ Cost optimization (skip unnecessary API calls)
 - ✅ Content-aware processing
-- ✅ Plugin-controlled skip logic via `shouldSkipDimension()`
+- ✅ Plugin-controlled skip logic via `shouldSkipSectionDimension()`
 
 ---
 
@@ -157,7 +157,7 @@
 - ✅ `getDimensionConfig()` - Get dimension configuration
 - ✅ `isGlobalDimension()` - Check dimension scope
 - ✅ `finalizeResults()` - Post-process results
-- ✅ **NEW: `shouldSkipDimension()`** - Dynamic skipping logic
+- ✅ **NEW: `shouldSkipSectionDimension()`** - Dynamic skipping logic
 
 ### 18. **Dimension Configuration**
 - ✅ String-based dimensions (simple)

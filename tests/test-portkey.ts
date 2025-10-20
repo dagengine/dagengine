@@ -38,7 +38,7 @@ class TestPlugin extends Plugin {
 			provider: "anthropic",
 			options: {
 				model: "claude-sonnet-4-5-20250929",
-				maxTokens: 1024,
+				max_tokens: 1024,
 				temperature: 0.7,
 			},
 		};

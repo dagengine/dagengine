@@ -66,7 +66,7 @@ describe("Routing - Real-World Document Processing", () => {
 			return { provider: "mock", options: {} };
 		}
 
-		shouldSkipDimension(context: SectionDimensionContext): boolean {
+		shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 			const { dimension, section } = context;
 			const content = section.content.toLowerCase();
 			const metadata = section.metadata;

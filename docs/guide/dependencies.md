@@ -226,7 +226,7 @@ class TwoTierPipeline extends Plugin {
     };
   }
   
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     if (context.dimension === 'deep_analysis') {
       const quality = context.dependencies.quick_check?.data?.quality;
       
@@ -286,7 +286,7 @@ class MultiLangPipeline extends Plugin {
     };
   }
   
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     if (context.dimension === 'translate') {
       const lang = context.dependencies.detect_language?.data?.language;
       
@@ -347,7 +347,7 @@ class BranchingPipeline extends Plugin {
     };
   }
   
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     const type = context.dependencies.classify_type?.data?.type;
     
     // Skip branches that don't apply
@@ -402,10 +402,10 @@ createPrompt(context) {
 }
 ```
 
-### In shouldSkipDimension
+### In shouldSkipSectionDimension
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.dimension === 'deep_analysis') {
     const quality = context.dependencies.quick_check?.data?.quality;
     return quality < 7;
@@ -475,7 +475,7 @@ defineDependencies() {
   };
 }
 
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.dimension === 'summary') {
     // ❌ Trying to access 'topics' but it's not a dependency!
     const topics = context.dependencies.topics?.data;
@@ -581,7 +581,7 @@ defineDependencies() {
 }
 
 // ✅ GOOD - use shouldSkip
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.dimension === 'translate') {
     const lang = context.dependencies.detect_language?.data?.language;
     return lang === 'en';  // Skip if already English
@@ -729,7 +729,7 @@ defineDependencies() {
   };
 }
 
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   const type = context.dependencies.classify?.data?.type;
   
   if (context.dimension === 'process_code') return type !== 'code';

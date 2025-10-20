@@ -153,14 +153,14 @@ export class GeminiProvider extends BaseProvider {
 
 		const model = (request.options?.model as string) || "gemini-1.5-pro";
 		const temperature = (request.options?.temperature as number) ?? 0.1;
-		const maxTokens = (request.options?.maxTokens as number) || 4096;
+		const max_tokens = (request.options?.max_tokens as number) || 4096;
 		const topP = request.options?.topP as number | undefined;
 		const topK = request.options?.topK as number | undefined;
 
 		// Build generation config
 		const generationConfig: Record<string, unknown> = {
 			temperature,
-			maxOutputTokens: maxTokens,
+			maxOutputTokens: max_tokens,
 			responseMimeType: "application/json", // Force JSON response
 		};
 

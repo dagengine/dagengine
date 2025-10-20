@@ -74,12 +74,12 @@ defineDependencies(): Record<string, string[]> {
 }
 ```
 
-### shouldSkipDimension
+### shouldSkipSectionDimension
 
 Skip processing for specific sections:
 
 ```typescript
-shouldSkipDimension(context: SectionDimensionContext): boolean {
+shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
   // Skip short content
   if (context.section.content.length < 50) return true;
   
@@ -96,7 +96,7 @@ shouldSkipDimension(context: SectionDimensionContext): boolean {
 Return cached result instead of processing:
 
 ```typescript
-shouldSkipDimension(context): boolean | { skip: true; result: DimensionResult } {
+shouldSkipSectionDimension(context): boolean | { skip: true; result: DimensionResult } {
   const cached = this.cache.get(context.section.content);
   
   if (cached) {
@@ -350,7 +350,7 @@ handleProcessFailure(context: ProcessFailureContext): ProcessResult {
 | `createPrompt` ✅ | Before API call | Build prompt |
 | `selectProvider` ✅ | Before API call | Choose provider |
 | `defineDependencies` | Process start | Define DAG |
-| `shouldSkipDimension` | Before section dim | Skip/cache |
+| `shouldSkipSectionDimension` | Before section dim | Skip/cache |
 | `shouldSkipGlobalDimension` | Before global dim | Skip/cache |
 | `transformDependencies` | After deps resolved | Modify deps |
 | `transformSections` | After global dim | Restructure |

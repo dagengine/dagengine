@@ -27,6 +27,8 @@ export interface ProcessState {
 	/** Optional metadata from beforeProcessStart hook */
 	metadata?: unknown;
 
+	originalSections: SectionData[];
+
 	/** Sections being processed (may be transformed during execution) */
 	sections: SectionData[];
 
@@ -46,6 +48,7 @@ export interface SerializedProcessState {
 	id: string;
 	startTime: number;
 	metadata?: unknown;
+	originalSections: SectionData[];
 	sections: SectionData[];
 	globalResults: Record<string, DimensionResult>;
 	sectionResultsMap: Array<[number, Record<string, DimensionResult>]>;

@@ -251,7 +251,7 @@ selectProvider() {
 ### Cost Optimization
 Skip unnecessary processing:
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   return context.section.content.length < 50;
 }
 ```

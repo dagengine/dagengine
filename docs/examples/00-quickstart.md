@@ -13,13 +13,11 @@ This example shows production patterns with all features working together.
 
 Build a **complete customer review analyzer** that demonstrates every dag-ai superpower:
 
-- ✅ **Automatic spam filtering** - Skip bad data, save 30% on API calls
-- ✅ **Parallel execution** - 2x faster than sequential processing
-- ✅ **Smart grouping** - Analyze categories instead of individual reviews (50% fewer deep analysis calls)
+- ✅ **Automatic spam filtering** - Skip bad data with conditional execution
+- ✅ **Parallel execution** - Independent tasks run simultaneously
+- ✅ **Smart grouping** - Analyze categories instead of individual reviews
 - ✅ **Multi-model orchestration** - Right model for each job
 - ✅ **Real-time cost tracking** - Know exactly what you're spending
-
-**Performance:** 20 reviews analyzed in 24 seconds for $0.03
 
 ---
 
@@ -161,11 +159,11 @@ The pipeline runs in 5 intelligent stages:
 ```
 📥 Input: 20 reviews
     ↓
-🛡️  Stage 1: Filter Spam (saves 20 API calls)
+🛡️  Stage 1: Filter Spam (detects spam reviews)
     ↓
 ⚡ Stage 2: Parallel Analysis (sentiment + category)
     ↓
-📦 Stage 3: Group by Category (10 reviews → 5 groups)
+📦 Stage 3: Group by Category (transforms into category groups)
     ↓
 🔍 Stage 4: Deep Analysis (per category)
     ↓
@@ -182,7 +180,7 @@ The pipeline runs in 5 intelligent stages:
 
 **Solution:** Detect spam first, skip dependent analyses automatically.
 ```typescript
-shouldSkipDimension(ctx) {
+shouldSkipSectionDimension(ctx) {
   if (ctx.dimension === 'sentiment' || ctx.dimension === 'categorize') {
     const spamCheck = ctx.dependencies.filter_spam;
     if (spamCheck?.data?.is_spam) {
@@ -193,7 +191,7 @@ shouldSkipDimension(ctx) {
 }
 ```
 
-**Result:** 10 spam reviews × 2 analyses = **20 API calls saved**
+**Result:** Spam reviews automatically skipped in downstream dimensions
 
 [Learn more →](/examples/05-skip-logic)
 
@@ -213,7 +211,7 @@ this.dimensions = [
 ];
 ```
 
-**Result:** Sentiment + Category run together = **2x faster**
+**Result:** Sentiment + Category run together, utilizing parallelization
 
 [Learn more →](/examples/02-dependencies)
 
@@ -221,22 +219,22 @@ this.dimensions = [
 
 ### 3. Smart Grouping (Transformations)
 
-**Problem:** Analyzing 10 individual reviews is expensive.
+**Problem:** Analyzing individual reviews is repetitive.
 
-**Solution:** Group by category, analyze 4 groups instead.
+**Solution:** Group by category, analyze groups instead.
 ```typescript
 transformSections(ctx) {
   if (ctx.dimension === 'group_by_category') {
-    // Transform: 10 reviews → 4 category groups
-    return grouping.categories.map(cat => ({
-      content: cat.reviews.join('\n\n'),
-      metadata: { category: cat.name }
+    // Transform: individual reviews → category groups
+    return grouping.categories.map(category => ({
+      content: category.reviews.join('\n\n'),
+      metadata: { category: category.name }
     }));
   }
 }
 ```
 
-**Result:** 5 deep analyses instead of 10
+**Result:** Analyze category groups instead of individual reviews
 
 [Learn more →](/examples/04-transformations)
 
@@ -285,8 +283,8 @@ const engine = new DagEngine({
 const result = await engine.process(reviews);
 console.log(result.costs);
 // {
-//   totalCost: 0.0156,
-//   totalTokens: 12450,
+//   totalCost: 0.0282,
+//   totalTokens: 12289,
 //   byDimension: { ... }
 // }
 ```
@@ -295,7 +293,7 @@ console.log(result.costs);
 
 ## Cost Breakdown
 
-**This pipeline (optimized):**
+**This pipeline (from actual run):**
 ```
 Stage 1: Spam detection     → 20 calls (Haiku)   $0.0115
 Stage 2: Sentiment          → 10 calls (Haiku)   $0.0015
@@ -305,17 +303,14 @@ Stage 4: Deep analysis      →  5 calls (Sonnet)  $0.0087
 Stage 5: Summary            →  1 call  (Sonnet)  $0.0036
                               ───────────────────────────
 Total: 47 API calls                              $0.0282
-Saved: 20 API calls (spam skipped)
+Saved: 20 API calls (spam filtered)
+Efficiency: 30% fewer API calls
 ```
 
-**Naive approach (no optimizations):**
-```
-Without skip logic: 72 calls (20 spam still analyzed)
-Without grouping: 10 individual reviews with Sonnet
-All using Sonnet: ~$0.15
-```
-
-**Savings: 35% fewer calls + 81% cost reduction** 🎉
+**Key optimizations applied:**
+- Skip logic prevented 20 unnecessary API calls
+- Grouping created 5 category analyses instead of individual review analyses
+- Model selection used cheaper Haiku for filtering, expensive Sonnet for insights
 
 ## The Complete Code
 
@@ -336,7 +331,7 @@ View the full implementation on GitHub:
 
 By running this example, you've seen:
 
-- ✅ **Skip Logic** - Conditional execution saves money
+- ✅ **Skip Logic** - Conditional execution saves API calls
 - ✅ **Dependencies** - DAG-based execution order
 - ✅ **Transformations** - Dynamic data restructuring
 - ✅ **Multi-scope** - Section vs Global dimensions
@@ -356,10 +351,10 @@ Categories: support, billing, technical, feature-request
 **Use different models:**
 ```typescript
 selectProvider() {
-  return {
-    provider: 'openai',
-    options: { model: 'gpt-4' }
-  };
+	return {
+		provider: 'openai',
+		options: { model: 'gpt-4' }
+	};
 }
 ```
 
@@ -367,7 +362,7 @@ selectProvider() {
 ```typescript
 // Replace SAMPLE_REVIEWS in data.ts
 const YOUR_REVIEWS = [
-  { content: 'Your review text', metadata: { id: 1 } }
+	{ content: 'Your review text', metadata: { id: 1 } }
 ];
 ```
 
@@ -389,7 +384,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 Reduce concurrency:
 ```typescript
 const engine = new DagEngine({
-  execution: { concurrency: 2 }  // Default: 5
+	execution: { concurrency: 2 }  // Default: 5
 });
 ```
 
@@ -400,7 +395,7 @@ Add pricing configuration:
 import { PRICING } from './config';
 
 const engine = new DagEngine({
-  pricing: { models: PRICING }
+	pricing: { models: PRICING }
 });
 ```
 

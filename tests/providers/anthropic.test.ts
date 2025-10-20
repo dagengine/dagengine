@@ -119,7 +119,7 @@ describe("AnthropicProvider", () => {
 		expect(capturedBody?.model).toBe("claude-opus-4");
 	});
 
-	test("should handle custom maxTokens", async () => {
+	test("should handle custom max_tokens", async () => {
 		let capturedBody: CapturedBody = {} as CapturedBody;
 
 		global.fetch = vi.fn().mockImplementation(async (_url: string | URL | Request, options?: MockFetchOptions) => {
@@ -135,7 +135,7 @@ describe("AnthropicProvider", () => {
 		const provider = new AnthropicProvider({ apiKey: "test-key" });
 		await provider.execute({
 			input: "test",
-			options: { maxTokens: 8192 },
+			options: { max_tokens: 8192 },
 		});
 
 		expect(capturedBody?.max_tokens).toBe(8192);

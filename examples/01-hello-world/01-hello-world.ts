@@ -20,6 +20,7 @@ import {
 	type PromptContext,
 	type ProviderSelection,
 	type SectionData,
+	type ProcessResult,
 } from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });
@@ -31,6 +32,11 @@ config({ path: resolve(process.cwd(), ".env") });
 interface GreetingResult {
 	greeting: string;
 	language: string;
+}
+
+interface SectionResult {
+	section: SectionData;
+	results: Record<string, { data?: unknown }>;
 }
 
 // ============================================================================
@@ -158,12 +164,12 @@ async function main(): Promise<void> {
 	console.log("RESULTS");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	result.sections.forEach((section, idx) => {
-		const name = section.section.content;
-		const greetingResult = section.results.greet?.data as GreetingResult | undefined;
+	result.sections.forEach((sectionResult: SectionResult, sectionIndex: number) => {
+		const name = sectionResult.section.content;
+		const greetingResult = sectionResult.results.greet?.data as GreetingResult | undefined;
 
 		if (greetingResult) {
-			console.log(`${idx + 1}. ${name}`);
+			console.log(`${sectionIndex + 1}. ${name}`);
 			console.log(`   → ${greetingResult.greeting}`);
 			console.log(`   Language: ${greetingResult.language}\n`);
 		}

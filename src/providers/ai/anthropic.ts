@@ -104,7 +104,7 @@ export class AnthropicProvider extends BaseProvider {
 	): Promise<ProviderResponse> {
 		const model =
 			(request.options?.model as string) || "claude-sonnet-4-5-20250929";
-		const maxTokens = (request.options?.maxTokens as number) || 4096;
+		const max_tokens = (request.options?.max_tokens as number) || 4096;
 		const temperature = request.options?.temperature as number | undefined;
 
 		const response = await fetch(`${this.getNativeBaseUrl()}/v1/messages`, {
@@ -116,7 +116,7 @@ export class AnthropicProvider extends BaseProvider {
 			},
 			body: JSON.stringify({
 				model,
-				max_tokens: maxTokens,
+				max_tokens: max_tokens,
 				messages: [{ role: "user", content: request.input }],
 				...(temperature !== undefined && { temperature }),
 			}),

@@ -82,8 +82,6 @@ const PRICING = {
  * 1. Classify each review (10 reviews → 10 classifications)
  * 2. Group by category (10 reviews → 3 groups) ← TRANSFORMATION
  * 3. Analyze each group (3 groups → 3 analyses)
- *
- * Result: Process 3 groups instead of 10 reviews (70% fewer API calls)
  */
 class ReviewGroupAnalyzer extends Plugin {
 	constructor() {
@@ -130,7 +128,7 @@ class ReviewGroupAnalyzer extends Plugin {
 			metadata: {
 				category: group.category,
 				count: group.count,
-				original_review_ids: group.reviews.map((_, idx) => idx + 1),
+				original_review_ids: group.reviews.map((_, reviewIndex) => reviewIndex + 1),
 			},
 		}));
 	}
@@ -157,18 +155,18 @@ Return JSON:
 		if (dimension === "group_by_category") {
 			const classifyData = dependencies.classify as
 				| DimensionResult<{
-						sections: Array<DimensionResult<CategoryResult>>;
-						aggregated: boolean;
-				  }>
+				sections: Array<DimensionResult<CategoryResult>>;
+				aggregated: boolean;
+			}>
 				| undefined;
 
 			if (!classifyData?.data?.aggregated) {
 				return "Error: Expected aggregated classification data";
 			}
 
-			const classifications = classifyData.data.sections.map((s, idx) => ({
-				review: sections[idx]?.content || "",
-				category: s.data?.category || "features",
+			const classifications = classifyData.data.sections.map((classification, reviewIndex) => ({
+				review: sections[reviewIndex]?.content || "",
+				category: classification.data?.category || "features",
 			}));
 
 			return `Group these reviews by category:
@@ -278,10 +276,7 @@ async function main(): Promise<void> {
 	const duration = Date.now() - startTime;
 
 	// Display results
-	printResults(result, duration);
-
-	// Explanation
-	printExplanation();
+	printResults(result, reviews.length, duration);
 }
 
 // ============================================================================
@@ -293,16 +288,9 @@ function printPattern(): void {
 	console.log("THE PATTERN: Many Items → Few Groups");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	console.log("WITHOUT transformation:");
-	console.log("  10 reviews → classify (10 calls)");
-	console.log("            → analyze each (10 calls)");
-	console.log("  Total: 20 calls\n");
-
-	console.log("WITH transformation:");
-	console.log("  10 reviews → classify (10 calls)");
-	console.log("            → group into 3 categories (1 call)");
-	console.log("            → analyze 3 groups (3 calls) ← 70% fewer!");
-	console.log("  Total: 14 calls (30% savings)\n");
+	console.log("Transformation reduces processing:");
+	console.log("  Classify individual items → Group items → Analyze groups");
+	console.log("  Result: Fewer expensive analysis calls\n");
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
@@ -311,30 +299,30 @@ function printPattern(): void {
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
 	console.log("Phase 1: CLASSIFY (section, parallel)");
-	console.log("  Classify 10 reviews into categories\n");
+	console.log("  Classify reviews into categories\n");
 
 	console.log("Phase 2: GROUP (global, sequential)");
-	console.log("  Group 10 reviews into 3 categories\n");
+	console.log("  Group reviews into categories\n");
 
 	console.log("Phase 3: TRANSFORMATION 🔄");
 	console.log("  transformSections() called");
-	console.log("  Input: 10 review sections");
-	console.log("  Output: 3 category group sections\n");
+	console.log("  Input: Individual review sections");
+	console.log("  Output: Category group sections\n");
 
 	console.log("Phase 4: ANALYZE (section, parallel)");
-	console.log("  Analyze 3 category groups");
-	console.log("  ✅ Processing 3 groups instead of 10!\n");
+	console.log("  Analyze category groups");
+	console.log("  ✅ Processing groups instead of individual reviews!\n");
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }
 
-function printResults(result: ProcessResult, duration: number): void {
+function printResults(result: ProcessResult, originalCount: number, duration: number): void {
 	console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	console.log("CATEGORY ANALYSES");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-	result.sections.forEach((section: SectionResult) => {
-		const analysis = section.results.analyze_category as DimensionResult<CategoryAnalysis> | undefined;
+	result.sections.forEach((sectionResult: SectionResult) => {
+		const analysis = sectionResult.results.analyze_category as DimensionResult<CategoryAnalysis> | undefined;
 
 		if (analysis?.data) {
 			const analysisData = analysis.data;
@@ -355,66 +343,12 @@ function printResults(result: ProcessResult, duration: number): void {
 	console.log(`⚡ Completed in ${(duration / 1000).toFixed(2)}s`);
 
 	if (result.costs) {
-		const totalCost = result.costs.totalCost;
-		const withoutTransformation = totalCost / 0.7;
-		const savings = ((withoutTransformation - totalCost) / withoutTransformation) * 100;
-
-		console.log(`💰 Cost: $${totalCost.toFixed(4)}`);
-		console.log(`📊 Savings: ~${savings.toFixed(0)}% (vs analyzing individually)`);
+		console.log(`💰 Cost: $${result.costs.totalCost.toFixed(4)}`);
 		console.log(`🎫 Tokens: ${result.costs.totalTokens.toLocaleString()}`);
+		console.log(`📊 Processed: ${originalCount} reviews → ${result.sections.length} groups`);
 	}
 
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-}
-
-function printExplanation(): void {
-	console.log("✨ What just happened?\n");
-
-	console.log("1. CLASSIFY dimension (section):");
-	console.log("   - Ran 10 times (once per review)");
-	console.log("   - All 10 ran in parallel");
-	console.log("   - Result: 10 classifications\n");
-
-	console.log("2. GROUP dimension (global):");
-	console.log("   - Ran 1 time (across all reviews)");
-	console.log("   - Organized 10 reviews into 3 categories");
-	console.log("   - Result: 3 category groups\n");
-
-	console.log("3. TRANSFORMATION 🔄:");
-	console.log("   - transformSections() was called");
-	console.log("   - Received: 10 review sections");
-	console.log("   - Returned: 3 category group sections");
-	console.log("   - Next dimension processes 3 sections!\n");
-
-	console.log("4. ANALYZE dimension (section on transformed data):");
-	console.log("   - Ran 3 times (once per category group)");
-	console.log("   - All 3 ran in parallel");
-	console.log("   - Result: 3 category analyses\n");
-
-	console.log("🎓 What you learned:\n");
-	console.log("✓ transformSections() reshapes data between dimensions");
-	console.log("✓ Classic pattern: many items → few groups");
-	console.log("✓ Reduces API calls dramatically (70% savings)");
-	console.log("✓ Subsequent dimensions operate on transformed sections");
-	console.log("✓ Combine with section/global scopes for powerful workflows\n");
-
-	console.log("💡 Key insight:\n");
-	console.log("Transformations let you reshape data mid-workflow.");
-	console.log("Process 100 items as 5 groups = 95% fewer expensive calls.\n");
-
-	console.log("📊 When to use transformations:\n");
-	console.log("USE when:");
-	console.log("  ✓ Grouping similar items");
-	console.log("  ✓ Filtering/reducing items");
-	console.log("  ✓ Splitting items into chunks");
-	console.log("  ✓ Next dimension processes groups, not individuals\n");
-
-	console.log("DON'T use when:");
-	console.log("  ✗ Each item needs independent analysis");
-	console.log("  ✗ No grouping/filtering needed");
-	console.log("  ✗ Data shape doesn't need to change\n");
-
-	console.log("⏭️  Next: npm run 05 (skip logic)\n");
 }
 
 // ============================================================================

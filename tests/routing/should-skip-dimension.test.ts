@@ -70,7 +70,7 @@ class MockProvider {
 	}
 }
 
-describe("shouldSkipDimension - Basic Functionality", () => {
+describe("shouldSkipSectionDimension - Basic Functionality", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -80,7 +80,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 		adapter.registerProvider(mockProvider as never);
 	});
 
-	test("should process all dimensions when shouldSkipDimension is not defined", async () => {
+	test("should process all dimensions when shouldSkipSectionDimension is not defined", async () => {
 		class NoSkipPlugin extends Plugin {
 			constructor() {
 				super("no-skip", "No Skip Plugin", "No skip logic");
@@ -111,7 +111,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 		expect(mockProvider.getDimensionCallCount("dim3")).toBe(1);
 	});
 
-	test("should skip dimension when shouldSkipDimension returns true (sync)", async () => {
+	test("should skip dimension when shouldSkipSectionDimension returns true (sync)", async () => {
 		class SkipOnePlugin extends Plugin {
 			constructor() {
 				super("skip-one", "Skip One Plugin", "Skip one dimension");
@@ -126,7 +126,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				return context.dimension === "dim2";
 			}
 		}
@@ -148,11 +148,11 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 		const sectionResults = result.sections[0]?.results;
 		expect(sectionResults?.dim2?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 	});
 
-	test("should skip multiple dimensions when shouldSkipDimension returns true", async () => {
+	test("should skip multiple dimensions when shouldSkipSectionDimension returns true", async () => {
 		class SkipMultiplePlugin extends Plugin {
 			constructor() {
 				super("skip-multiple", "Skip Multiple", "Skip multiple dimensions");
@@ -167,7 +167,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension } = context;
 				return dimension === "dim2" || dimension === "dim4";
 			}
@@ -189,7 +189,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 		expect(mockProvider.getDimensionCallCount("dim4")).toBe(0);
 	});
 
-	test("should process all dimensions when shouldSkipDimension always returns false", async () => {
+	test("should process all dimensions when shouldSkipSectionDimension always returns false", async () => {
 		class NeverSkipPlugin extends Plugin {
 			constructor() {
 				super("never-skip", "Never Skip", "Never skip any dimension");
@@ -204,7 +204,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(_context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(_context: SectionDimensionContext): boolean {
 				return false;
 			}
 		}
@@ -222,7 +222,7 @@ describe("shouldSkipDimension - Basic Functionality", () => {
 	});
 });
 
-describe("shouldSkipDimension - Content-Based Routing", () => {
+describe("shouldSkipSectionDimension - Content-Based Routing", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -251,7 +251,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const content = section.content.toLowerCase();
 
@@ -303,7 +303,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 
 				if (dimension === "deep_analysis") {
@@ -351,7 +351,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const content = section.content;
 
@@ -394,7 +394,7 @@ describe("shouldSkipDimension - Content-Based Routing", () => {
 	});
 });
 
-describe("shouldSkipDimension - Metadata-Based Routing", () => {
+describe("shouldSkipSectionDimension - Metadata-Based Routing", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -419,7 +419,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 
 				if (dimension === "expensive_analysis") {
@@ -464,7 +464,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const fileType = section.metadata.fileType as string | undefined;
 
@@ -524,7 +524,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const priority = section.metadata.priority as string | undefined;
 
@@ -562,7 +562,7 @@ describe("shouldSkipDimension - Metadata-Based Routing", () => {
 	});
 });
 
-describe("shouldSkipDimension - Async Routing", () => {
+describe("shouldSkipSectionDimension - Async Routing", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -572,7 +572,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 		adapter.registerProvider(mockProvider as never);
 	});
 
-	test("should handle async shouldSkipDimension returning Promise<true>", async () => {
+	test("should handle async shouldSkipSectionDimension returning Promise<true>", async () => {
 		class AsyncPlugin extends Plugin {
 			constructor() {
 				super("async-plugin", "Async Plugin", "Async skip logic");
@@ -587,7 +587,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			async shouldSkipDimension(
+			async shouldSkipSectionDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				await new Promise<void>((resolve) => setTimeout(resolve, 10));
@@ -627,7 +627,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			async shouldSkipDimension(
+			async shouldSkipSectionDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				const { dimension, section } = context;
@@ -679,7 +679,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			async shouldSkipDimension(
+			async shouldSkipSectionDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				const { section } = context;
@@ -724,7 +724,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			async shouldSkipDimension(
+			async shouldSkipSectionDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				const { dimension, section } = context;
@@ -761,7 +761,7 @@ describe("shouldSkipDimension - Async Routing", () => {
 	});
 });
 
-describe("shouldSkipDimension - Multiple Sections", () => {
+describe("shouldSkipSectionDimension - Multiple Sections", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -790,7 +790,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				return section.content.includes("skip");
 			}
@@ -830,7 +830,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				const isShort = section.content.length < 50;
 				const hasCode = /```|function/.test(section.content);
@@ -887,7 +887,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				return (section.metadata.index as number) % 2 === 1;
 			}
@@ -912,7 +912,7 @@ describe("shouldSkipDimension - Multiple Sections", () => {
 	});
 });
 
-describe("shouldSkipDimension - Error Handling", () => {
+describe("shouldSkipSectionDimension - Error Handling", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
@@ -928,7 +928,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 		consoleErrorSpy.mockRestore();
 	});
 
-	test("should handle errors in shouldSkipDimension gracefully (sync error)", async () => {
+	test("should handle errors in shouldSkipSectionDimension gracefully (sync error)", async () => {
 		class ErrorPlugin extends Plugin {
 			constructor() {
 				super("error", "Error Plugin", "Error handling test");
@@ -943,9 +943,9 @@ describe("shouldSkipDimension - Error Handling", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				if (context.dimension === "dim2") {
-					throw new Error("shouldSkipDimension threw an error");
+					throw new Error("shouldSkipSectionDimension threw an error");
 				}
 				return false;
 			}
@@ -968,7 +968,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 		expect(mockProvider.getDimensionCallCount("dim2")).toBe(1);
 	});
 
-	test("should handle errors in async shouldSkipDimension gracefully", async () => {
+	test("should handle errors in async shouldSkipSectionDimension gracefully", async () => {
 		class AsyncErrorPlugin extends Plugin {
 			constructor() {
 				super("async-error", "Async Error Plugin", "Async error handling");
@@ -983,13 +983,13 @@ describe("shouldSkipDimension - Error Handling", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			async shouldSkipDimension(
+			async shouldSkipSectionDimension(
 				context: SectionDimensionContext,
 			): Promise<boolean> {
 				await new Promise<void>((resolve) => setTimeout(resolve, 5));
 
 				if (context.dimension === "dim2") {
-					throw new Error("Async error in shouldSkipDimension");
+					throw new Error("Async error in shouldSkipSectionDimension");
 				}
 
 				return false;
@@ -1011,7 +1011,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 		expect(mockProvider.getTotalCalls()).toBe(2);
 	});
 
-	test("should handle rejected promises in shouldSkipDimension", async () => {
+	test("should handle rejected promises in shouldSkipSectionDimension", async () => {
 		class RejectedPromisePlugin extends Plugin {
 			constructor() {
 				super("rejected", "Rejected Promise Plugin", "Rejected promise test");
@@ -1026,7 +1026,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(_context: SectionDimensionContext): Promise<boolean> {
+			shouldSkipSectionDimension(_context: SectionDimensionContext): Promise<boolean> {
 				return Promise.reject(new Error("Promise rejected"));
 			}
 		}
@@ -1046,7 +1046,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 		expect(mockProvider.getTotalCalls()).toBe(1);
 	});
 
-	test("should handle null/undefined return from shouldSkipDimension", async () => {
+	test("should handle null/undefined return from shouldSkipSectionDimension", async () => {
 		class NullReturnPlugin extends Plugin {
 			constructor() {
 				super("null-return", "Null Return Plugin", "Null return test");
@@ -1061,7 +1061,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(_context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(_context: SectionDimensionContext): boolean {
 				return null as unknown as boolean;
 			}
 		}
@@ -1080,7 +1080,7 @@ describe("shouldSkipDimension - Error Handling", () => {
 	});
 });
 
-describe("shouldSkipDimension - Integration with Other Features", () => {
+describe("shouldSkipSectionDimension - Integration with Other Features", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
 
@@ -1112,7 +1112,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				if (dimension === "extract") {
 					return section.content.includes("no-extract");
@@ -1154,7 +1154,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				return { provider: "mock", options: {} };
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { dimension, section } = context;
 				return (
 					dimension === "expensive" && section.metadata.allowExpensive !== true
@@ -1249,7 +1249,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 				};
 			}
 
-			shouldSkipDimension(context: SectionDimensionContext): boolean {
+			shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 				const { section } = context;
 				return section.metadata.skip === true;
 			}
@@ -1274,7 +1274,7 @@ describe("shouldSkipDimension - Integration with Other Features", () => {
 		expect(result.sections[0]?.results.process?.metadata).toBeDefined();
 		expect(result.sections[1]?.results.process?.metadata).toEqual({
 			skipped: true,
-			reason: "Skipped by plugin shouldSkipDimension",
+			reason: "Skipped by plugin shouldSkipSectionDimension",
 		});
 	});
 });

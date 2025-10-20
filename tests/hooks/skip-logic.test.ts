@@ -102,7 +102,7 @@ describe("Skip Logic Hooks", () => {
 		consoleErrorSpy.mockRestore();
 	});
 
-	describe("shouldSkipDimension", () => {
+	describe("shouldSkipSectionDimension", () => {
 		test("should skip dimension when returns true", async () => {
 			let hookCalled = false;
 
@@ -120,7 +120,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(context: SectionDimensionContext): boolean {
+				shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 					hookCalled = true;
 					return context.dimension === "skip_me";
 				}
@@ -139,7 +139,7 @@ describe("Skip Logic Hooks", () => {
 
 			const skipMeData = getResultData(result.sections[0]?.results.skip_me);
 			expect(skipMeData?.skipped).toBe(true);
-			expect(skipMeData?.reason).toBe("Skipped by plugin shouldSkipDimension");
+			expect(skipMeData?.reason).toBe("Skipped by plugin shouldSkipSectionDimension");
 		});
 
 		test("should not skip dimension when returns false", async () => {
@@ -157,7 +157,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): boolean {
+				shouldSkipSectionDimension(): boolean {
 					return false;
 				}
 			}
@@ -187,7 +187,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): boolean {
+				shouldSkipSectionDimension(): boolean {
 					return null as unknown as boolean;
 				}
 			}
@@ -217,7 +217,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): boolean {
+				shouldSkipSectionDimension(): boolean {
 					return undefined as unknown as boolean;
 				}
 			}
@@ -252,7 +252,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): SkipWithResult {
+				shouldSkipSectionDimension(): SkipWithResult {
 					return {
 						skip: true,
 						result: cachedResult,
@@ -291,7 +291,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(context: SectionDimensionContext): boolean {
+				shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 					return context.section.content.length < 10;
 				}
 			}
@@ -330,7 +330,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(context: SectionDimensionContext): boolean {
+				shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 					return context.section.metadata.skip === true;
 				}
 			}
@@ -373,7 +373,7 @@ describe("Skip Logic Hooks", () => {
 					return { analyze: ["check"] };
 				}
 
-				shouldSkipDimension(context: SectionDimensionContext): boolean {
+				shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 					if (context.dimension === "analyze") {
 						const checkData = context.dependencies.check?.data as TestData | undefined;
 						return checkData?.result === "result-check";
@@ -396,7 +396,7 @@ describe("Skip Logic Hooks", () => {
 			expect(analyzeData?.skipped).toBe(true);
 		});
 
-		test("should handle async shouldSkipDimension", async () => {
+		test("should handle async shouldSkipSectionDimension", async () => {
 			let asyncCompleted = false;
 
 			class AsyncSkipPlugin extends Plugin {
@@ -413,7 +413,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				async shouldSkipDimension(
+				async shouldSkipSectionDimension(
 					context: SectionDimensionContext,
 				): Promise<boolean> {
 					await new Promise((resolve) => setTimeout(resolve, 50));
@@ -433,7 +433,7 @@ describe("Skip Logic Hooks", () => {
 			expect(mockProvider.getDimensionCallCount("test")).toBe(0);
 		});
 
-		test("should handle errors in shouldSkipDimension gracefully", async () => {
+		test("should handle errors in shouldSkipSectionDimension gracefully", async () => {
 			const errors: string[] = [];
 
 			class ErrorSkipPlugin extends Plugin {
@@ -450,8 +450,8 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(): boolean {
-					throw new Error("shouldSkipDimension error");
+				shouldSkipSectionDimension(): boolean {
+					throw new Error("shouldSkipSectionDimension error");
 				}
 			}
 
@@ -467,7 +467,7 @@ describe("Skip Logic Hooks", () => {
 			// Should continue processing (default to false on error)
 			expect(mockProvider.getDimensionCallCount("test")).toBe(1);
 			expect(consoleErrorSpy).toHaveBeenCalled();
-			expect(errors.some((e) => e.includes("shouldSkipDimension"))).toBe(true);
+			expect(errors.some((e) => e.includes("shouldSkipSectionDimension"))).toBe(true);
 		});
 
 		test("should work with multiple sections independently", async () => {
@@ -485,7 +485,7 @@ describe("Skip Logic Hooks", () => {
 					return { provider: "mock", options: {} };
 				}
 
-				shouldSkipDimension(context: SectionDimensionContext): boolean {
+				shouldSkipSectionDimension(context: SectionDimensionContext): boolean {
 					return context.sectionIndex % 2 === 1; // Skip odd indices
 				}
 			}

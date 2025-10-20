@@ -35,53 +35,55 @@ export default defineConfig({
 		// ==========================================
 		sidebar: [
 			{
-				text: "Guide",
+				text: "Getting Started",
 				collapsed: false,
 				items: [
+					{ text: "Installation", link: "/guide/installation" },
 					{ text: "Quick Start", link: "/guide/quick-start" },
 					{ text: "Core Concepts", link: "/guide/core-concepts" },
-					{ text: "Skip Logic", link: "/guide/skip-logic" },
+				],
+			},
+			{
+				text: "Fundamentals",
+				collapsed: false,
+				items: [
+					{ text: "Advanced Quickstart", link: "/examples/00-quickstart" },
+					{ text: "Hello World", link: "/examples/01-hello-world" },
+					{ text: "Dependencies", link: "/examples/02-dependencies" },
+					{ text: "Section vs Global", link: "/examples/03-section-vs-global" },
+					{ text: "Transformations", link: "/examples/04-transformations" },
+					{ text: "Skip Logic", link: "/examples/05-skip-logic" },
+					{ text: "Providers", link: "/examples/06-providers" },
+					{ text: "Async Hooks", link: "/examples/07-async-hooks" },
+					{ text: "Error Handling", link: "/examples/08-error-handling" },
+				],
+			},
+			{
+				text: "Advanced",
+				collapsed: true,
+				items: [
+					{ text: "Custom Providers", link: "/advanced/custom-providers" },
+					{ text: "Performance", link: "/advanced/performance" },
+					{ text: "Testing", link: "/advanced/testing" },
 				],
 			},
 			{
 				text: "Lifecycle",
-				collapsed: false,
-				items: [{ text: "Hooks", link: "/lifecycle/hooks" }],
+				collapsed: true,
+				items: [
+					{ text: "All Hooks", link: "/lifecycle/hooks" },
+					{ text: "Hook Reference", link: "/lifecycle/reference" },
+				],
 			},
 			{
 				text: "API Reference",
-				collapsed: false,
+				collapsed: true,
 				items: [
 					{ text: "DagEngine", link: "/api/engine" },
 					{ text: "Plugin", link: "/api/plugin" },
 					{ text: "Providers", link: "/api/providers" },
+					{ text: "Types", link: "/api/types" },
 				],
-			},
-			{
-				text: "Examples",
-				collapsed: true,
-				items: [
-					// Production Example
-					{
-						text: "🚀 Production Quickstart",
-						link: "/examples/00-quickstart.md"
-					},
-
-					// Separator (visual grouping)
-					{
-						text: "Fundamentals",
-						items: [
-							{ text: "Hello World", link: "/examples/01-hello-world" },
-							{ text: "Dependencies", link: "/examples/02-dependencies" },
-							{ text: "Section vs Global", link: "/examples/03-section-vs-global" },
-							{ text: "Transformations", link: "/examples/04-transformations" },
-							{ text: "Skip Logic", link: "/examples/05-skip-logic" },
-							{ text: "Providers", link: "/examples/06-providers" },
-							{ text: "Async Hooks", link: "/examples/07-async-hooks" },
-							{ text: "Error Handling", link: "/examples/08-error-handling" },
-							{ text: "Progress Monitoring", link: "/examples/09-progress-monitoring" },
-						],
-					}]
 			}
 		],
 

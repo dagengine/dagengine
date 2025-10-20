@@ -5,7 +5,7 @@ description: Skip unnecessary processing with dynamic conditions
 
 # Skip Logic
 
-Skip processing for specific sections using `shouldSkipDimension()`.
+Skip processing for specific sections using `shouldSkipSectionDimension()`.
 
 ## Basic Usage
 
@@ -13,7 +13,7 @@ Skip processing for specific sections using `shouldSkipDimension()`.
 class MyPlugin extends Plugin {
   dimensions = ['analysis'];
 
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     // Skip short content
     if (context.section.content.length < 50) {
       return true;
@@ -37,7 +37,7 @@ class MyPlugin extends Plugin {
 ### By Content Properties
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   const length = context.section.content.length;
   
   if (length < 50) return true;      // Too short
@@ -51,7 +51,7 @@ shouldSkipDimension(context) {
 ### By Metadata
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.section.metadata.processed) return true;
   if (context.section.metadata.spam_score > 0.8) return true;
   if (context.section.metadata.archived) return true;
@@ -70,7 +70,7 @@ class FilteredPlugin extends Plugin {
     return { deep_analysis: ['quality_check'] };
   }
 
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     if (context.dimension === 'deep_analysis') {
       const quality = context.dependencies.quality_check?.data?.quality;
       if (quality < 7) return true;
@@ -100,7 +100,7 @@ class CachedPlugin extends Plugin {
   cache = new Map();
   dimensions = ['analysis'];
 
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     const key = context.section.content;
     const cached = this.cache.get(key);
     
@@ -139,7 +139,7 @@ For production, use Redis or similar for persistent caching across processes.
 Skip unnecessary API calls:
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.section.content.length < 100) return true;
   return false;
 }
@@ -150,7 +150,7 @@ shouldSkipDimension(context) {
 Skip duplicate processing:
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   const cached = this.cache.get(context.section.content);
   if (cached) return { skip: true, result: cached };
   return false;
@@ -162,7 +162,7 @@ shouldSkipDimension(context) {
 Skip low-quality content:
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.dimension === 'expensive_analysis') {
     const quality = context.dependencies.filter?.data?.quality;
     if (quality < 7) return true;
@@ -176,7 +176,7 @@ shouldSkipDimension(context) {
 Skip translation for English content:
 
 ```typescript
-shouldSkipDimension(context) {
+shouldSkipSectionDimension(context) {
   if (context.dimension === 'translate') {
     const lang = context.dependencies.detect_language?.data?.language;
     if (lang === 'en') {
@@ -207,7 +207,7 @@ class OptimizedPlugin extends Plugin {
     return { analysis: ['filter'] };
   }
 
-  shouldSkipDimension(context) {
+  shouldSkipSectionDimension(context) {
     // Skip empty
     if (!context.section.content.trim()) return true;
     

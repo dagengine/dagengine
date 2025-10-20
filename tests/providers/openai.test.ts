@@ -143,7 +143,7 @@ describe("OpenAIProvider", () => {
 		await provider.execute({
 			input: "test",
 			options: {
-				maxTokens: 2048,
+				max_tokens: 2048,
 				temperature: 0.7,
 			},
 		});
