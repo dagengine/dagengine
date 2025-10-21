@@ -17,8 +17,6 @@ The `shouldSkipSectionDimension()` hook prevents expensive API calls on low-valu
 
 **Time:** 6 minutes
 
----
-
 ## Quick Run
 
 ```bash
@@ -219,79 +217,51 @@ createPrompt(ctx: PromptContext): string {
 ### 1. The shouldSkipSectionDimension Hook
 
 Signature:
-
 ```typescript
-shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean
+shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean | SkipWithResult
 ```
 
 **Context includes:**
 - `dimension` - Current dimension being evaluated
 - `section` - Current section being processed
+- `sectionIndex` - Index of current section
 - `dependencies` - Results from dependency dimensions
 
 **Characteristics:**
 - Called before each section dimension executes
 - Return `true` to skip execution
 - Return `false` to proceed with execution
-- Only applies to section dimensions, not global dimensions
+- Only applies to section dimensions
 - Access dependency results to make decisions
 
-### 2. Skip Decision Flow
+**Advanced usage:**
 
-```
-Quality check runs → shouldSkipSectionDimension called → Skip decision made
-
-Example for one section:
-1. quality_check executes (quality_score: 0.10)
-2. shouldSkipSectionDimension called for deep_analysis
-3. Checks: qualityScore < 0.7? → true
-4. Returns: true (skip this section)
-5. deep_analysis does NOT execute for this section
-```
-
-**Characteristics:**
-- Evaluated per section, per dimension
-- Skipped dimensions produce no result
-- Cost savings from avoided API calls
-- Skip decisions based on runtime data
-
-### 3. The Quality Filter Pattern
-
-Use cheap model to filter, expensive model to analyze:
-
-```
-Input: Many items (some low-quality, some high-quality)
-↓
-Quality check (cheap model, fast)
-↓
-Skip decision (based on quality score)
-↓
-Deep analysis (expensive model, only high-quality items)
-↓
-Result: Money saved by not analyzing low-value items
+Return a `SkipWithResult` object to skip execution but provide a cached result:
+```typescript
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_analysis') return false;
+  
+  // Check if we have cached result
+  const cached = getCachedResult(ctx.section);
+  if (cached) {
+    return {
+      skip: true,
+      result: cached  // Use cached result instead of calling API
+    };
+  }
+  
+  // Otherwise check quality as normal
+  const quality = ctx.dependencies.quality_check?.data?.quality_score;
+  return quality < 0.7;
+}
 ```
 
-**Characteristics:**
-- Two-stage processing reduces costs
-- Filter dimension uses cheap, fast model
-- Analysis dimension uses expensive, powerful model
-- Skip logic connects the two stages
+This is useful for:
+- Returning cached results without API calls
+- Providing default/fallback values when skipping
+- Implementing custom result injection
 
-### 4. Cost Optimization
-
-In this example with 10 reviews:
-
-**Without skip logic:**
-- 10 quality checks (Haiku): ~$0.001
-- 10 deep analyses (Sonnet): ~$0.015
-- Total: ~$0.016
-
-**With skip logic:**
-- 10 quality checks (Haiku): ~$0.001
-- 4 deep analyses (Sonnet): ~$0.006
-- Total: ~$0.007
-
-**Savings: 56% cost reduction**
+> **Note:** For global dimensions, use `shouldSkipGlobalDimension(ctx: DimensionContext)` instead. The global hook receives `sections` (array) instead of `section` (single). Example: skip global synthesis if fewer than 3 sections passed the quality filter.
 
 ## When to Use Skip Logic
 
@@ -322,6 +292,7 @@ In this example with 10 reviews:
 ### Content Moderation
 
 ```typescript
+// Skip detailed review on safe content
 this.dimensions = ['toxicity_check', 'detailed_review'];
 
 shouldSkipSectionDimension(ctx) {
@@ -332,11 +303,10 @@ shouldSkipSectionDimension(ctx) {
 }
 ```
 
-Skip detailed moderation review on clearly safe content.
-
 ### Lead Scoring
 
 ```typescript
+// Skip qualification on low-scoring leads
 this.dimensions = ['score_lead', 'deep_qualification'];
 
 shouldSkipSectionDimension(ctx) {
@@ -347,11 +317,10 @@ shouldSkipSectionDimension(ctx) {
 }
 ```
 
-Skip expensive qualification analysis on low-value leads.
-
 ### Document Processing
 
 ```typescript
+// Skip entity extraction on irrelevant documents
 this.dimensions = ['relevance_check', 'extract_entities'];
 
 shouldSkipSectionDimension(ctx) {
@@ -361,8 +330,6 @@ shouldSkipSectionDimension(ctx) {
   return !relevant;  // Skip irrelevant documents
 }
 ```
-
-Skip entity extraction on documents that fail relevance check.
 
 ## Summary
 
