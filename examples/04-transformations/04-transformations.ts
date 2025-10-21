@@ -112,6 +112,7 @@ class ReviewGroupAnalyzer extends Plugin {
 	 * Use case: Transform 10 reviews → 3 category groups
 	 */
 	transformSections(ctx: TransformSectionsContext): SectionData[] {
+		console.log('CTX', JSON.stringify(ctx, null, 4));
 		if (ctx.dimension !== "group_by_category") {
 			return ctx.currentSections;
 		}

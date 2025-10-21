@@ -20,7 +20,6 @@ import {
 	type PromptContext,
 	type ProviderSelection,
 	type SectionData,
-	type ProcessResult,
 } from "../../src";
 
 config({ path: resolve(process.cwd(), ".env") });

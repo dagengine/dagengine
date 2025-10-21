@@ -1,344 +1,299 @@
 ---
 title: 01 - Hello World
-description: Your first dag-ai plugin in 5 minutes
+description: Build your first dag-ai plugin with a single dimension
 ---
 
 # 01 - Hello World
 
-The absolute simplest dag-ai plugin. Learn the core structure in 5 minutes.
-
----
+Build your first dag-ai plugin with a single dimension and parallel processing.
 
 ## What You'll Learn
 
-- ✅ Plugin class structure
+- ✅ Plugin class structure and required methods
 - ✅ Single dimension workflow
-- ✅ Creating prompts
-- ✅ Selecting AI providers
-- ✅ Automatic parallelization
+- ✅ Prompt creation with context
+- ✅ Provider selection and configuration
+- ✅ Automatic parallel processing
 
 **Time:** 5 minutes
 
----
-
 ## Quick Run
 ```bash
-cd examples
-npm install
-cp .env.example .env
-# Add ANTHROPIC_API_KEY to .env
-
-npm run 01
+npm run guide:01
 ```
 
----
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/01-hello-world)**
 
 ## What You'll See
 ```
 📚 Fundamentals 01: Hello World
+
+The simplest possible dag-ai plugin.
+
+Step 1: Creating engine with HelloWorldPlugin...
+✓ Engine created
+
+Step 2: Preparing input sections...
+✓ Prepared 3 sections
+
+Step 3: Processing...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. Alice
-   → Hello Alice! It's wonderful to meet you!
+   → Hi Alice! It's great to see you today!
    Language: english
 
 2. Bob
-   → Hey Bob! Great to see you!
+   → Hey Bob, how's it going? Great to see you!
    Language: english
 
 3. Charlie
-   → Hi Charlie! Hope you're having a fantastic day!
+   → Hey Charlie! How's it going today? Great to see you!
    Language: english
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ Completed in 1.5s
-💰 Cost: $0.0012
+⚡ Completed in 1.43s
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ What just happened?
+
+1. Engine created with HelloWorldPlugin
+2. Plugin defined ONE dimension: 'greet'
+3. Engine processed 3 sections (names)
+4. For each section:
+   - Called createPrompt() to build request
+   - Called selectProvider() to choose AI
+   - Sent request to Anthropic Claude
+   - Parsed JSON response
+5. All 3 sections processed IN PARALLEL (automatically)
+
+🎓 What you learned:
+
+✓ Plugin structure (extends Plugin)
+✓ Dimensions (tasks in your workflow)
+✓ createPrompt() method (what to ask AI)
+✓ selectProvider() method (which AI to use)
+✓ Automatic parallelization (no code needed)
 ```
 
 **What happened?**
-- 3 names processed **in parallel** (automatically!)
-- 1 dimension executed: `greet`
-- 3 API calls total
+- 3 sections processed (Alice, Bob, Charlie)
+- Each received a personalized greeting from Claude
+- All requests sent in parallel automatically
+- Completed in 1.43 seconds total
 
----
+## Code Walkthrough
 
-## The Complete Code
-
-This example is ~150 lines. Here's the structure:
-
-### Step 1: Create Your Plugin
+**Step 1: Define the Plugin Class**
 ```typescript
 class HelloWorldPlugin extends Plugin {
 	constructor() {
 		super(
-			'hello-world',           // Unique ID
-			'Hello World',           // Display name
-			'Say hello to names'     // Description
+			"hello-world",           // Unique plugin ID
+			"Hello World",           // Display name
+			"Say hello to names"     // Description
 		);
 
-		// Define ONE task
-		this.dimensions = ['greet'];
-	}
-
-	// Tell dag-ai what to ask the AI
-	createPrompt(ctx) {
-		const name = ctx.sections[0]?.content || 'World';
-
-		return `Say hello to ${name} in a friendly way.
-    
-    Return JSON:
-    {
-      "greeting": "your greeting here",
-      "language": "english"
-    }`;
-	}
-
-	// Tell dag-ai which AI to use
-	selectProvider(dimension) {
-		return {
-			provider: 'anthropic',
-			options: {
-				model: 'claude-3-5-haiku-20241022',
-				temperature: 0.7
-			}
-		};
+		// Define ONE dimension: the "greet" task
+		this.dimensions = ["greet"];
 	}
 }
 ```
 
-### Step 2: Create the Engine
+**Key point:** Every plugin extends `Plugin` and defines dimensions. Dimensions are the tasks in your workflow. This plugin has one task: greet people.
+
+**Step 2: Implement createPrompt**
+```typescript
+createPrompt(ctx: PromptContext): string {
+	// Extract the name from section content
+	const name = ctx.sections[0]?.content || "World";
+
+	// Build the prompt with JSON structure
+	return `Say hello to ${name} in a friendly way.
+
+Return JSON with this structure:
+{
+  "greeting": "your greeting here",
+  "language": "english"
+}`;
+}
+```
+
+**Key point:** `createPrompt()` receives context and returns a string prompt. The engine calls this once per section, automatically injecting the section data through `ctx.sections`.
+
+**Step 3: Implement selectProvider**
+```typescript
+selectProvider(dimension: string): ProviderSelection {
+	return {
+		provider: "anthropic",
+		options: {
+			model: "claude-3-5-haiku-20241022",  // Fast, cheap model
+			temperature: 0.7                      // Slightly creative
+		}
+	};
+}
+```
+
+**Key point:** `selectProvider()` tells the engine which AI provider and model to use. This runs once per dimension. Different dimensions can use different providers.
+
+**Step 4: Create and Configure Engine**
 ```typescript
 const engine = new DagEngine({
 	plugin: new HelloWorldPlugin(),
 	providers: {
-		anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
+		anthropic: {
+			apiKey: process.env.ANTHROPIC_API_KEY!
+		}
 	}
 });
 ```
 
-### Step 3: Process Your Data
+**Key point:** The engine needs your plugin and provider credentials. Each provider needs its API key configured.
+
+**Step 5: Process Sections**
 ```typescript
-const sections = [
-	{ content: 'Alice', metadata: { id: 1 } },
-	{ content: 'Bob', metadata: { id: 2 } },
-	{ content: 'Charlie', metadata: { id: 3 } }
+const sections: SectionData[] = [
+	{ content: "Alice", metadata: { id: 1 } },
+	{ content: "Bob", metadata: { id: 2 } },
+	{ content: "Charlie", metadata: { id: 3 } }
 ];
 
 const result = await engine.process(sections);
 ```
 
-### Step 4: Access Results
-```typescript
-result.sections.forEach(section => {
-	const name = section.section.content;
-	const greeting = section.results.greet?.data;
-
-	console.log(`${name} → ${greeting.greeting}`);
-});
-```
-
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/01-hello-world)**
-
----
+**Key point:** Call `engine.process()` with your input data. The engine automatically processes all sections in parallel and returns structured results.
 
 ## Key Concepts
 
 ### 1. Plugin Structure
 
-Every plugin extends `Plugin` and needs:
+**Description:** Plugins extend the `Plugin` base class and implement two required methods.
 ```typescript
 class MyPlugin extends Plugin {
-  constructor() {
-    super(id, name, description);
-    this.dimensions = ['task1', 'task2'];
-  }
-  
-  createPrompt(ctx) { /* ... */ }
-  selectProvider(dimension) { /* ... */ }
+	constructor() {
+		super("id", "name", "description");
+		this.dimensions = ["task1", "task2"];
+	}
+
+	createPrompt(ctx: PromptContext): string { }
+	selectProvider(dimension: string): ProviderSelection { }
 }
 ```
 
-**Three required parts:**
-- `dimensions` - Array of tasks to perform
-- `createPrompt()` - What to ask the AI
-- `selectProvider()` - Which AI provider to use
-
----
+**Characteristics:**
+- Constructor defines plugin identity and dimensions
+- `createPrompt()` builds the AI request
+- `selectProvider()` chooses which AI to use
+- Both methods are called automatically by the engine
 
 ### 2. Dimensions
 
-**Dimensions are the "tasks" in your workflow.**
+**Description:** Dimensions are the tasks in your workflow. Each dimension represents one AI call per section.
 ```typescript
-this.dimensions = ['greet'];  // One task
+this.dimensions = ["greet"];  // One task: greet
 ```
 
-This plugin has **one dimension**: `greet`
+**Characteristics:**
+- Defined as string array in constructor
+- Each dimension processes independently
+- Can depend on other dimensions (covered in later examples)
+- Processed in parallel when possible
 
-Each dimension:
-- Runs once per section
-- Gets its own prompt
-- Can use different AI models
-- Results stored by dimension name
+### 3. Section Data
 
----
-
-### 3. Creating Prompts
-
-**The `createPrompt()` method builds the AI request:**
+**Description:** Sections are your input units. Each section flows through all dimensions.
 ```typescript
-createPrompt(ctx: PromptContext): string {
-  // Access section data
-  const name = ctx.sections[0]?.content;
-  
-  // Build your prompt
-  return `Say hello to ${name}...`;
-}
-```
-
-**Tips:**
-- Keep prompts clear and specific
-- Request JSON for structured output
-- Use section content and metadata
-
----
-
-### 4. Selecting Providers
-
-**The `selectProvider()` method chooses the AI:**
-```typescript
-selectProvider(dimension: string): ProviderSelection {
-  return {
-    provider: 'anthropic',  // or 'openai', 'gemini'
-    options: {
-      model: 'claude-3-5-haiku-20241022',
-      temperature: 0.7
-    }
-  };
-}
-```
-
-**Available providers:**
-- `anthropic` - Claude models
-- `openai` - GPT models
-- `gemini` - Gemini models
-
----
-
-### 5. Automatic Parallelization
-
-**dag-ai runs independent tasks in parallel automatically:**
-```
-Section 1 → greet → Result 1
-Section 2 → greet → Result 2  } All 3 run together
-Section 3 → greet → Result 3
-```
-
-**No code needed!** Just define your dimensions.
-
----
-
-## Customization
-
-### Use Different Names
-```typescript
-const sections = [
-  { content: 'Emma', metadata: { id: 1 } },
-  { content: 'Oliver', metadata: { id: 2 } }
+const sections: SectionData[] = [
+	{ content: "Alice", metadata: { id: 1 } }
 ];
 ```
 
-### Change the Greeting Style
+**Characteristics:**
+- `content` holds the main data (string)
+- `metadata` stores additional information (optional)
+- Each section processed independently
+- Results maintain section order
+
+### 4. Prompt Context
+
+**Description:** The context passed to `createPrompt()` contains section data and dependencies.
 ```typescript
-createPrompt(ctx) {
-  const name = ctx.sections[0]?.content;
-  
-  return `Say hello to ${name} in a FORMAL business style.
-  
-  Return JSON:
-  {
-    "greeting": "your greeting",
-    "language": "english"
-  }`;
+createPrompt(ctx: PromptContext): string {
+	const name = ctx.sections[0]?.content;
+	return `Say hello to ${name}`;
 }
 ```
 
-### Use OpenAI Instead
+**Characteristics:**
+- `ctx.sections` array contains current section(s)
+- `ctx.dependencies` contains results from other dimensions (when applicable)
+- Access via index: `ctx.sections[0]` for single section
+- Type-safe with TypeScript
+
+### 5. Provider Configuration
+
+**Description:** Configure API keys and select models for AI providers.
 ```typescript
-selectProvider() {
-  return {
-    provider: 'openai',
-    options: {
-      model: 'gpt-4o',
-      temperature: 0.7
-    }
-  };
+providers: {
+	anthropic: {
+		apiKey: process.env.ANTHROPIC_API_KEY!
+	}
 }
 ```
 
----
-
-## Next Steps
-
-**Ready to learn more?**
-
-1. **[02 - Dependencies](/examples/02-dependencies)** - Control execution order
-2. **[03 - Section vs Global](/examples/03-section-vs-global)** - Two types of dimensions
-3. **[Production Quickstart](/examples/00-quickstart)** - See all features together
-
-**Want to experiment?**
-
-- Add more dimensions: `['greet', 'compliment', 'joke']`
-- Use different languages: Ask for greetings in Spanish, French, etc.
-- Add metadata: Store timestamps, user IDs, etc.
-
----
-
-## Troubleshooting
-
-### "API key not set"
-```bash
-# Add to examples/.env
-ANTHROPIC_API_KEY=sk-ant-xxx
-```
-
-Get your key at [console.anthropic.com](https://console.anthropic.com/)
-
-### "Provider not found"
-
-Make sure provider is configured in engine:
-```typescript
-const engine = new DagEngine({
-  plugin: new HelloWorldPlugin(),
-  providers: {
-    anthropic: { apiKey: 'your-key' }  // ← Must match selectProvider()
-  }
-});
-```
-
-### Result is undefined
-
-Check dimension name matches:
-```typescript
-this.dimensions = ['greet'];  // ← Must match
-result.sections[0].results.greet  // ← Access with same name
-```
-
----
+**Characteristics:**
+- Each provider needs API key in environment
+- Model selection happens in `selectProvider()`
+- Different models have different speed/cost tradeoffs
+- Temperature controls response creativity
 
 ## Summary
 
 **What you learned:**
 
-✅ Plugin structure - Extend `Plugin` class  
-✅ Dimensions - Define tasks in your workflow  
-✅ Prompts - Use `createPrompt()` to build requests  
-✅ Providers - Use `selectProvider()` to choose AI  
-✅ Parallelization - Automatic, no configuration needed
+✅ Plugin structure - Extend Plugin class with constructor and two methods  
+✅ Dimensions - Define tasks as string array for AI calls  
+✅ Prompt creation - Access section data through context  
+✅ Provider selection - Return provider name and model config  
+✅ Parallel processing - Engine handles concurrency automatically
 
-**Next:** [02 - Dependencies →](/examples/02-dependencies)
+**Key insight:**
 
-Learn how to control execution order when tasks depend on each other!
+The dag-ai engine handles all the complexity of parallel processing, error handling, and result aggregation. You define what to ask the AI (`createPrompt`) and which AI to use (`selectProvider`). The engine does the rest - batching requests, managing concurrency, and structuring results. This lets you focus on your workflow logic instead of infrastructure.
+
+## Troubleshooting
+
+### Missing API Key
+```
+Error: Missing API key for provider: anthropic
+```
+
+**Cause:** `ANTHROPIC_API_KEY` not found in environment variables
+
+**Fix:**
+```bash
+# Create examples/.env file
+echo "ANTHROPIC_API_KEY=sk-ant-your-key-here" > examples/.env
+```
+
+### Invalid JSON Response
+```
+Error: Failed to parse JSON response from provider
+```
+
+**Cause:** AI returned text instead of valid JSON
+
+**Fix:** Make your JSON structure request more explicit in the prompt:
+```typescript
+return `Say hello to ${name}.
+
+IMPORTANT: Return ONLY valid JSON with no additional text.
+
+{
+  "greeting": "your greeting here",
+  "language": "english"
+}`;
+```

@@ -1,25 +1,21 @@
 ---
 title: 03 - Section vs Global
-description: THE killer feature - two types of dimensions
+description: Two types of dimensions for per-item and cross-item analysis
 ---
 
 # 03 - Section vs Global
 
-**THE killer feature of dag-ai.** Learn the difference between per-item and cross-item analysis.
-
----
+Section dimensions analyze each item independently in parallel. Global dimensions synthesize across all items sequentially.
 
 ## What You'll Learn
 
-- ✅ Section dimensions (per-item, parallel)
-- ✅ Global dimensions (cross-item, sequential)
-- ✅ When to use each scope
-- ✅ How dag-ai aggregates results automatically
-- ✅ Building elegant multi-scope workflows
+- ✅ Define section dimensions for per-item analysis
+- ✅ Define global dimensions for cross-item synthesis
+- ✅ Understand automatic result aggregation
+- ✅ Choose the right scope for your task
+- ✅ Build multi-scope workflows
 
 **Time:** 7 minutes
-
----
 
 ## Quick Run
 ```bash
@@ -31,7 +27,7 @@ cp .env.example .env
 npm run 03
 ```
 
----
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/03-section-vs-global)**
 
 ## What You'll See
 ```
@@ -105,70 +101,63 @@ GLOBAL RESULTS (across all reviews)
 ```
 
 **What happened?**
-- 5 reviews analyzed **independently** in parallel (section)
-- Results **automatically aggregated** by dag-ai
-- 1 overall analysis created **across all reviews** (global)
-- Total: **6 API calls** (5 parallel + 1 sequential)
 
----
+- 5 reviews analyzed independently with section dimension (5 parallel API calls)
+- dag-ai automatically aggregated all sentiment results
+- 1 overall analysis synthesized across all reviews with global dimension (1 sequential call)
+- Total execution: 5.17 seconds, $0.0044 cost, 1,054 tokens across 6 API calls
 
-## The Complete Code
+## Code Walkthrough
 
 ### Step 1: Define Section and Global Dimensions
 ```typescript
 class ReviewAnalyzer extends Plugin {
-	constructor() {
-		super('review-analyzer', 'Review Analyzer', 'Dual scope demo');
+  constructor() {
+    super('review-analyzer', 'Review Analyzer', 'Dual scope demo');
 
-		this.dimensions = [
-			'analyze_sentiment',                           // Section (default)
-			{ name: 'overall_analysis', scope: 'global' }  // Global (explicit)
-		];
-	}
+    this.dimensions = [
+      'analyze_sentiment',                           // Section (default)
+      { name: 'overall_analysis', scope: 'global' }  // Global (explicit)
+    ];
+  }
 }
 ```
 
-**Key difference:**
-- Section dimensions: Default scope, just use string
-- Global dimensions: Must specify `{ name: '...', scope: 'global' }`
-
----
+**Key point:** Section dimensions use string syntax. Global dimensions require explicit object notation with `scope: 'global'`.
 
 ### Step 2: Define Dependencies
 ```typescript
 defineDependencies() {
-	return {
-		overall_analysis: ['analyze_sentiment']
-	};
+  return {
+    overall_analysis: ['analyze_sentiment']
+  };
 }
 ```
 
-Global dimension waits for **all** section results.
-
----
+**Key point:** Global dimension waits for all section results to complete before executing.
 
 ### Step 3: Create Prompts for Each Scope
 ```typescript
 createPrompt(ctx: PromptContext): string {
-	const { dimension, sections, dependencies } = ctx;
+  const { dimension, sections, dependencies } = ctx;
 
-	if (dimension === 'analyze_sentiment') {
-		// SECTION: ctx.sections contains ONE review
-		const review = sections[0]?.content || '';
+  if (dimension === 'analyze_sentiment') {
+    // SECTION: ctx.sections contains ONE review
+    const review = sections[0]?.content || '';
 
-		return `Analyze sentiment: "${review}"
+    return `Analyze sentiment: "${review}"
     Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
-	}
+  }
 
-	if (dimension === 'overall_analysis') {
-		// GLOBAL: ctx.dependencies contains ALL sentiment results
-		const sentimentData = dependencies.analyze_sentiment?.data;
-		const allSentiments = sentimentData.sections.map(sectionResult => ({
-			sentiment: sectionResult.data?.sentiment,
-			score: sectionResult.data?.score
-		}));
+  if (dimension === 'overall_analysis') {
+    // GLOBAL: ctx.dependencies contains ALL sentiment results
+    const sentimentData = dependencies.analyze_sentiment?.data;
+    const allSentiments = sentimentData.sections.map(sectionResult => ({
+      sentiment: sectionResult.data?.sentiment,
+      score: sectionResult.data?.score
+    }));
 
-		return `Analyze ${allSentiments.length} reviews:
+    return `Analyze ${allSentiments.length} reviews:
     ${JSON.stringify(allSentiments)}
     
     Return JSON: {
@@ -179,15 +168,11 @@ createPrompt(ctx: PromptContext): string {
       "overall_sentiment": "positive|negative|neutral",
       "recommendation": "business recommendation"
     }`;
-	}
+  }
 }
 ```
 
-**Critical difference:**
-- **Section**: Gets ONE item to analyze
-- **Global**: Gets ALL results from dependencies
-
----
+**Key point:** Section dimensions receive one item at a time. Global dimensions receive all aggregated results from their dependencies.
 
 ### Step 4: Process and Access Results
 ```typescript
@@ -205,30 +190,24 @@ console.log('Overall:', overall.overall_sentiment);
 console.log('Breakdown:', overall.positive_count, 'positive');
 ```
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/03-section-vs-global)**
-
----
-
 ## Key Concepts
 
-### 1. Section Dimensions (Default)
+### 1. Section Dimensions
 
-**Run once per item, in parallel:**
+Run once per item, in parallel:
 ```typescript
 this.dimensions = ['analyze_sentiment'];  // Section by default
 ```
 
 **Characteristics:**
-- Parallel execution (all items processed together)
-- Independent analysis (each item isolated)
-- Fast and scalable
-- Per-item results
+- Parallel execution across all items
+- Independent analysis with no cross-item visibility
+- Scales linearly with item count
+- Each item produces its own result
 
----
+### 2. Global Dimensions
 
-### 2. Global Dimensions (Explicit)
-
-**Run once across all items, sequentially:**
+Run once across all items, sequentially:
 ```typescript
 this.dimensions = [
   { name: 'overall_analysis', scope: 'global' }
@@ -236,33 +215,33 @@ this.dimensions = [
 ```
 
 **Characteristics:**
-- Sequential execution (runs after dependencies)
-- Cross-item synthesis
-- Aggregation and comparison
-- Single result for all items
-
----
+- Sequential execution after dependencies complete
+- Cross-item synthesis and aggregation
+- Single result covering all items
+- Receives aggregated dependency results
 
 ### 3. Automatic Aggregation
 
-**dag-ai automatically packages section results for global dimensions:**
+dag-ai automatically packages section results for global dimensions:
 ```typescript
-// You write this:
+// Define dependency
 defineDependencies() {
   return {
     overall_analysis: ['analyze_sentiment']  // Global depends on section
   };
 }
 
-// dag-ai does this automatically:
+// dag-ai automatically:
 // 1. Collects all section results
 // 2. Packages into aggregated format
 // 3. Passes to global dimension via ctx.dependencies
 ```
 
-**No manual aggregation code needed!**
-
----
+**Characteristics:**
+- No manual aggregation code required
+- Section results automatically collected
+- Aggregated data structure provided to global dimensions
+- Maintains result metadata and structure
 
 ### 4. Data Flow Between Scopes
 ```
@@ -284,90 +263,73 @@ GLOBAL SCOPE:
 Output: 5 section results + 1 global result
 ```
 
----
+**Characteristics:**
+- Section dimensions process items independently
+- Aggregation happens automatically between scopes
+- Global dimensions receive complete aggregated data
+- Results available at both section and global levels
 
 ## When to Use Each Scope
 
-### Use SECTION Dimensions For:
+### Use Section Dimensions For:
 
-✅ **Sentiment analysis** - Each review independent  
-✅ **Topic extraction** - Each document separate  
-✅ **Entity recognition** - Each text analyzed alone  
-✅ **Classification** - Each item categorized  
-✅ **Translation** - Each sentence independent  
-✅ **Summarization** - Each article separate
+Independent analysis where each item stands alone:
 
-**Rule:** If analysis doesn't need other items → **Section**
+- Sentiment analysis on individual reviews
+- Topic extraction from separate documents
+- Entity recognition in isolated texts
+- Classification of individual items
+- Translation of separate sentences
+- Summarization of distinct articles
 
----
+### Use Global Dimensions For:
 
-### Use GLOBAL Dimensions For:
+Cross-item synthesis where analysis requires multiple items:
 
-✅ **Overall summary** - Synthesize all results  
-✅ **Comparison** - Find patterns across items  
-✅ **Aggregation** - Count, average, totals  
-✅ **Ranking** - Sort items by criteria  
-✅ **Grouping** - Cluster similar items  
-✅ **Recommendations** - Based on all data
+- Overall summaries synthesizing all results
+- Pattern detection across items
+- Aggregation of counts, averages, totals
+- Ranking items by specific criteria
+- Clustering similar items into groups
+- Recommendations based on complete dataset
 
-**Rule:** If analysis needs other items → **Global**
+## Execution Patterns
 
----
-
-## Execution Pattern
-
-**Section dimensions run in parallel, global dimensions run sequentially:**
-```
-Section (parallel) → Aggregation (automatic) → Global (sequential)
-```
-
-With this example's 5 reviews:
-- Section calls run in parallel (5 simultaneous calls)
-- Global call runs after all section calls complete (1 call)
-- Total: 6 API calls
-
-**Benefit:** Parallel execution of independent work, with automatic aggregation for synthesis.
-
----
-
-## Real-World Examples
-
-### Example 1: Content Moderation
+### Pattern 1: Section → Global (This Example)
 ```typescript
 this.dimensions = [
-  'detect_toxicity',           // Section: per comment
-  'detect_spam',               // Section: per comment
-  { name: 'safety_report', scope: 'global' }  // Global: overall safety
+  'sentiment',                              // Section
+  { name: 'overall', scope: 'global' }     // Global
 ];
+
+defineDependencies() {
+  return {
+    overall: ['sentiment']
+  };
+}
 ```
 
----
+Execution: 5 parallel section calls → 1 global call
 
-### Example 2: Document Analysis
+### Pattern 2: Multiple Globals
 ```typescript
 this.dimensions = [
-  'extract_entities',          // Section: per document
-  'classify_topic',            // Section: per document
-  { name: 'knowledge_graph', scope: 'global' }  // Global: connect all entities
+  'sentiment',                              // Section
+  { name: 'summary', scope: 'global' },    // Global 1
+  { name: 'trends', scope: 'global' }      // Global 2
 ];
+
+defineDependencies() {
+  return {
+    summary: ['sentiment'],
+    trends: ['sentiment']
+  };
+}
 ```
 
----
+Both global dimensions run in parallel after section completes.
 
-### Example 3: Customer Feedback
-```typescript
-this.dimensions = [
-  'sentiment',                 // Section: per review
-  'categorize',                // Section: per review
-  { name: 'trend_analysis', scope: 'global' }  // Global: trends over time
-];
-```
-
----
-
-## Multi-Model Strategy
-
-**Use different models for different scopes:**
+### Pattern 3: Multi-Model Strategy
 ```typescript
 selectProvider(dimension: string) {
   if (dimension === 'analyze_sentiment') {
@@ -379,7 +341,7 @@ selectProvider(dimension: string) {
   }
   
   if (dimension === 'overall_analysis') {
-    // Global: Powerful model (one call, complex task)
+    // Global: Powerful model (one call, complex synthesis)
     return {
       provider: 'anthropic',
       options: { model: 'claude-3-5-sonnet-20241022' }
@@ -388,77 +350,21 @@ selectProvider(dimension: string) {
 }
 ```
 
-**Benefits:**
-- Optimize cost (cheap model for bulk work)
-- Optimize quality (smart model for synthesis)
-- Best of both worlds
+Optimize cost for bulk work, optimize quality for synthesis.
 
----
+## Summary
 
-## Customization
+**What you learned:**
 
-### Add More Reviews
-```typescript
-const sections: SectionData[] = [
-  { content: 'Review 1...', metadata: { id: 1 } },
-  { content: 'Review 2...', metadata: { id: 2 } },
-  // Add as many as you want
-];
-```
+✅ **Section dimensions** - Per-item parallel analysis for independent tasks  
+✅ **Global dimensions** - Cross-item sequential synthesis for aggregation  
+✅ **Automatic aggregation** - dag-ai handles data flow between scopes  
+✅ **Scope selection** - Clear rules for choosing section vs global  
+✅ **Multi-scope workflows** - Combine both scopes for powerful pipelines
 
-Scales automatically - more reviews = more parallel section calls.
+**Key insight:**
 
----
-
-### Multiple Global Dimensions
-```typescript
-this.dimensions = [
-  'sentiment',                           // Section
-  { name: 'summary', scope: 'global' },  // Global 1
-  { name: 'trends', scope: 'global' }    // Global 2
-];
-
-defineDependencies() {
-  return {
-    summary: ['sentiment'],
-    trends: ['sentiment']   // Both globals use same section results
-  };
-}
-```
-
-Both global dimensions run in parallel (independent of each other).
-
----
-
-### Chain Scopes
-```typescript
-this.dimensions = [
-  'sentiment',                         // Section
-  { name: 'categorize', scope: 'global' },  // Global 1: group by sentiment
-  'detailed_analysis',                 // Section (on new grouped sections)
-  { name: 'final_report', scope: 'global' } // Global 2: final synthesis
-];
-```
-
-Alternate between scopes for complex workflows!
-
----
-
-## Next Steps
-
-**Ready for more?**
-
-1. **[04 - Transformations](/examples/04-transformations)** - Dynamic section changes
-2. **[05 - Skip Logic](/examples/05-skip-logic)** - Conditional execution
-3. **[Production Quickstart](/examples/00-quickstart)** - All features together
-
-**Want to experiment?**
-
-- Add a `categorize` section dimension to group reviews
-- Add a `comparison` global dimension to compare categories
-- Try with more reviews to see parallelization
-
----
+Section and global dimensions create a natural pattern for scalable data processing. Section dimensions parallelize independent work across items, while global dimensions synthesize results across the entire dataset. dag-ai automatically aggregates section results and passes them to global dimensions, eliminating manual coordination code. This dual-scope architecture handles both breadth (analyzing many items) and depth (synthesizing insights) in a single pipeline.
 
 ## Troubleshooting
 
@@ -467,70 +373,47 @@ Alternate between scopes for complex workflows!
 const overall = result.globalResults.overall_analysis?.data;  // undefined
 ```
 
-**Cause:** Dimension name mismatch or wrong scope
+**Cause:** Dimension name doesn't match or scope not set to global.
 
 **Fix:**
 ```typescript
-// Make sure name matches and scope is 'global'
+// Ensure name matches exactly and scope is 'global'
 this.dimensions = [
-	{ name: 'overall_analysis', scope: 'global' }  // ✓
+  { name: 'overall_analysis', scope: 'global' }
 ];
 ```
-
----
 
 ### Dependencies Not Aggregated
 ```typescript
 // In global dimension prompt
 const sentimentData = ctx.dependencies.analyze_sentiment?.data;
-// Not aggregated format
+// sentimentData is not in aggregated format
 ```
 
-**Cause:** Dependency is not a section dimension
+**Cause:** Dependency dimension is global instead of section.
 
-**Fix:** Make sure dependent dimension is section-scoped:
+**Fix:**
 ```typescript
+// Dependent dimension must be section-scoped
 this.dimensions = [
-	'analyze_sentiment',  // Section (default) ✓
-	{ name: 'overall', scope: 'global' }
+  'analyze_sentiment',  // Section (default)
+  { name: 'overall', scope: 'global' }
 ];
 ```
 
----
-
-### Wrong Results in Global
-
-**Check:** Are you accessing the data correctly?
+### Wrong Data Structure in Global
 ```typescript
-// ✓ Correct
-const sentimentData = ctx.dependencies.analyze_sentiment?.data;
-if (sentimentData?.aggregated) {
-	const allResults = sentimentData.sections;  // Array of results
-}
-
-// ✗ Wrong
-const sentimentData = ctx.dependencies.analyze_sentiment;
-const allResults = sentimentData.data;  // Not aggregated format
+// Accessing aggregated data incorrectly
+const allResults = ctx.dependencies.analyze_sentiment?.data;
 ```
 
----
+**Cause:** Incorrect path to aggregated section results.
 
-## Summary
-
-**What you learned:**
-
-✅ Section dimensions - Per-item, parallel analysis  
-✅ Global dimensions - Cross-item, sequential synthesis  
-✅ Automatic aggregation - dag-ai handles data flow  
-✅ Dual-scope workflows - The killer feature  
-✅ When to use each - Clear decision framework
-
-**Key insight:**
-
-**This is what makes dag-ai unique.** Other frameworks treat everything as sequential tasks. dag-ai has **two scopes** that let you elegantly combine parallel per-item analysis with sequential cross-item synthesis.
-
-**The power:** Build workflows that scale (parallel section) AND synthesize (global) without writing concurrency code.
-
-**Next:** [04 - Transformations →](/examples/04-transformations)
-
-Learn how to dynamically restructure your data mid-pipeline!
+**Fix:**
+```typescript
+// Correct path to aggregated results
+const sentimentData = ctx.dependencies.analyze_sentiment?.data;
+if (sentimentData?.aggregated) {
+  const allResults = sentimentData.sections;  // Array of all results
+}
+```

@@ -5,21 +5,17 @@ description: Control execution order with automatic parallelization
 
 # 02 - Dependencies
 
-Learn how dependencies create automatic parallelization and execution order.
-
----
+Dependencies create automatic parallelization and execution order in your data processing pipeline.
 
 ## What You'll Learn
 
-- ✅ Multiple dimensions in one plugin
-- ✅ Defining dependencies between tasks
-- ✅ Automatic parallel execution
-- ✅ Accessing dependency results
-- ✅ Understanding execution order
+- ✅ Define multiple dimensions in one plugin
+- ✅ Create dependencies between tasks
+- ✅ Trigger automatic parallel execution
+- ✅ Access dependency results in prompts
+- ✅ Understand DAG execution flow
 
 **Time:** 5 minutes
-
----
 
 ## Quick Run
 ```bash
@@ -31,7 +27,7 @@ cp .env.example .env
 npm run 02
 ```
 
----
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/02-dependencies)**
 
 ## What You'll See
 ```
@@ -91,12 +87,13 @@ Section 2:
 ```
 
 **What happened?**
-- 2 sections processed with 3 dimensions each
-- sentiment + topics ran **in parallel**
-- summary **waited** for both, then used their results
-- Total: **6 API calls** (4 parallel + 2 sequential)
 
-## The Complete Code
+- 2 sections processed with 3 dimensions each (sentiment, topics, summary)
+- sentiment and topics ran in parallel for both sections (4 simultaneous API calls)
+- summary waited for both dependencies, then executed for each section (2 sequential calls)
+- Total execution time: 4.92 seconds with $0.0032 cost across 6 API calls
+
+## Code Walkthrough
 
 ### Step 1: Define Multiple Dimensions
 ```typescript
@@ -104,13 +101,13 @@ class TextAnalyzer extends Plugin {
   constructor() {
     super('text-analyzer', 'Text Analyzer', 'Analyze text');
     
-    // Define THREE tasks
+    // Define three separate analysis tasks
     this.dimensions = ['sentiment', 'topics', 'summary'];
   }
 }
 ```
 
----
+**Key point:** Each dimension represents a distinct analysis task that produces its own result.
 
 ### Step 2: Define Dependencies
 ```typescript
@@ -121,16 +118,14 @@ defineDependencies(): Record<string, string[]> {
 }
 ```
 
-**This creates the execution DAG:**
+This creates the execution DAG:
 ```
 sentiment ─────┐
                ├──→ summary
 topics ────────┘
 ```
 
-**Key insight:** Dimensions with **no dependencies** run immediately in parallel!
-
----
+**Key point:** Dimensions with no dependencies run immediately in parallel. Dependencies enforce execution order.
 
 ### Step 3: Create Prompts for Each Dimension
 ```typescript
@@ -149,7 +144,7 @@ createPrompt(ctx: PromptContext): string {
   }
   
   if (dimension === 'summary') {
-    // ✅ Access dependency results
+    // Access dependency results
     const sentiment = dependencies.sentiment?.data?.sentiment;
     const topics = dependencies.topics?.data?.topics;
     
@@ -161,9 +156,7 @@ createPrompt(ctx: PromptContext): string {
 }
 ```
 
-**Key point:** Dependent dimensions receive results via `ctx.dependencies`
-
----
+**Key point:** Dependent dimensions receive completed results via `ctx.dependencies`.
 
 ### Step 4: Process and Access Results
 ```typescript
@@ -179,30 +172,24 @@ result.sections.forEach(sectionResult => {
   console.log('Summary:', summary.summary);
 });
 ```
-
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-dependencies)**
-
----
-
 ## Key Concepts
 
 ### 1. Multiple Dimensions
 
-**Run multiple analyses on the same data:**
+Run multiple analyses on the same data:
 ```typescript
 this.dimensions = ['sentiment', 'topics', 'summary'];
 ```
 
-Each dimension:
-- Has its own prompt
-- Produces its own result
-- Can depend on other dimensions
-
----
+**Characteristics:**
+- Each dimension has its own prompt
+- Each dimension produces its own result
+- Dimensions can depend on other dimensions
+- All dimensions process the same input sections
 
 ### 2. Defining Dependencies
 
-**Control execution order declaratively:**
+Control execution order declaratively:
 ```typescript
 defineDependencies() {
   return {
@@ -211,16 +198,15 @@ defineDependencies() {
 }
 ```
 
-**Rules:**
-- No dependencies = runs immediately (in parallel)
-- Has dependencies = waits for them to complete
-- Circular dependencies = not allowed
-
----
+**Characteristics:**
+- No dependencies = runs immediately in parallel
+- Has dependencies = waits for all dependencies to complete
+- Circular dependencies throw an error
+- Dependencies must reference valid dimension names
 
 ### 3. Execution Flow
 
-**dag-ai automatically builds an execution plan:**
+dag-ai automatically builds an execution plan:
 ```
 Input: 2 sections with 3 dimensions each
 
@@ -234,117 +220,91 @@ Sequential Phase:
   Section 1 → summary ───┐  } 2 calls (waits for parallel phase)
   Section 2 → summary ───┘
 
-Result: Independent tasks execute in parallel
+Result: Independent tasks execute in parallel, reducing total time
 ```
 
----
+**Characteristics:**
+- Engine analyzes dependency graph before execution
+- Tasks with no blockers start immediately
+- Tasks wait only for their declared dependencies
+- Parallel execution happens automatically
 
 ### 4. Accessing Dependency Results
 
-**Dependent dimensions receive results via `ctx.dependencies`:**
+Dependent dimensions receive results via `ctx.dependencies`:
 ```typescript
 createPrompt(ctx) {
-	if (ctx.dimension === 'summary') {
-		// Access completed dependency results
-		const sentimentData = ctx.dependencies.sentiment?.data;
-		const topicsData = ctx.dependencies.topics?.data;
+  if (ctx.dimension === 'summary') {
+    // Access completed dependency results
+    const sentimentData = ctx.dependencies.sentiment?.data;
+    const topicsData = ctx.dependencies.topics?.data;
 
-		// Use them in your prompt
-		return `Summarize with sentiment: ${sentimentData.sentiment}...`;
-	}
+    // Use them in your prompt
+    return `Summarize with sentiment: ${sentimentData.sentiment}...`;
+  }
 }
 ```
 
----
+**Characteristics:**
+- Dependencies are guaranteed to be complete before execution
+- Results include both data and metadata
+- Use optional chaining for safety
+- Results match the structure returned by parseResponse
 
 ## Execution Patterns
 
 ### Pattern 1: Parallel (This Example)
 ```typescript
 defineDependencies() {
-	return {
-		summary: ['sentiment', 'topics']
-	};
+  return {
+    summary: ['sentiment', 'topics']
+  };
 }
 ```
 
 Execution: `sentiment, topics` (parallel) → `summary`
 
----
+Use when multiple independent analyses feed into a final task.
 
 ### Pattern 2: Sequential Chain
 ```typescript
 defineDependencies() {
-	return {
-		step2: ['step1'],
-		step3: ['step2']
-	};
+  return {
+    step2: ['step1'],
+    step3: ['step2']
+  };
 }
 ```
 
 Execution: `step1` → `step2` → `step3` (sequential)
 
----
+Use when each task requires the previous task's output.
 
 ### Pattern 3: Multiple Dependencies
 ```typescript
 defineDependencies() {
-	return {
-		final: ['task1', 'task2', 'task3']
-	};
+  return {
+    final: ['task1', 'task2', 'task3']
+  };
 }
 ```
 
 Execution: `task1, task2, task3` (all parallel) → `final`
 
----
+Use when a final task needs to synthesize multiple independent analyses.
 
-## Customization
+## Summary
 
-### Add More Dimensions
-```typescript
-this.dimensions = ['sentiment', 'topics', 'language', 'summary'];
+**What you learned:**
 
-defineDependencies() {
-	return {
-		summary: ['sentiment', 'topics', 'language']  // Now waits for 3
-	};
-}
-```
+✅ **Multiple dimensions** - Run separate analysis tasks on the same data  
+✅ **Dependencies** - Control execution order with declarative syntax  
+✅ **Automatic parallelization** - Engine runs independent tasks simultaneously  
+✅ **Access results** - Use `ctx.dependencies` to read completed dependency data
 
----
+**Key insight:**
 
-### Change Dependency Structure
-
-Make sequential instead of parallel:
-```typescript
-defineDependencies() {
-	return {
-		topics: ['sentiment'],    // topics waits for sentiment
-		summary: ['topics']        // summary waits for topics
-	};
-}
-```
-
-Now: `sentiment` → `topics` → `summary` (all sequential)
-
----
-
-## Next Steps
-
-**Ready for more?**
-
-1. **[03 - Section vs Global](/examples/03-section-vs-global)** - Two types of dimensions
-2. **[04 - Transformations](/examples/04-transformations)** - Dynamic section changes
-3. **[Production Quickstart](/examples/00-quickstart)** - All features together
-
-**Want to experiment?**
-
-- Add a `language` dimension to detect text language
-- Add a `keywords` dimension to extract key phrases
-- Make `summary` depend only on `sentiment` to see different results
-
----
+Dependencies are declarative, not imperative. You define what depends on what, and dag-ai calculates the optimal execution plan automatically. Tasks with no dependencies run in parallel immediately, while dependent tasks wait only for their specific requirements. This creates efficient pipelines without manual concurrency management.
 
 ## Troubleshooting
 
@@ -353,62 +313,52 @@ Now: `sentiment` → `topics` → `summary` (all sequential)
 Error: Circular dependency detected: A → B → A
 ```
 
-**Fix:** Remove the circular dependency. DAGs must be acyclic.
+**Cause:** Two or more dimensions depend on each other, creating an impossible execution order.
 
----
+**Fix:**
+```typescript
+// Remove the circular reference
+defineDependencies() {
+  return {
+    taskB: ['taskA'],
+    // taskA: ['taskB']  // Remove this line
+  };
+}
+```
 
 ### Dependency Result is Undefined
 ```typescript
 const sentiment = ctx.dependencies.sentiment?.data;  // undefined
 ```
 
-**Cause:** Dimension name mismatch
+**Cause:** Dimension name in dependency list doesn't match actual dimension name.
 
 **Fix:**
 ```typescript
-this.dimensions = ['sentiment'];           // ← Name here
+this.dimensions = ['sentiment'];           // Name here
 defineDependencies() {
-	return { summary: ['sentiment'] };       // ← Must match exactly
+  return { summary: ['sentiment'] };       // Must match exactly
 }
 ```
 
----
+### Tasks Not Running in Parallel
 
-### Not Running in Parallel
+**Cause:** Dimensions have dependencies that create a sequential chain.
 
-**Check:** Do your dimensions have dependencies?
+**Fix:**
 ```typescript
-// ❌ Sequential (dependency chain)
+// ❌ Sequential (creates chain)
 defineDependencies() {
-	return {
-		topics: ['sentiment'],
-		summary: ['topics']
-	};
+  return {
+    topics: ['sentiment'],
+    summary: ['topics']
+  };
 }
 
-// ✅ Parallel
+// ✅ Parallel (both independent)
 defineDependencies() {
-	return {
-		summary: ['sentiment', 'topics']  // Both independent
-	};
+  return {
+    summary: ['sentiment', 'topics']
+  };
 }
 ```
-
----
-
-## Summary
-
-**What you learned:**
-
-✅ Multiple dimensions - Run multiple tasks on same data  
-✅ Dependencies - Control execution order declaratively  
-✅ Automatic parallelization - dag-ai handles concurrency  
-✅ Access results - Use `ctx.dependencies` in prompts
-
-**Key insight:**
-
-Dependencies are **declarative** - you say "what depends on what", dag-ai figures out the optimal execution automatically.
-
-**Next:** [03 - Section vs Global →](/examples/03-section-vs-global)
-
-Learn the difference between per-item analysis and cross-item synthesis!

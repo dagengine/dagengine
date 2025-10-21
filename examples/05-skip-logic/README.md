@@ -1,56 +1,38 @@
-# Fundamentals 05: Skip Logic
+---
+title: 05 - Skip Logic
+description: Optimize costs by conditionally skipping dimensions
+---
 
-Learn cost optimization through smart skipping.
+# 05 - Skip Logic
+
+The `shouldSkipSectionDimension()` hook prevents expensive API calls on low-value items.
+
+## What You'll Learn
+
+- ✅ Implement conditional dimension execution
+- ✅ Use the `shouldSkipSectionDimension()` hook
+- ✅ Access dependency results in skip logic
+- ✅ Apply the quality filter pattern
+- ✅ Optimize costs with smart filtering
+
+**Time:** 6 minutes
+
+---
 
 ## Quick Run
 
 ```bash
+cd examples
+npm install
+cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
+
 npm run 05
 ```
 
-## What This Does
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/05-skip-logic)**
 
-Analyzes reviews in two stages:
-1. **Quality Check** (Haiku) - Fast, cheap filter
-2. **Deep Analysis** (Sonnet) - Expensive, comprehensive analysis
-
-**The key**: `shouldSkipSectionDimension()` prevents deep analysis on low-quality reviews.
-
-## Code Structure
-
-```typescript
-class SmartReviewAnalyzer extends Plugin {
-  defineDependencies(): Record<string, string[]> {
-    return {
-      deep_analysis: ["quality_check"]  // Deep analysis depends on quality check
-    };
-  }
-
-  shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
-    if (ctx.dimension !== "deep_analysis") {
-      return false;
-    }
-
-    const qualityResult = ctx.dependencies.quality_check as
-      DimensionResult<QualityCheckResult> | undefined;
-
-    const isHighQuality = qualityResult?.data?.is_high_quality;
-    const qualityScore = qualityResult?.data?.quality_score || 0;
-
-    // Skip if low quality
-    if (!isHighQuality || qualityScore < QUALITY_THRESHOLD) {
-      console.log(`   ⏭️  Skipped: Low quality (score: ${qualityScore.toFixed(2)})`);
-      return true;
-    }
-
-    return false;
-  }
-}
-```
-
-## Real Output
-
-Processing 10 reviews (4 high-quality, 6 low-quality):
+## What You'll See
 
 ```
 📚 Fundamentals 05: Skip Logic
@@ -124,51 +106,348 @@ SUMMARY
 ✨ Skip logic saved money by not analyzing low-quality reviews.
 ```
 
-## What Happened
+**What happened?**
 
-- **All 10 reviews** got quality checks (cheap Haiku calls)
-- **Only 4 reviews** got deep analysis (expensive Sonnet calls)
-- **6 reviews** were skipped based on quality scores
+- 10 reviews passed through quality check with cheap Haiku model (10 API calls)
+- 4 high-quality reviews received deep analysis with expensive Sonnet model (4 API calls)
+- 6 low-quality reviews skipped deep analysis based on quality scores (6 calls saved)
+- Skip logic prevented wasting $0.006+ on spam and single-word reviews
 
-The system automatically filtered out spam, single-word reviews, and emoji-only content before spending money on deep analysis.
+## Code Walkthrough
 
-## Key Concepts
+### Step 1: Define Dimensions with Dependencies
 
-**Dependencies**: Deep analysis depends on quality check results
 ```typescript
-defineDependencies(): Record<string, string[]> {
+class SmartReviewAnalyzer extends Plugin {
+  constructor() {
+    super('smart-review-analyzer', 'Smart Review Analyzer', 'Skip demo');
+    
+    this.dimensions = ['quality_check', 'deep_analysis'];
+  }
+  
+  defineDependencies() {
+    return {
+      deep_analysis: ['quality_check']  // Deep analysis depends on quality
+    };
+  }
+}
+```
+
+**Key point:** Deep analysis depends on quality check, ensuring quality scores are available before skip decisions.
+
+### Step 2: Implement Skip Logic Hook
+
+```typescript
+shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
+  // Only apply skip logic to deep_analysis dimension
+  if (ctx.dimension !== 'deep_analysis') {
+    return false;
+  }
+
+  // Access quality check results from dependencies
+  const qualityResult = ctx.dependencies.quality_check as 
+    DimensionResult<QualityCheckResult> | undefined;
+
+  const isHighQuality = qualityResult?.data?.is_high_quality;
+  const qualityScore = qualityResult?.data?.quality_score || 0;
+
+  // Skip if quality is below threshold
+  if (!isHighQuality || qualityScore < 0.7) {
+    console.log(`   ⏭️  Skipped: Low quality (score: ${qualityScore.toFixed(2)})`);
+    return true;
+  }
+
+  return false;  // Don't skip - proceed with deep analysis
+}
+```
+
+**Key point:** Return `true` to skip the dimension for this section, `false` to execute it. Access dependency results through `ctx.dependencies`.
+
+### Step 3: Use Different Models for Different Dimensions
+
+```typescript
+selectProvider(dimension: string): ProviderSelection {
+  if (dimension === 'quality_check') {
+    // Cheap, fast model for filtering
+    return {
+      provider: 'anthropic',
+      options: { model: 'claude-3-5-haiku-20241022' }
+    };
+  }
+  
+  // Expensive, powerful model for deep analysis
   return {
-    deep_analysis: ["quality_check"]
+    provider: 'anthropic',
+    options: { model: 'claude-3-5-sonnet-20241022' }
   };
 }
 ```
 
-**Skip Hook**: Check dependencies and decide whether to skip
+**Key point:** Use cheap models for filter dimensions, reserve expensive models for analysis dimensions that only run on high-value items.
+
+### Step 4: Create Prompts for Each Dimension
+
 ```typescript
-shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
-  // Access dependency results through ctx.dependencies
-  const qualityResult = ctx.dependencies.quality_check;
+createPrompt(ctx: PromptContext): string {
+  const { dimension, sections } = ctx;
+  const review = sections[0]?.content || '';
   
-  // Make skip decision based on actual data
-  return qualityScore < QUALITY_THRESHOLD;
-}
-```
-
-**Model Selection**: Use cheap model for filter, expensive model for analysis
-```typescript
-selectProvider(dimension: string): ProviderSelection {
-  if (dimension === "quality_check") {
-    return { provider: "anthropic", options: { model: "claude-3-5-haiku-20241022" } };
+  if (dimension === 'quality_check') {
+    return `Assess quality of this review: "${review}"
+    
+    Return JSON: {
+      "is_high_quality": boolean,
+      "quality_score": 0-1,
+      "reasoning": "why"
+    }`;
   }
-  return { provider: "anthropic", options: { model: "claude-3-5-sonnet-20241022" } };
+  
+  if (dimension === 'deep_analysis') {
+    return `Deep analysis of: "${review}"
+    
+    Return JSON: {
+      "sentiment": "positive|negative|neutral",
+      "topics": ["topic1", "topic2"],
+      "insights": ["insight1", "insight2"]
+    }`;
+  }
 }
 ```
 
-## Pattern
+## Key Concepts
 
-This is the **quality filter pattern**:
-1. Cheap check → Identify items worth processing
-2. Skip decision → Avoid expensive calls
-3. Deep analysis → Only process high-value items
+### 1. The shouldSkipSectionDimension Hook
 
-Useful for: review filtering, content moderation, lead qualification, document triage.
+Signature:
+
+```typescript
+shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean
+```
+
+**Context includes:**
+- `dimension` - Current dimension being evaluated
+- `section` - Current section being processed
+- `dependencies` - Results from dependency dimensions
+
+**Characteristics:**
+- Called before each section dimension executes
+- Return `true` to skip execution
+- Return `false` to proceed with execution
+- Only applies to section dimensions, not global dimensions
+- Access dependency results to make decisions
+
+### 2. Skip Decision Flow
+
+```
+Quality check runs → shouldSkipSectionDimension called → Skip decision made
+
+Example for one section:
+1. quality_check executes (quality_score: 0.10)
+2. shouldSkipSectionDimension called for deep_analysis
+3. Checks: qualityScore < 0.7? → true
+4. Returns: true (skip this section)
+5. deep_analysis does NOT execute for this section
+```
+
+**Characteristics:**
+- Evaluated per section, per dimension
+- Skipped dimensions produce no result
+- Cost savings from avoided API calls
+- Skip decisions based on runtime data
+
+### 3. The Quality Filter Pattern
+
+Use cheap model to filter, expensive model to analyze:
+
+```
+Input: Many items (some low-quality, some high-quality)
+↓
+Quality check (cheap model, fast)
+↓
+Skip decision (based on quality score)
+↓
+Deep analysis (expensive model, only high-quality items)
+↓
+Result: Money saved by not analyzing low-value items
+```
+
+**Characteristics:**
+- Two-stage processing reduces costs
+- Filter dimension uses cheap, fast model
+- Analysis dimension uses expensive, powerful model
+- Skip logic connects the two stages
+
+### 4. Cost Optimization
+
+In this example with 10 reviews:
+
+**Without skip logic:**
+- 10 quality checks (Haiku): ~$0.001
+- 10 deep analyses (Sonnet): ~$0.015
+- Total: ~$0.016
+
+**With skip logic:**
+- 10 quality checks (Haiku): ~$0.001
+- 4 deep analyses (Sonnet): ~$0.006
+- Total: ~$0.007
+
+**Savings: 56% cost reduction**
+
+## When to Use Skip Logic
+
+### Use Skip Logic For:
+
+**Quality filtering** - Skip low-quality reviews, spam content, or incomplete submissions
+
+**Content moderation** - Skip safe content, only analyze flagged items deeply
+
+**Lead qualification** - Skip low-value leads, analyze promising prospects
+
+**Document triage** - Skip irrelevant documents, process relevant ones
+
+**Confidence thresholds** - Skip low-confidence results, refine high-confidence ones
+
+### Skip Skip Logic For:
+
+**All items need processing** - Every item requires the dimension
+
+**No clear filter criteria** - Cannot determine what to skip
+
+**Cheap dimensions** - Skipping costs more than executing
+
+**Simple workflows** - Two dimensions, no filtering needed
+
+## Real-World Examples
+
+### Content Moderation
+
+```typescript
+this.dimensions = ['toxicity_check', 'detailed_review'];
+
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'detailed_review') return false;
+  
+  const toxicity = ctx.dependencies.toxicity_check?.data?.toxicity_score;
+  return toxicity < 0.3;  // Skip safe content
+}
+```
+
+Skip detailed moderation review on clearly safe content.
+
+### Lead Scoring
+
+```typescript
+this.dimensions = ['score_lead', 'deep_qualification'];
+
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_qualification') return false;
+  
+  const score = ctx.dependencies.score_lead?.data?.score;
+  return score < 70;  // Skip low-scoring leads
+}
+```
+
+Skip expensive qualification analysis on low-value leads.
+
+### Document Processing
+
+```typescript
+this.dimensions = ['relevance_check', 'extract_entities'];
+
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'extract_entities') return false;
+  
+  const relevant = ctx.dependencies.relevance_check?.data?.is_relevant;
+  return !relevant;  // Skip irrelevant documents
+}
+```
+
+Skip entity extraction on documents that fail relevance check.
+
+## Summary
+
+**What you learned:**
+
+✅ **shouldSkipSectionDimension hook** - Conditionally skip dimension execution  
+✅ **Access dependencies** - Make skip decisions based on previous results  
+✅ **Quality filter pattern** - Cheap filter + expensive analysis on high-value items  
+✅ **Cost optimization** - Avoid unnecessary API calls on low-value content  
+✅ **Model selection** - Use appropriate models at each stage
+
+**Key insight:**
+
+Skip logic creates two-tier processing pipelines where cheap filters identify high-value items, and expensive analysis only runs on items that pass the filter. This pattern dramatically reduces costs in scenarios with mixed-quality input data. The hook has access to dependency results, enabling sophisticated skip decisions based on actual runtime data rather than static rules.
+
+## Troubleshooting
+
+### Skip Logic Not Working
+
+```typescript
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_analysis') return false;
+  
+  const quality = ctx.dependencies.quality_check?.data;
+  // Missing return statement for skip case!
+}
+```
+
+**Cause:** No return statement for skip condition.
+
+**Fix:**
+```typescript
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_analysis') return false;
+  
+  const quality = ctx.dependencies.quality_check?.data;
+  if (quality?.quality_score < 0.7) {
+    return true;  // Must explicitly return true to skip
+  }
+  return false;
+}
+```
+
+### Dependency Result Undefined
+
+```typescript
+const quality = ctx.dependencies.quality_check?.data;  // undefined
+```
+
+**Cause:** Dimension name mismatch or missing dependency declaration.
+
+**Fix:**
+```typescript
+// Ensure dependency is declared
+defineDependencies() {
+  return {
+    deep_analysis: ['quality_check']  // Name must match exactly
+  };
+}
+
+// Dimension name must match
+this.dimensions = ['quality_check', 'deep_analysis'];
+```
+
+### All Sections Skipped
+
+```typescript
+shouldSkipSectionDimension(ctx) {
+  const quality = ctx.dependencies.quality_check?.data?.quality_score || 0;
+  return quality < 0.7;  // Always skips if data is undefined
+}
+```
+
+**Cause:** Logic skips when dependency data is missing or malformed.
+
+**Fix:**
+```typescript
+shouldSkipSectionDimension(ctx) {
+  const qualityData = ctx.dependencies.quality_check?.data;
+  
+  // Check if data exists before making skip decision
+  if (!qualityData) {
+    return false;  // Don't skip if no quality data
+  }
+  
+  return qualityData.quality_score < 0.7;
+}
+```
