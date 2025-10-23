@@ -261,8 +261,6 @@ const result = await engine.process(reviews);
 
 **Key point:** The engine tracks costs per dimension using the pricing configuration. The `byDimension` breakdown shows which models consumed which resources.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/06-providers)**
-
 ## Key Concepts
 
 ### 1. Per-Dimension Provider Selection
