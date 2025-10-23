@@ -270,12 +270,12 @@ function displayResults(
 			console.log(`   ${emoji} Spam Check (Haiku): ${spamResult.data.is_spam ? "SPAM" : "Legitimate"}`);
 		}
 
-		if (basicResult?.data) {
+		if (basicResult?.data && !basicResult.metadata?.skipped) {
 			console.log(`   📊 Basic Analysis (Haiku):`);
 			console.log(`      └─ ${basicResult.data.sentiment} | ${basicResult.data.category}`);
 		}
 
-		if (deepResult?.data) {
+		if (deepResult?.data && !deepResult.metadata?.skipped) {
 			console.log(`   🧠 Deep Analysis (Sonnet):`);
 			console.log(`      ├─ ${deepResult.data.detailed_sentiment}`);
 			console.log(`      ├─ Topics: ${deepResult.data.topics.join(", ")}`);
