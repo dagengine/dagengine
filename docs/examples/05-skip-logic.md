@@ -418,3 +418,35 @@ shouldSkipSectionDimension(ctx) {
   return qualityData.quality_score < 0.7;
 }
 ```
+
+### Dependent Dimension Still Executing
+
+```typescript
+// ❌ Problem: deep_analysis executes even when quality_check was skipped
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_analysis') return false;
+  
+  const score = ctx.dependencies.quality_check?.data?.quality_score || 0;
+  return score < 0.7;
+}
+```
+
+**Cause:** Not checking if the dependency was skipped.
+
+**Fix:**
+```typescript
+// ✅ Solution: Check for skipped dependency
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension !== 'deep_analysis') return false;
+  
+  const qualityResult = ctx.dependencies.quality_check;
+  
+  // First check if dependency was skipped
+  if (!qualityResult || qualityResult.metadata?.skipped) {
+    return true;  // Skip if dependency unavailable
+  }
+  
+  const score = qualityResult.data?.quality_score || 0;
+  return score < 0.7;
+}
+```
