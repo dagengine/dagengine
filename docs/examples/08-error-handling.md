@@ -213,8 +213,6 @@ result.sections.forEach((sectionResult) => {
 
 **Key point:** Fallback results include metadata about the error, allowing you to identify which results came from error recovery.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/08-error-handling)**
-
 ## Key Concepts
 
 ### 1. Automatic Retry Mechanism

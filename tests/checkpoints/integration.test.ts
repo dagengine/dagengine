@@ -11,7 +11,9 @@ import type {
 	ProviderSelection,
 	ProviderRequest,
 	ProviderResponse,
+	SectionData,
 } from "../../src/types.ts";
+import type { ProcessState } from "../../src/core/shared/types.ts";
 
 describe("Checkpoint Integration - With PhaseExecutor", () => {
 	let mockProvider: MockAIProvider;
@@ -282,12 +284,13 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 				createMockSection("Section 2"),
 			];
 
-			// Create a mock state
-			const mockState = {
+			// Create a mock state with ALL required properties
+			const mockState: ProcessState = {
 				id: "test-process-id",
 				startTime: Date.now(),
 				metadata: { testKey: "testValue" },
 				sections: [...sections],
+				originalSections: [...sections], // ← FIX: Add this required property
 				globalResults: {
 					dim1: { data: { result: "global-result" } },
 				},
@@ -304,6 +307,7 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			expect(serialized.id).toBe(mockState.id);
 			expect(serialized.startTime).toBe(mockState.startTime);
 			expect(serialized.sections).toHaveLength(2);
+			expect(serialized.originalSections).toHaveLength(2); // ← Verify originalSections
 			expect(Array.isArray(serialized.sectionResultsMap)).toBe(true);
 			expect(serialized.sectionResultsMap).toHaveLength(2);
 
@@ -314,6 +318,7 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			expect(deserialized.id).toBe(mockState.id);
 			expect(deserialized.startTime).toBe(mockState.startTime);
 			expect(deserialized.sections).toHaveLength(2);
+			expect(deserialized.originalSections).toHaveLength(2); // ← Verify originalSections
 			expect(deserialized.sectionResultsMap instanceof Map).toBe(true);
 			expect(deserialized.sectionResultsMap.size).toBe(2);
 			expect(deserialized.sectionResultsMap.get(0)).toEqual(
@@ -322,6 +327,42 @@ describe("Checkpoint Integration - With PhaseExecutor", () => {
 			expect(deserialized.sectionResultsMap.get(1)).toEqual(
 				mockState.sectionResultsMap.get(1),
 			);
+		});
+
+		test("should preserve originalSections through transformation", () => {
+			const originalSections = [
+				createMockSection("Original 1"),
+				createMockSection("Original 2"),
+			];
+
+			const transformedSections = [
+				createMockSection("Transformed 1"),
+				createMockSection("Transformed 2"),
+				createMockSection("Transformed 3"), // Split into more sections
+			];
+
+			const mockState: ProcessState = {
+				id: "test-process-id",
+				startTime: Date.now(),
+				metadata: {},
+				sections: transformedSections,
+				originalSections: originalSections, // Preserved!
+				globalResults: {},
+				sectionResultsMap: new Map([
+					[0, {}],
+					[1, {}],
+					[2, {}],
+				]),
+			};
+
+			const serialized = serializeState(mockState);
+			const deserialized = deserializeState(serialized);
+
+			// Verify originalSections preserved
+			expect(deserialized.originalSections).toHaveLength(2);
+			expect(deserialized.sections).toHaveLength(3);
+			expect(deserialized.originalSections[0]?.content).toBe("Original 1");
+			expect(deserialized.sections[0]?.content).toBe("Transformed 1");
 		});
 	});
 });

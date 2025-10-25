@@ -19,7 +19,7 @@
 #### Global Processing
 - ✅ Process all sections together
 - ✅ Global dimensions at any point (before/during/after section processing)
-- ✅ **NEW: Parallel execution of independent global dimensions**
+- ✅ Parallel execution of independent global dimensions
 - ✅ Global-to-global dependencies
 - ✅ Global-to-section dependencies
 - ✅ Section-to-global dependencies (aggregation)
@@ -87,7 +87,7 @@
 ### 9. **Concurrent Processing**
 - ✅ Configurable concurrency level
 - ✅ Batch processing of sections
-- ✅ **NEW: Parallel global dimension execution**
+- ✅ Parallel global dimension execution
 - ✅ Automatic grouping of independent globals
 - ✅ Optimal resource utilization
 
@@ -98,21 +98,21 @@
 - ✅ Rate limit detection
 - ✅ Different backoff for rate limits vs errors
 
-### 11. **NEW: Timeout Handling**
+### 11. **Timeout Handling**
 - ✅ Global timeout for all operations
 - ✅ Per-dimension timeout configuration
 - ✅ Prevents hanging operations
 - ✅ Clear timeout error messages
 - ✅ Timeout applies to retry attempts
 
-### 12. **NEW: Partial Results on Error**
+### 12. **Partial Results on Error**
 - ✅ Continue processing when dimension fails
 - ✅ Return best-effort results
 - ✅ Configurable error behavior (`continueOnError`)
 - ✅ Independent dimensions proceed despite failures
 - ✅ Detailed error information preserved
 
-### 13. **NEW: Dynamic Dimension Control**
+### 13. **Dynamic Dimension Control**
 - ✅ Skip dimensions per section based on results
 - ✅ Conditional execution logic
 - ✅ Cost optimization (skip unnecessary API calls)
@@ -157,7 +157,7 @@
 - ✅ `getDimensionConfig()` - Get dimension configuration
 - ✅ `isGlobalDimension()` - Check dimension scope
 - ✅ `finalizeResults()` - Post-process results
-- ✅ **NEW: `shouldSkipSectionDimension()`** - Dynamic skipping logic
+- ✅ `shouldSkipSectionDimension()` - Dynamic skipping logic
 
 ### 18. **Dimension Configuration**
 - ✅ String-based dimensions (simple)

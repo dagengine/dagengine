@@ -100,12 +100,18 @@ export abstract class Plugin {
 	 * Select provider for each dimension (REQUIRED)
 	 *
 	 * @param dimension - Dimension name
-	 * @param section - Optional section data
+	 * @param sections - Sections to process (1 for section dims, all for global dims)
+	 * @param context - Execution context
 	 * @returns Provider selection with options and fallbacks
 	 */
 	abstract selectProvider(
 		dimension: string,
-		section?: SectionData,
+		sections?: SectionData[],
+		context?: {
+			isGlobal: boolean;
+			sectionIndex?: number;  // Only present for section dimensions
+			totalSections?: number;  // Total number of sections in process
+		}
 	): ProviderSelection | Promise<ProviderSelection>;
 
 	/**

@@ -87,6 +87,11 @@ export class ProviderExecutor {
 		isGlobal: boolean,
 		dimensionContext: DimensionContext | SectionDimensionContext,
 	): Promise<DimensionResult> {
+
+		if (sections?.length === 0) {
+			throw new Error(`No sections provided for dimension "${dimension}"`);
+		}
+
 		// Create prompt
 		const prompt = await this.createPrompt(
 			dimension,
@@ -95,13 +100,27 @@ export class ProviderExecutor {
 			isGlobal,
 		);
 
-		// Get provider configuration (use first section, should always exist at this point)
-		const firstSection = sections[0];
-		if (!firstSection) {
-			throw new Error(`No sections provided for dimension "${dimension}"`);
+		// Build context for selectProvider
+		const context: {
+			isGlobal: boolean;
+			sectionIndex?: number;
+			totalSections?: number;
+		} = {
+			isGlobal,
+		};
+
+		// Add section-specific context
+		if (!isGlobal && 'sectionIndex' in dimensionContext) {
+			context.sectionIndex = dimensionContext.sectionIndex;
+			context.totalSections = dimensionContext.sections.length;
 		}
 
-		const providerConfig = await this.selectProvider(dimension, firstSection);
+		// Pass sections array
+		const providerConfig = await this.selectProvider(
+			dimension,
+			sections,
+			context
+		);
 
 		// Build list of providers to try (primary + fallbacks)
 		const providersToTry = this.buildProviderChain(providerConfig);
@@ -150,10 +169,15 @@ export class ProviderExecutor {
 	 */
 	private async selectProvider(
 		dimension: string,
-		section: SectionData,
+		sections: SectionData[],
+		context?: {
+			isGlobal: boolean;
+			sectionIndex?: number;
+			totalSections?: number;
+		}
 	): Promise<ProviderConfig> {
 		return await Promise.resolve(
-			this.plugin.selectProvider(dimension, section),
+			this.plugin.selectProvider(dimension, sections, context)
 		);
 	}
 

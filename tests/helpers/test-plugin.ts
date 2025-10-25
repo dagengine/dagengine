@@ -10,7 +10,7 @@ export class TestPlugin extends Plugin {
 	 * Default provider selection - returns 'mock' provider
 	 * Override if you need custom provider logic
 	 */
-	selectProvider(dimension: string, section?: SectionData): ProviderSelection {
+	selectProvider(dimension: string, sections?: SectionData[]): ProviderSelection {
 		return {
 			provider: "mock",
 			options: {},
