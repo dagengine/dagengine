@@ -246,7 +246,7 @@ async function main(): Promise<void> {
 				anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
 			},
 			execution: {
-				concurrency: 5, // Process 5 dimensions in parallel
+				concurrency: 5, // Process 5 dimensions/sections in parallel
 				continueOnError: true, // Don't stop on first error
 			},
 			pricing: {

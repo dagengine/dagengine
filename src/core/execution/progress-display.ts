@@ -227,7 +227,7 @@ export class ProgressDisplay {
 	private updateSimple(progress: ProgressUpdate): void {
 		let output = `\r${progress.percent.toFixed(1)}% | `;
 		output += `${progress.completed}/${progress.total} | `;
-		output += `$${progress.cost.toFixed(2)} | `;
+		output += `$${progress.cost} | `;
 		output += `ETA: ${progress.etaSeconds}s`;
 
 		if (this.showDimensions && progress.currentDimension) {
@@ -248,7 +248,7 @@ export class ProgressDisplay {
 		}
 
 		this.bar.update(progress.completed, {
-			cost: progress.cost.toFixed(2),
+			cost: progress.cost,
 			eta: progress.etaSeconds.toString(),
 		});
 	}
@@ -274,7 +274,7 @@ export class ProgressDisplay {
 				bar.update(stats.completed, {
 					dimension: name.padEnd(15),
 					percentage: stats.percent.toFixed(1),
-					cost: stats.cost.toFixed(2),
+					cost: stats.cost,
 					eta: stats.etaSeconds.toString(),
 				});
 			}

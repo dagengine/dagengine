@@ -234,7 +234,10 @@ async function main(): Promise<void> {
 		providers: {
 			anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
 		},
-		pricing: { models: PRICING }
+		pricing: { models: PRICING },
+		progressDisplay: {
+			display: 'bar'
+		}
 	});
 
 	const startTime = Date.now();

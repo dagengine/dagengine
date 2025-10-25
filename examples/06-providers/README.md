@@ -17,15 +17,18 @@ Route different dimensions to different AI models based on task complexity and c
 **Time:** 5 minutes
 
 ## Quick Run
-
 ```bash
+cd examples
+npm install
+cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
+
 npm run 06
 ```
 
 **[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/06-providers)**
 
 ## What You'll See
-
 ```
 📚 Fundamentals 06: Providers
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -91,12 +94,13 @@ SUMMARY
 - Review 4 was flagged as spam and skipped further analysis
 - Haiku handled spam detection and basic categorization (865 + 440 = 1,305 tokens)
 - Sonnet performed deep analysis on 4 legitimate reviews (1,516 tokens)
-- Total cost was $0.0193 with smart model routing saving ~60% vs using only Sonnet
+- Total cost was $0.0193 with smart model routing saving 60% vs using only Sonnet
 
 ## Code Walkthrough
 
 The plugin routes each dimension to the appropriate model based on task complexity.
 
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/06-providers)**
 ```typescript
 class MultiProviderAnalyzer extends Plugin {
 	constructor() {
@@ -126,7 +130,6 @@ class MultiProviderAnalyzer extends Plugin {
 **Key point:** Each dimension has different complexity requirements. The dependencies ensure context flows from simple to complex analysis.
 
 ### Step 1: Skip spam in downstream dimensions
-
 ```typescript
 shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 	// Skip analysis dimensions if spam detected
@@ -143,7 +146,6 @@ shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 **Key point:** The `shouldSkipSectionDimension` hook saves costs by avoiding unnecessary analysis on spam content.
 
 ### Step 2: Create dimension-specific prompts
-
 ```typescript
 createPrompt(ctx: PromptContext): string {
 	const { dimension, sections, dependencies } = ctx;
@@ -194,7 +196,6 @@ Return JSON:
 **Key point:** Later dimensions access dependency results through `ctx.dependencies`, building on previous analysis.
 
 ### Step 3: Route dimensions to appropriate models
-
 ```typescript
 selectProvider(dimension: string): ProviderSelection {
 	if (dimension === "spam_check") {
@@ -241,7 +242,6 @@ selectProvider(dimension: string): ProviderSelection {
 **Key point:** The `selectProvider` method returns different models per dimension. Simple tasks use Haiku ($0.80/$4.00 per 1M tokens), complex tasks use Sonnet ($3.00/$15.00 per 1M tokens).
 
 ### Step 4: Configure pricing and run
-
 ```typescript
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
@@ -256,17 +256,28 @@ const engine = new DagEngine({
 	pricing: { models: PRICING }
 });
 
+// Alternative: Use execution config to group settings
+const engineWithExecution = new DagEngine({
+	plugin: new MultiProviderAnalyzer(),
+	providers: {
+		anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
+	},
+	execution: {
+		pricing: { models: PRICING },
+		concurrency: 10  // Process 10 dimensions/sections in parallel (default: 5)
+	}
+});
+
 const result = await engine.process(reviews);
 ```
 
-**Key point:** The engine tracks costs per dimension using the pricing configuration. The `byDimension` breakdown shows which models consumed which resources.
+**Key point:** The engine tracks costs per dimension using the pricing configuration. Both top-level `pricing` and `execution.pricing` work. The `execution` config groups all execution settings together.
 
 ## Key Concepts
 
 ### 1. Per-Dimension Provider Selection
 
 The `selectProvider` method routes each dimension to an appropriate model based on task requirements.
-
 ```typescript
 selectProvider(dimension: string): ProviderSelection {
 	if (dimension === "spam_check") {
@@ -305,10 +316,21 @@ Match model capabilities to task complexity to minimize costs.
 - Using only Sonnet: High quality but $0.0480 total cost (2.5x more expensive)
 - Using smart routing: Optimal quality at $0.0193 (60% cost savings)
 
+**Concurrency consideration:**
+
+The engine processes dimensions in parallel (default: 5 concurrent). With 3 dimensions and 5 sections, spam_check runs for all sections first, then basic_analysis, then deep_analysis.
+```typescript
+const engine = new DagEngine({
+	plugin: new MultiProviderAnalyzer(),
+	execution: {
+		concurrency: 10  // Increase parallelism (default: 5)
+	}
+});
+```
+
 ### 3. Dimension Dependencies with Provider Selection
 
 Dependencies ensure context flows properly across different models.
-
 ```typescript
 defineDependencies(): Record<string, string[]> {
 	return {
@@ -328,7 +350,6 @@ defineDependencies(): Record<string, string[]> {
 ### 4. Conditional Execution Based on Model Results
 
 The `shouldSkipSectionDimension` hook uses results from one model to control execution in another.
-
 ```typescript
 shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 	if ((ctx.dimension === "basic_analysis" || ctx.dimension === "deep_analysis")) {
@@ -351,7 +372,6 @@ shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
 ### 5. Multi-Provider Support
 
 The engine supports multiple AI providers. You can use any model from Anthropic, OpenAI, or Google Gemini based on your task requirements.
-
 ```typescript
 selectProvider(dimension: string): ProviderSelection {
 	if (dimension === "image_analysis") {
@@ -360,14 +380,14 @@ selectProvider(dimension: string): ProviderSelection {
 			options: { model: "gemini-1.5-pro" }
 		};
 	}
-	
+
 	if (dimension === "fast_categorization") {
 		return {
 			provider: "openai",
 			options: { model: "gpt-4o-mini" }
 		};
 	}
-	
+
 	if (dimension === "deep_reasoning") {
 		return {
 			provider: "anthropic",
@@ -401,7 +421,6 @@ Not all dimensions require the same model capabilities. The DAG engine's per-dim
 ## Troubleshooting
 
 ### Provider Not Found
-
 ```
 Error: Provider 'openai' not configured
 ```
@@ -409,7 +428,6 @@ Error: Provider 'openai' not configured
 **Cause:** Trying to use a provider that isn't configured in the engine.
 
 **Fix:**
-
 ```typescript
 const engine = new DagEngine({
   plugin: new MultiProviderAnalyzer(),
@@ -421,7 +439,6 @@ const engine = new DagEngine({
 ```
 
 ### Cost Tracking Shows $0
-
 ```
 💰 Total Cost: $0.0000
 ```
@@ -429,22 +446,20 @@ const engine = new DagEngine({
 **Cause:** Missing pricing configuration for the models being used.
 
 **Fix:**
-
 ```typescript
 const engine = new DagEngine({
-  plugin: new MultiProviderAnalyzer(),
-  providers: { /* ... */ },
-  pricing: {
-    models: {
-      'claude-3-5-haiku-20241022': { inputPer1M: 0.80, outputPer1M: 4.00 },
-      'claude-3-5-sonnet-20241022': { inputPer1M: 3.00, outputPer1M: 15.00 }
-    }
-  }
+	plugin: new MultiProviderAnalyzer(),
+	providers: { /* ... */ },
+	pricing: {
+		models: {
+			'claude-3-5-haiku-20241022': { inputPer1M: 0.80, outputPer1M: 4.00 },
+			'claude-3-5-sonnet-20241022': { inputPer1M: 3.00, outputPer1M: 15.00 }
+		}
+	}
 });
 ```
 
 ### Wrong Model Used
-
 ```
 Expected Haiku for spam_check but Sonnet was used
 ```
@@ -452,7 +467,6 @@ Expected Haiku for spam_check but Sonnet was used
 **Cause:** Dimension name in `selectProvider()` doesn't match dimension in `this.dimensions`.
 
 **Fix:**
-
 ```typescript
 this.dimensions = ['spam_check'];  // ← Name here
 

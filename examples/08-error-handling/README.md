@@ -17,15 +17,18 @@ Handle dimension failures gracefully with automatic retries, fallback results, a
 **Time:** 5 minutes
 
 ## Quick Run
-
 ```bash
+cd examples
+npm install
+cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
+
 npm run 08
 ```
 
 **[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/08-error-handling)**
 
 ## What You'll See
-
 ```
 📚 Fundamentals 08: Error Handling
 
@@ -105,6 +108,7 @@ SUMMARY
 
 The plugin demonstrates error recovery by using an intentionally invalid model name for one dimension.
 
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/08-error-handling)**
 ```typescript
 class ErrorHandlingPlugin extends Plugin {
 	private errorCount: number = 0;
@@ -147,7 +151,6 @@ class ErrorHandlingPlugin extends Plugin {
 **Key point:** The `detailed` dimension uses an invalid model that will fail, while `analyze` uses a valid model that succeeds.
 
 ### Step 1: Implement error recovery hook
-
 ```typescript
 async handleDimensionFailure(
 	context: FailureContext
@@ -178,14 +181,17 @@ async handleDimensionFailure(
 **Key point:** The `handleDimensionFailure` hook is called after all retry attempts are exhausted. Return a `DimensionResult` to provide a fallback value, or return `void` to store the error and continue.
 
 ### Step 2: Configure engine with error handling
-
 ```typescript
 const engine = new DagEngine({
 	plugin: new ErrorHandlingPlugin(),
 	providers: {
 		anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
 	},
-	continueOnError: true,  // Continue processing despite errors
+	execution: {
+		continueOnError: true,  // Continue processing despite errors (default: true)
+		maxRetries: 3,          // Number of retry attempts (default: 3)
+		retryDelay: 1000        // Base delay between retries in ms (default: 1000)
+	},
 	pricing: {
 		models: {
 			"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 }
@@ -196,10 +202,9 @@ const engine = new DagEngine({
 const result = await engine.process(sections);
 ```
 
-**Key point:** Setting `continueOnError: true` ensures the process continues even when dimensions fail. Without this, the first error would stop the entire process.
+**Key point:** The `execution` config groups all execution behavior. Set `continueOnError: true` to get partial results when dimensions fail. Retries use exponential backoff: `retryDelay * 2^attempt`.
 
 ### Step 3: Access error information in results
-
 ```typescript
 result.sections.forEach((sectionResult) => {
 	const detailed = sectionResult.results.detailed as DimensionResult<AnalysisResult>;
@@ -218,13 +223,12 @@ result.sections.forEach((sectionResult) => {
 ### 1. Automatic Retry Mechanism
 
 The engine automatically retries failed API calls before invoking error hooks.
-
 ```typescript
 // Default retry behavior (3 retries)
 Attempt 1 → fails
-Attempt 2 → fails (retry 1)
-Attempt 3 → fails (retry 2)
-Attempt 4 → fails (retry 3)
+Attempt 2 → fails (retry 1, wait 1s)
+Attempt 3 → fails (retry 2, wait 2s)
+Attempt 4 → fails (retry 3, wait 4s)
 → handleDimensionFailure called
 ```
 
@@ -233,13 +237,23 @@ Attempt 4 → fails (retry 3)
 - Retries happen automatically for transient failures
 - No code needed to enable retries
 - Default: 3 retry attempts (4 total attempts)
-- Each retry logged to console
+- Uses exponential backoff: `retryDelay * 2^attempt`
 - After all retries fail, error hook is called
+
+**Customize retry behavior:**
+```typescript
+const engine = new DagEngine({
+	plugin: new ErrorHandlingPlugin(),
+	execution: {
+		maxRetries: 5,     // Increase retry attempts (default: 3)
+		retryDelay: 2000   // Slower backoff: 2s, 4s, 8s, 16s, 32s (default: 1000ms)
+	}
+});
+```
 
 ### 2. Error Recovery Hook
 
 The `handleDimensionFailure` hook provides graceful error recovery.
-
 ```typescript
 async handleDimensionFailure(
 	context: FailureContext
@@ -271,23 +285,24 @@ async handleDimensionFailure(
 ### 3. Partial Result Processing
 
 With `continueOnError: true`, the process completes with partial results.
-
 ```typescript
 const engine = new DagEngine({
 	plugin: new ErrorHandlingPlugin(),
 	providers: { /* ... */ },
-	continueOnError: true  // Enable partial results
+	execution: {
+		continueOnError: true  // Enable partial results (default: true)
+	}
 });
 ```
 
-**With `continueOnError: true`:**
+**With `continueOnError: true` (default):**
 
 - Failed dimensions get error results or fallbacks
 - Other dimensions continue executing normally
 - Process completes with partial results
 - Errors available in result metadata
 
-**With `continueOnError: false` (default):**
+**With `continueOnError: false`:**
 
 - First error stops entire process
 - No further dimensions execute
@@ -297,7 +312,6 @@ const engine = new DagEngine({
 ### 4. Cost Efficiency
 
 You only pay for successful API calls, not failed attempts.
-
 ```
 analyze dimension: 3 successful calls → $0.0010 (386 tokens)
 detailed dimension: 12 failed attempts → $0.0000 (no valid API calls)
@@ -316,38 +330,37 @@ Total cost: $0.0010
 
 **What you learned:**
 
-✅ **Automatic retries** - Engine retries failed calls 3 times before giving up  
-✅ **Error recovery hook** - `handleDimensionFailure` provides fallback results  
-✅ **Partial results** - Processing continues with `continueOnError: true`  
-✅ **Cost efficiency** - Only pay for successful API calls ($0.0010 for 386 tokens)
+✅ **Automatic retries** - Engine retries failed calls 3 times with exponential backoff  
+✅ **Error recovery hook** - `handleDimensionFailure` provides fallback results after retries exhausted  
+✅ **Partial results** - Processing continues with `continueOnError: true` (the default)  
+✅ **Cost efficiency** - Failed retries cost nothing, only successful API calls charged
 
 **Key insight:**
 
-Error handling transforms brittle workflows into resilient systems. Without error recovery, a single API failure stops your entire process. With `handleDimensionFailure` and `continueOnError: true`, failed dimensions receive fallback results while successful dimensions complete normally. The system automatically retries failed calls three times, logs all errors, and continues processing to deliver partial results. You only pay for successful API calls, making error recovery both reliable and cost-efficient.
+Error handling transforms brittle workflows into resilient systems. Without error recovery, a single API failure stops your entire process. With `handleDimensionFailure` and `continueOnError: true`, failed dimensions receive fallback results while successful dimensions complete normally. The system automatically retries failed calls three times using exponential backoff, logs all errors, and continues processing to deliver partial results. You only pay for successful API calls, making error recovery both reliable and cost-efficient.
 
 ## Troubleshooting
 
 ### Process Stops on First Error
-
 ```
 Error: Anthropic API error (404): model not found
 Process terminated without results
 ```
 
-**Cause:** `continueOnError` is set to `false` (default behavior).
+**Cause:** `continueOnError` is set to `false`.
 
 **Fix:**
-
 ```typescript
 const engine = new DagEngine({
 	plugin: new ErrorHandlingPlugin(),
 	providers: { /* ... */ },
-	continueOnError: true  // Enable partial results
+	execution: {
+		continueOnError: true  // Enable partial results (this is the default)
+	}
 });
 ```
 
 ### No Fallback Results Provided
-
 ```
 Result shows error but no fallback data
 ```
@@ -355,7 +368,6 @@ Result shows error but no fallback data
 **Cause:** `handleDimensionFailure` hook returns `void` instead of fallback result.
 
 **Fix:**
-
 ```typescript
 async handleDimensionFailure(context: FailureContext): Promise<DimensionResult | void> {
 	// Return fallback result instead of void
@@ -367,7 +379,6 @@ async handleDimensionFailure(context: FailureContext): Promise<DimensionResult |
 ```
 
 ### Retries Happen Too Many Times
-
 ```
 12 retry attempts taking too long
 ```
@@ -375,5 +386,11 @@ async handleDimensionFailure(context: FailureContext): Promise<DimensionResult |
 **Cause:** Default retry count is 3, plus initial attempt = 4 total per section.
 
 **Fix:**
-
-Configure retry behavior in the engine (check engine configuration documentation for retry options).
+```typescript
+const engine = new DagEngine({
+	plugin: new ErrorHandlingPlugin(),
+	execution: {
+		maxRetries: 1  // Reduce from default 3 to just 1 retry (2 total attempts)
+	}
+});
+```

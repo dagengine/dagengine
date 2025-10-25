@@ -19,6 +19,11 @@ Build your first dag-ai plugin with a single dimension and parallel processing.
 
 ## Quick Run
 ```bash
+cd examples
+npm install
+cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
+
 npm run guide:01
 ```
 

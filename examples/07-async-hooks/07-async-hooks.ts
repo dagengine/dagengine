@@ -224,6 +224,9 @@ async function main(): Promise<void> {
 			models: {
 				"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 }
 			}
+		},
+		progressDisplay: {
+			display: 'bar'
 		}
 	});
 

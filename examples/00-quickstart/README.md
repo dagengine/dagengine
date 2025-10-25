@@ -1,46 +1,36 @@
 ---
-title: Production Quickstart
-description: Build a production-ready review analyzer in 10 minutes
+title: 00 - Advanced Quickstart
+description: Build a production-ready review analyzer with all dag-ai features
 ---
 
-# 🚀 Production Quickstart
+# 00 - Production Quickstart
 
-:::info Prerequisites
-👋 New to dag-ai? Start with the [5-minute Quick Start](/guide/quick-start) first.
+Build a complete customer review analyzer that demonstrates spam filtering, parallel execution, smart grouping, multi-model orchestration, and real-time cost tracking.
 
-This example shows production patterns with all features working together.
-:::
+## What You'll Learn
 
-Build a **complete customer review analyzer** that demonstrates every dag-ai superpower:
+- ✅ Skip logic for spam filtering
+- ✅ Parallel execution of independent tasks
+- ✅ Data transformations for smart grouping
+- ✅ Multi-model orchestration
+- ✅ Real-time cost tracking
+- ✅ Production-ready patterns
 
-- ✅ **Automatic spam filtering** - Skip bad data with conditional execution
-- ✅ **Parallel execution** - Independent tasks run simultaneously
-- ✅ **Smart grouping** - Analyze categories instead of individual reviews
-- ✅ **Multi-model orchestration** - Right model for each job
-- ✅ **Real-time cost tracking** - Know exactly what you're spending
-
----
+**Time:** 10 minutes
 
 ## Quick Run
 ```bash
-# Clone and setup
-git clone https://github.com/ivan629/dag-ai.git
-cd dag-ai/examples
+cd examples
 npm install
 cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
 
-# Add your API key to .env
-echo "ANTHROPIC_API_KEY=sk-ant-xxx" >> .env
-
-# Run it!
 npm run 00
 ```
 
----
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/00-quickstart)**
 
 ## What You'll See
-
-The pipeline processes 20 customer reviews and generates actionable insights:
 ```
 🚀 dag-ai Quickstart: Review Analysis
 
@@ -151,272 +141,429 @@ Product shows strong value proposition with comprehensive features and rapid ROI
 🎯 Efficiency Gain: 30% fewer API calls
 ```
 
----
+**What happened?**
 
-## How It Works
+- Pipeline processed 20 customer reviews through 6 dimensions
+- Spam filter (Haiku) detected 10 spam reviews and skipped downstream analysis
+- Sentiment and categorization ran in parallel on 10 legitimate reviews
+- Reviews grouped by category (features, performance, pricing, support, UX)
+- Deep analysis (Sonnet) generated insights per category (5 categories)
+- Executive summary (Sonnet) synthesized findings into actionable priorities
+- Skip logic saved 20 API calls (30% efficiency gain)
 
-The pipeline runs in 5 intelligent stages:
-```
-📥 Input: 20 reviews
-    ↓
-🛡️  Stage 1: Filter Spam (detects spam reviews)
-    ↓
-⚡ Stage 2: Parallel Analysis (sentiment + category)
-    ↓
-📦 Stage 3: Group by Category (transforms into category groups)
-    ↓
-🔍 Stage 4: Deep Analysis (per category)
-    ↓
-📋 Stage 5: Executive Summary
-    ↓
-✅ Output: Actionable insights
-```
+## Code Walkthrough
 
-## Key Features Explained
+The pipeline combines skip logic, parallel execution, transformations, and multi-model selection into a production-ready workflow.
 
-### 1. Spam Filtering with Skip Logic
-
-**Problem:** Why waste money analyzing spam?
-
-**Solution:** Detect spam first, skip dependent analyses automatically.
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/00-quickstart)**
 ```typescript
-shouldSkipSectionDimension(ctx) {
-  if (ctx.dimension === 'sentiment' || ctx.dimension === 'categorize') {
-    const spamCheck = ctx.dependencies.filter_spam;
-    if (spamCheck?.data?.is_spam) {
-      return true;  // 💰 Skip this review
-    }
-  }
-  return false;
+class ReviewAnalyzer extends Plugin {
+	constructor() {
+		super(
+			"review-analyzer",
+			"Review Analyzer",
+			"Production review analysis"
+		);
+
+		this.dimensions = [
+			"filter_spam",        // Stage 1: Detect spam
+			"sentiment",          // Stage 2: Parallel analysis
+			"categorize",         // Stage 2: Parallel analysis
+			{
+				name: "group_by_category",  // Stage 3: Transform data
+				scope: "global",
+				transform: this.groupByCategory.bind(this)
+			},
+			"analyze_category",   // Stage 4: Deep insights per category
+			{
+				name: "executive_summary",  // Stage 5: Synthesize findings
+				scope: "global"
+			}
+		];
+	}
+
+	defineDependencies(): Record<string, string[]> {
+		return {
+			sentiment: ["filter_spam"],
+			categorize: ["filter_spam"],
+			group_by_category: ["categorize"],
+			analyze_category: ["group_by_category"],
+			executive_summary: ["analyze_category"]
+		};
+	}
 }
 ```
 
-**Result:** Spam reviews automatically skipped in downstream dimensions
+**Key point:** Six dimensions execute in five stages. Stages 1-2 process individual reviews. Stage 3 transforms data. Stages 4-5 analyze grouped data.
 
-[Learn more →](/examples/05-skip-logic)
-
----
-
-### 2. Parallel Execution
-
-**Problem:** Sequential processing is slow.
-
-**Solution:** Run independent analyses in parallel.
+### Step 1: Skip spam in downstream dimensions
 ```typescript
-this.dimensions = [
-  'filter_spam',    // Runs first
-  'sentiment',      // Runs in parallel ⚡
-  'categorize',     // Runs in parallel ⚡
-  // ...
-];
-```
-
-**Result:** Sentiment + Category run together, utilizing parallelization
-
-[Learn more →](/examples/02-dependencies)
-
----
-
-### 3. Smart Grouping (Transformations)
-
-**Problem:** Analyzing individual reviews is repetitive.
-
-**Solution:** Group by category, analyze groups instead.
-```typescript
-transformSections(ctx) {
-  if (ctx.dimension === 'group_by_category') {
-    // Transform: individual reviews → category groups
-    return grouping.categories.map(category => ({
-      content: category.reviews.join('\n\n'),
-      metadata: { category: category.name }
-    }));
-  }
+shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
+	if (ctx.dimension === "sentiment" || ctx.dimension === "categorize") {
+		const spamCheck = ctx.dependencies.filter_spam as 
+			DimensionResult<SpamCheckResult> | undefined;
+		
+		if (spamCheck?.data?.is_spam) {
+			const content = ctx.section.content.slice(0, 50);
+			console.log(`⏭️  Skipped [${ctx.dimension}] for spam: "${content}..."`);
+			return true;
+		}
+	}
+	return false;
 }
 ```
 
-**Result:** Analyze category groups instead of individual reviews
+**Key point:** The `shouldSkipSectionDimension` hook checks spam filter results and skips analysis for spam reviews. This saved 20 API calls (10 spam reviews × 2 dimensions).
 
-[Learn more →](/examples/04-transformations)
-
----
-
-### 4. Multi-Model Strategy
-
-**Problem:** Using expensive models for everything wastes money.
-
-**Solution:** Use cheap models for simple tasks, expensive for complex.
+### Step 2: Transform individual reviews into category groups
 ```typescript
-selectProvider(dimension) {
-  // Haiku ($0.80/1M) for spam detection
-  if (dimension === 'filter_spam') {
-    return { model: 'claude-3-5-haiku-20241022' };
-  }
-  
-  // Sonnet ($3.00/1M) for deep insights
-  if (dimension === 'analyze_category') {
-    return { model: 'claude-3-5-sonnet-20241022' };
-  }
+groupByCategory(
+	result: DimensionResult,
+	sections: SectionData[]
+): SectionData[] {
+	const categories = new Map<string, string[]>();
+
+	sections.forEach((section, index) => {
+		const categoryResult = result.sections?.[index]?.results.categorize;
+		const category = categoryResult?.data?.category || "uncategorized";
+
+		if (!categories.has(category)) {
+			categories.set(category, []);
+		}
+		categories.get(category)!.push(section.content);
+	});
+
+	return Array.from(categories.entries()).map(([category, reviews]) => ({
+		content: reviews.join("\n\n"),
+		metadata: { category, count: reviews.length }
+	}));
 }
 ```
 
-**Result:** Optimal cost/quality balance for each task
+**Key point:** The `transform` function converts individual reviews into category groups. Instead of analyzing 10 reviews individually, the pipeline analyzes 5 category groups.
 
-[Learn more →](/examples/06-providers)
-
----
-
-### 5. Built-in Cost Tracking
-
-Track spending automatically:
+### Step 3: Route dimensions to appropriate models
 ```typescript
-const engine = new DagEngine({
-  pricing: {
-    models: {
-      'claude-3-5-haiku-20241022': {
-        inputPer1M: 0.8,
-        outputPer1M: 4.0
-      }
-    }
-  }
-});
+selectProvider(dimension: string): ProviderSelection {
+	// Use Haiku for filtering and categorization
+	if (dimension === "filter_spam" || 
+	    dimension === "sentiment" || 
+	    dimension === "categorize" ||
+	    dimension === "group_by_category") {
+		return {
+			provider: "anthropic",
+			options: {
+				model: "claude-3-5-haiku-20241022",  // $0.80/$4.00 per 1M tokens
+				temperature: 0.2
+			}
+		};
+	}
 
-const result = await engine.process(reviews);
-console.log(result.costs);
-// {
-//   totalCost: 0.0282,
-//   totalTokens: 12289,
-//   byDimension: { ... }
-// }
-```
-
----
-
-## Cost Breakdown
-
-**This pipeline (from actual run):**
-```
-Stage 1: Spam detection     → 20 calls (Haiku)   $0.0115
-Stage 2: Sentiment          → 10 calls (Haiku)   $0.0015
-Stage 2: Categorize         → 10 calls (Haiku)   $0.0011
-Stage 3: Grouping           →  1 call  (Haiku)   $0.0018
-Stage 4: Deep analysis      →  5 calls (Sonnet)  $0.0087
-Stage 5: Summary            →  1 call  (Sonnet)  $0.0036
-                              ───────────────────────────
-Total: 47 API calls                              $0.0282
-Saved: 20 API calls (spam filtered)
-Efficiency: 30% fewer API calls
-```
-
-**Key optimizations applied:**
-- Skip logic prevented 20 unnecessary API calls
-- Grouping created 5 category analyses instead of individual review analyses
-- Model selection used cheaper Haiku for filtering, expensive Sonnet for insights
-
-## The Complete Code
-
-View the full implementation on GitHub:
-
-[📁 examples/00-quickstart](https://github.com/ivan629/dag-ai/tree/main/examples/00-quickstart)
-
-**Key files:**
-- `index.ts` - Main pipeline (200 lines)
-- `prompts.ts` - AI prompts
-- `data.ts` - Sample reviews
-- `types.ts` - TypeScript types
-- `utils.ts` - Display utilities
-
----
-
-## What You Learned
-
-By running this example, you've seen:
-
-- ✅ **Skip Logic** - Conditional execution saves API calls
-- ✅ **Dependencies** - DAG-based execution order
-- ✅ **Transformations** - Dynamic data restructuring
-- ✅ **Multi-scope** - Section vs Global dimensions
-- ✅ **Multi-model** - Right tool for the job
-- ✅ **Cost Tracking** - Precise spending metrics
-
----
-
-### Customize for Your Needs
-
-**Change categories:**
-```typescript
-// In prompts.ts
-Categories: support, billing, technical, feature-request
-```
-
-**Use different models:**
-```typescript
-selectProvider() {
+	// Use Sonnet for deep analysis and synthesis
 	return {
-		provider: 'openai',
-		options: { model: 'gpt-4' }
+		provider: "anthropic",
+		options: {
+			model: "claude-3-5-sonnet-20241022",  // $3.00/$15.00 per 1M tokens
+			temperature: 0.3
+		}
 	};
 }
 ```
 
-**Process your own data:**
+**Key point:** Cheap Haiku model handles filtering and categorization (37 of 47 API calls). Expensive Sonnet model handles deep insights (6 of 47 API calls). This balance optimizes cost and quality.
+
+### Step 4: Configure engine with pricing
 ```typescript
-// Replace SAMPLE_REVIEWS in data.ts
-const YOUR_REVIEWS = [
-	{ content: 'Your review text', metadata: { id: 1 } }
+const PRICING = {
+	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
+	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+};
+
+const engine = new DagEngine({
+	plugin: new ReviewAnalyzer(),
+	providers: {
+		anthropic: { apiKey: process.env.ANTHROPIC_API_KEY! }
+	},
+	execution: {
+		pricing: { models: PRICING },
+		concurrency: 5  // Process 5 dimensions in parallel (default: 5)
+	}
+});
+
+const result = await engine.process(reviews);
+```
+
+**Key point:** The `execution.pricing` config enables automatic cost tracking. The engine calculates costs per dimension and provides detailed breakdowns.
+
+## Key Concepts
+
+### 1. Five-Stage Pipeline Architecture
+
+The pipeline processes data through five distinct stages.
+```
+Stage 1: Filter Spam (20 reviews)
+   ↓
+Stage 2: Parallel Analysis (10 reviews, spam filtered)
+   sentiment + categorize run simultaneously
+   ↓
+Stage 3: Group by Category (10 reviews → 5 categories)
+   transform reshapes data
+   ↓
+Stage 4: Deep Analysis (5 category groups)
+   analyze_category runs per group
+   ↓
+Stage 5: Executive Summary (1 global synthesis)
+   executive_summary synthesizes all findings
+```
+
+**Characteristics:**
+
+- Stages 1-2 operate on individual reviews (section dimensions)
+- Stage 3 transforms data structure via global dimension with transform
+- Stages 4-5 operate on transformed data (section then global)
+- Dependencies ensure correct execution order
+- Parallelism within stages improves performance
+
+### 2. Skip Logic for Cost Optimization
+
+Skip logic prevents unnecessary API calls on low-value data.
+```typescript
+shouldSkipSectionDimension(ctx: SectionDimensionContext): boolean {
+	if (ctx.dimension === "sentiment" || ctx.dimension === "categorize") {
+		const spamCheck = ctx.dependencies.filter_spam;
+		if (spamCheck?.data?.is_spam) {
+			return true;  // Skip analysis on spam
+		}
+	}
+	return false;
+}
+```
+
+**Impact in this example:**
+
+- 10 spam reviews detected by filter_spam
+- 2 dependent dimensions (sentiment, categorize) skipped per spam review
+- 20 API calls saved (10 reviews × 2 dimensions)
+- 30% efficiency gain (20 saved / 67 total possible calls)
+
+### 3. Data Transformations for Smart Grouping
+
+Transformations reshape data between dimensions.
+```typescript
+{
+	name: "group_by_category",
+	scope: "global",
+	transform: (result, sections) => {
+		// Convert: 10 individual reviews → 5 category groups
+		return groupByCategory(result, sections);
+	}
+}
+```
+
+**Benefits:**
+
+- Reduces analysis from 10 individual reviews to 5 category groups
+- Enables pattern recognition across similar reviews
+- Generates insights at category level rather than review level
+- More actionable output for product teams
+
+### 4. Multi-Model Strategy
+
+Use cheap models for simple tasks, expensive models for complex analysis.
+
+**Cost breakdown by model:**
+
+- Haiku (41 calls): $0.0159 for filtering, sentiment, categorization
+- Sonnet (6 calls): $0.0123 for deep insights and synthesis
+- Total: $0.0282 for 47 API calls
+
+**If using only Sonnet:**
+
+- 47 calls × ~$0.002 per call = ~$0.094
+- 3.3x more expensive than multi-model approach
+
+**If using only Haiku:**
+
+- Cost would be lower (~$0.016)
+- But insights would lack depth and nuance
+- Actionable recommendations would be generic
+
+### 5. Real-Time Cost Tracking
+
+Track spending automatically with detailed breakdowns.
+```typescript
+const result = await engine.process(reviews);
+
+console.log(result.costs);
+// {
+//   totalCost: 0.0282,
+//   totalTokens: 12289,
+//   byDimension: {
+//     filter_spam: { cost: 0.0115, tokens: 8107, model: "Haiku" },
+//     sentiment: { cost: 0.0015, tokens: 934, model: "Haiku" },
+//     // ...
+//   },
+//   byProvider: {
+//     anthropic: { cost: 0.0282, tokens: 12289, models: ["Haiku", "Sonnet"] }
+//   }
+// }
+```
+
+**What you can track:**
+
+- Total cost and tokens across all dimensions
+- Cost per dimension with model information
+- Cost per provider (useful when using multiple providers)
+- Token breakdown (input vs output)
+
+## Production Patterns Demonstrated
+
+### Pattern 1: Quality Filter
+
+Cheap model filters bad data, expensive model analyzes good data.
+```typescript
+this.dimensions = [
+	"quality_check",    // Haiku: Fast, cheap filter
+	"deep_analysis"     // Sonnet: Expensive, high quality
+];
+
+shouldSkipSectionDimension(ctx) {
+	const quality = ctx.dependencies.quality_check?.data?.quality_score;
+	return quality < 0.7;  // Skip low-quality items
+}
+```
+
+**Use cases:** Content moderation, lead qualification, document triage
+
+### Pattern 2: Parallel Independent Tasks
+
+Run multiple independent analyses simultaneously.
+```typescript
+this.dimensions = [
+	"check_spam",       // Runs first
+	"sentiment",        // Runs in parallel with categorize
+	"categorize"        // Runs in parallel with sentiment
+];
+
+defineDependencies() {
+	return {
+		sentiment: ["check_spam"],
+		categorize: ["check_spam"]  // Both depend only on check_spam
+	};
+}
+```
+
+**Use cases:** Multi-aspect analysis, independent feature extraction
+
+### Pattern 3: Progressive Aggregation
+
+Transform individual items into groups, analyze groups, synthesize globally.
+```typescript
+this.dimensions = [
+	"analyze_item",           // Section: individual items
+	{
+		name: "group_items",    // Global: aggregate items
+		scope: "global",
+		transform: groupingLogic
+	},
+	"analyze_group",          // Section: grouped items
+	{
+		name: "synthesize",     // Global: final synthesis
+		scope: "global"
+	}
 ];
 ```
 
----
+**Use cases:** Survey analysis, review analysis, multi-document synthesis
+
+## Summary
+
+**What you learned:**
+
+✅ **Skip logic** - Filter spam and skip dependent analyses (saved 20 API calls, 30% efficiency gain)  
+✅ **Parallel execution** - Sentiment and categorization ran simultaneously  
+✅ **Transformations** - Converted 10 reviews into 5 category groups for smarter analysis  
+✅ **Multi-model orchestration** - Haiku for filtering, Sonnet for insights ($0.0282 vs $0.094 if using only Sonnet)  
+✅ **Cost tracking** - Real-time breakdown by dimension and model
+
+**Key insight:**
+
+Production pipelines combine multiple optimization strategies to balance cost, quality, and performance. This example used skip logic to avoid wasting API calls on spam (30% efficiency gain), transformations to enable category-level analysis instead of individual review analysis, and multi-model selection to use cheap models for simple tasks and expensive models only where needed (saving 70% vs using Sonnet everywhere). The result is a pipeline that processes 20 reviews into actionable business insights for $0.03 in 24 seconds.
 
 ## Troubleshooting
 
-### "API key not set"
+### API Key Not Set
+```
+Error: ANTHROPIC_API_KEY not found
+```
+
+**Cause:** Missing environment variable.
+
+**Fix:**
 ```bash
-# Set environment variable
+# Option 1: Set environment variable
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Or add to .env file
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+# Option 2: Add to .env file
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
 ```
 
-### "Rate limit exceeded"
+### Rate Limit Exceeded
+```
+Error: Rate limit exceeded (429)
+```
 
-Reduce concurrency:
+**Cause:** Too many concurrent requests.
+
+**Fix:**
 ```typescript
 const engine = new DagEngine({
-	execution: { concurrency: 2 }  // Default: 5
+	plugin: new ReviewAnalyzer(),
+	execution: {
+		concurrency: 2  // Reduce from default 5 to 2
+	}
 });
 ```
 
-### Cost tracking shows $0
+### Cost Tracking Shows $0
+```
+💰 Total Cost: $0.0000
+```
 
-Add pricing configuration:
+**Cause:** Missing pricing configuration.
+
+**Fix:**
 ```typescript
-import { PRICING } from './config';
-
 const engine = new DagEngine({
-	pricing: { models: PRICING }
+	plugin: new ReviewAnalyzer(),
+	execution: {
+		pricing: {
+			models: {
+				'claude-3-5-haiku-20241022': { inputPer1M: 0.80, outputPer1M: 4.00 },
+				'claude-3-5-sonnet-20241022': { inputPer1M: 3.00, outputPer1M: 15.00 }
+			}
+		}
+	}
 });
 ```
 
----
+### Transform Not Applied
+```
+Expected 5 category groups but got 10 individual reviews
+```
 
-## FAQ
+**Cause:** Transform function not bound correctly or not returning new sections.
 
-**Q: Can I use OpenAI or other providers?**  
-A: Yes! Change `provider` in `selectProvider()` - see [Providers](/examples/06-providers)
+**Fix:**
+```typescript
+{
+	name: "group_by_category",
+	scope: "global",
+	transform: this.groupByCategory.bind(this)  // Must bind 'this'
+}
 
-**Q: Is this production-ready?**  
-A: This demonstrates patterns. For production, add error handling, retries, and monitoring.
-
-**Q: Can I add more review categories?**  
-A: Yes! Modify the categories in `prompts.ts` - it's just a prompt change.
-
----
-
-## Get Help
-
-- 💬 [GitHub Discussions](https://github.com/ivan629/dag-ai/discussions) - Ask questions
-- 🐛 [Report Issues](https://github.com/ivan629/dag-ai/issues) - Found a bug?
-- 📖 [Read the Docs](/guide/quick-start) - Learn the basics
-- 🎓 [More Examples](/examples/) - See other use cases
+groupByCategory(result, sections) {
+	// Must return new SectionData[] array
+	return categoryGroups;
+}
+```

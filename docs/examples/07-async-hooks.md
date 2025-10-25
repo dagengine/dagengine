@@ -19,6 +19,11 @@ Integrate external services into your plugin with async/await support in all lif
 ## Quick Run
 
 ```bash
+cd examples
+npm install
+cp .env.example .env
+# Add ANTHROPIC_API_KEY to .env
+
 npm run 07
 ```
 
