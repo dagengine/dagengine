@@ -222,7 +222,6 @@ Run several analyses in parallel:
 ```typescript
 this.dimensions = ['sentiment', 'topics', 'language'];
 ```
-→ [Core Concepts](/guide/core-concepts)
 
 ### Dependencies
 Make one analysis depend on another:
@@ -231,7 +230,6 @@ defineDependencies() {
   return { summary: ['sentiment', 'topics'] };
 }
 ```
-→ [Dependencies Guide](/guide/dependencies)
 
 ### Error Handling
 Add fallback providers and retry logic:
@@ -246,7 +244,6 @@ selectProvider() {
   };
 }
 ```
-→ [Error Handling](/guide/error-handling)
 
 ### Cost Optimization
 Skip unnecessary processing:
@@ -255,7 +252,6 @@ shouldSkipSectionDimension(context) {
   return context.section.content.length < 50;
 }
 ```
-→ [Skip Logic](/guide/skip-logic)
 
 ## Common Issues
 
@@ -310,26 +306,3 @@ this.dimensions = ['sentiment'];  // ✅
 // Access with same name
 result.sections[0].results.sentiment  // ✅
 ```
-
-## Getting Help
-
-- 📖 [Core Concepts](/guide/core-concepts) - Understand sections, dimensions, dependencies
-- 🔧 [API Reference](/api/engine) - Complete configuration options
-- 💡 [Examples](/guide/examples) - Real-world use cases
-- 💬 [GitHub Discussions](https://github.com/ivan629/dag-ai/discussions) - Ask questions
-- 🐛 [GitHub Issues](https://github.com/ivan629/dag-ai/issues) - Report bugs
-
-## Next Steps
-
-**Ready to build more?**
-
-1. **[Core Concepts](/guide/core-concepts)** - Learn about sections, dimensions, and dependencies
-2. **[Examples](/guide/examples)** - See real-world workflows
-3. **[API Reference](/api/engine)** - Explore all configuration options
-
-**Want to go deeper?**
-
-- [Dependencies Guide](/guide/dependencies) - Master execution order
-- [Error Handling](/guide/error-handling) - Build resilient workflows
-- [Lifecycle Hooks](/lifecycle/hooks) - 16 extension points
-- [Provider System](/api/providers) - Multiple AI providers

@@ -5,7 +5,43 @@ description: Understand sections, dimensions, dependencies and transformations
 
 # Core Concepts
 
-Master the four core concepts of dag-ai: **Sections**, **Dimensions**, **Dependencies** and **transformations**.
+> **TL;DR** - dag-ai processes your data (sections) through multiple analyses (dimensions) in parallel. Use dependencies to control order when needed. Use transformations to restructure data mid-pipeline.
+>
+> **Read time:** ~15 minutes
+
+Master the four core concepts of dag-ai: **Sections**, **Dimensions**, **Dependencies**, and **Transformations**.
+
+## Quick Overview
+
+| Concept | What It Is | When to Use |
+|---------|-----------|-------------|
+| **Sections** | Your input data (reviews, emails, docs) | Always - this is what you analyze |
+| **Dimensions** | The analyses you run (sentiment, topics) | Define what insights you want |
+| **Dependencies** | Control execution order (A before B) | When results depend on each other |
+| **Transformations** | Restructure sections mid-pipeline | Group, filter, or merge data |
+
+## How It All Fits Together
+
+```
+Input Data              Dimensions              Results
+────────────           ──────────────          ────────────
+
+[Review 1] ─┐
+[Review 2] ─┤          sentiment ──┐           [Review 1]
+[Review 3] ─┼────────▶ topics ─────┼──────────▶ ├─ sentiment
+    ...     │          entities ───┘            ├─ topics
+[Review N] ─┘               │                   ├─ entities
+                            ▼                   └─ summary
+                         summary
+                    (waits for all)            [Review 2]
+                                                ├─ sentiment
+                                                ├─ topics
+                                                ├─ entities
+                                                └─ summary
+                                                   ...
+```
+
+**The key insight:** All sections flow through all dimensions in parallel. When dimensions have dependencies (like `summary` waiting for `sentiment`, `topics`, and `entities`), they execute sequentially only where needed.
 
 ## Sections
 
@@ -15,8 +51,8 @@ Master the four core concepts of dag-ai: **Sections**, **Dimensions**, **Depende
 
 ```typescript
 interface SectionData {
-  content: string;                    // The text to analyze
-  metadata: Record<string, unknown>;  // Any additional data
+	content: string;                    // The text to analyze
+	metadata: Record<string, unknown>;  // Any additional data
 }
 ```
 
@@ -126,6 +162,24 @@ All sections → categorize (once)
 result.globalResults.categorize  // One result for all sections
 ```
 
+### Choosing: Section vs Global
+
+```
+Need to analyze items?
+│
+├─ Items are independent?
+│  └─ YES → Section Dimensions
+│     "For each review, analyze sentiment"
+│
+└─ NO → Need to compare/group across items?
+   └─ YES → Global Dimensions
+      "Looking at all reviews, find common themes"
+```
+
+**Rule of thumb:**
+- **Section:** "For each X, do Y"
+- **Global:** "Looking at all X, do Y"
+
 ### Mixed Mode
 
 Combine both types:
@@ -197,8 +251,6 @@ sentiment → summary
 
 **Duration:** `sentiment + summary` ≈ 6 seconds
 
----
-
 ### DAG (Directed Acyclic Graph)
 
 Multiple dependencies create a graph:
@@ -246,10 +298,10 @@ createPrompt(context) {
 **Context structure:**
 ```typescript
 interface PromptContext {
-  sections: SectionData[];           // Current section(s)
-  dimension: string;                 // Current dimension name
+  sections: SectionData[];              // Current section(s)
+  dimension: string;                    // Current dimension name
   dependencies: DimensionDependencies;  // Results from dependencies
-  isGlobal: boolean;                 // false for section, true for global
+  isGlobal: boolean;                    // false for section, true for global
 }
 ```
 
@@ -300,179 +352,103 @@ createPrompt(context) {
 - **Section dimension:** `context.dependencies.sentiment.data` = single result
 - **Global dimension:** `context.dependencies.sentiment.data.sections` = array of results
 
-## Complete Example: Multi-Step Analysis
+## Putting It Together
+
+Here's how these concepts work together in a real workflow:
 
 ```typescript
-class ContentAnalysis extends Plugin {
-  constructor() {
-    super('content-analysis', 'Content Analysis', 'Analyzes content');
-    
-    this.dimensions = [
-      'sentiment',   // Section: analyze each review
-      'topics',      // Section: extract topics from each
-      'summary'      // Section: summarize each using sentiment + topics
-    ];
-  }
+// 1. Define your dimensions
+this.dimensions = [
+  'sentiment',   // Section: analyze each review
+  'topics',      // Section: extract topics from each
+  'summary'      // Section: summarize using both
+];
 
-  defineDependencies() {
-    return {
-      sentiment: [],              // Run first (parallel)
-      topics: [],                 // Run first (parallel)
-      summary: ['sentiment', 'topics']  // Wait for both
-    };
-  }
-
-  createPrompt(context) {
-    const section = context.sections[0];
-    
-    if (context.dimension === 'sentiment') {
-      return `Analyze sentiment: "${section.content}"
-      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
-    }
-    
-    if (context.dimension === 'topics') {
-      return `Extract main topics: "${section.content}"
-      Return JSON: {"topics": ["topic1", "topic2", "topic3"]}`;
-    }
-    
-    if (context.dimension === 'summary') {
-      // Access results from both dependencies
-      const sentiment = context.dependencies.sentiment.data;
-      const topics = context.dependencies.topics.data;
-      
-      return `Create a ${sentiment.sentiment}-toned summary about ${topics.topics.join(', ')}:
-      "${section.content}"
-      
-      Return JSON: {"summary": "brief summary here"}`;
-    }
-  }
-
-  selectProvider() {
-    return { 
-      provider: 'anthropic',
-      options: { model: 'claude-sonnet-4-5-20250929' }
-    };
-  }
+// 2. Define dependencies (execution order)
+defineDependencies() {
+  return {
+    sentiment: [],                   // Run first (parallel)
+    topics: [],                      // Run first (parallel)
+    summary: ['sentiment', 'topics'] // Wait for both
+  };
 }
 
-// Usage
-const engine = new DagEngine({
-  plugin: new ContentAnalysis(),
-  providers: { anthropic: { apiKey: process.env.ANTHROPIC_API_KEY } }
-});
-
-const result = await engine.process([
-  { content: 'I love this product! Great features and quality.', metadata: {} }
-]);
-
-// Access results
-const section = result.sections[0];
-
-console.log('Sentiment:', section.results.sentiment.data);
-// { sentiment: 'positive', score: 0.95 }
-
-console.log('Topics:', section.results.topics.data);
-// { topics: ['features', 'quality'] }
-
-console.log('Summary:', section.results.summary.data);
-// { summary: 'An enthusiastic review highlighting features and quality' }
+// 3. Use dependency results in prompts
+createPrompt(context) {
+  if (context.dimension === 'summary') {
+    // Access results from both dependencies
+    const sentiment = context.dependencies.sentiment.data;
+    const topics = context.dependencies.topics.data;
+    
+    return `Create a ${sentiment.sentiment} summary covering these topics: 
+    ${topics.topics.join(', ')}
+    
+    Content: "${context.sections[0].content}"`;
+  }
+  
+  // Other dimensions...
+}
 ```
 
-**Execution flow:**
+**Result:**
+```typescript
+const result = await engine.process(reviews);
+
+result.sections[0].results = {
+  sentiment: { sentiment: 'positive', score: 0.95 },
+  topics: { topics: ['quality', 'price'] },
+  summary: { text: 'Positive review highlighting quality and price...' }
+};
 ```
-Step 1 (Parallel):
-  sentiment ──┐
-              ├── Both run simultaneously on the review
-  topics ─────┘
 
-Step 2 (Sequential):
-  summary (uses sentiment + topics)
-```
+## Transformations
 
-## Section Transformations
+**Transformations** let you restructure your sections mid-pipeline. This is an advanced feature that changes the data flowing through your workflow.
 
-**Advanced feature:** Global dimensions can restructure the sections array mid-pipeline.
+### Why Transform?
 
-### The Problem
-
-You have 100 product reviews and want to:
-1. Classify each review by category (electronics, books, clothing)
-2. Group reviews by category
-3. Analyze each category (not each individual review)
-
-Without transformations: **100 analyses** in step 3  
-With transformations: **3 analyses** in step 3 ✨
+Sometimes you need to:
+- **Group** items by category (100 reviews → 5 category groups)
+- **Filter** unwanted items (100 reviews → 80 valid reviews)
+- **Merge** related sections (10 paragraphs → 3 chapters)
+- **Split** large sections (1 document → 5 sections)
 
 ### How It Works
 
-```typescript
-class CategoryPlugin extends Plugin {
-  dimensions = [
-    { name: 'classify', scope: 'section' },      // Per-review
-    { name: 'group_by_category', scope: 'global' },  // All reviews
-    { name: 'analyze_category', scope: 'section' }   // Per-category
-  ];
+Only **global dimensions** can transform sections. Return a new section array from `transformSections()`:
 
+```typescript
+class MyPlugin extends Plugin {
   defineDependencies() {
     return {
-      group_by_category: ['classify'],      // Group needs classifications
-      analyze_category: ['group_by_category']  // Analyze needs groups
+      classify: [],                          // Classify each review
+      group_by_category: ['classify'],       // Group by classification (global)
+      analyze_category: ['group_by_category'] // Analyze each group
     };
   }
 
-  createPrompt(context) {
-    if (context.dimension === 'classify') {
-      return `Classify: "${context.sections[0].content}"
-      Return JSON: {"category": "electronics|books|clothing"}`;
-    }
-    
-    if (context.dimension === 'group_by_category') {
-      // Get all classifications
-      const items = context.dependencies.classify.data.sections;
-      
-      return `Group these ${items.length} items by category.
-      Return JSON: {
-        "categories": [
-          {"name": "electronics", "items": [...]},
-          {"name": "books", "items": [...]},
-          {"name": "clothing", "items": [...]}
-        ]
-      }`;
-    }
-    
-    if (context.dimension === 'analyze_category') {
-      // Now analyzing merged category
-      return `Analyze this ${context.sections[0].metadata.category} category:
-      ${context.sections[0].content}
-      
-      Return insights about this category.`;
-    }
-  }
-
-  // ⭐ Transform sections after grouping
   transformSections(context) {
+    // Only transform after group_by_category dimension
     if (context.dimension === 'group_by_category') {
       const categories = context.result.data.categories;
       
-      // Transform: 100 items → 3 categories
-      return categories.map(cat => ({
-        content: cat.items.join('\n'),
+      // Transform: Return NEW sections (one per category)
+      return categories.map(category => ({
+        content: category.items.join('\n\n'),
         metadata: { 
-          category: cat.name,
-          count: cat.items.length 
+          category: category.name,
+          count: category.items.length 
         }
       }));
     }
     
-    // For other dimensions, return sections unchanged
-    return context.currentSections;
-  }
-
-  selectProvider() {
-    return { provider: 'anthropic', options: {} };
+    // For dimensions that don't transform, return undefined
+    return undefined;
   }
 }
 ```
+
+**💡 See the full implementation:** [Transformations Example](/examples/04-transformations)
 
 ### Transformation Lifecycle
 
@@ -489,7 +465,8 @@ Step 2: group_by_category (global dimension)
 ↓
 ⭐ TRANSFORMATION HAPPENS HERE
   → 100 sections become 3 sections (one per category)
-  → Original 100 section results are CLEARED
+  → Original 100 sections preserved internally for cost tracking
+  → New pipeline continues with 3 sections
 ↓
 Step 3: analyze_category (section dimension)
   → 3 category sections analyzed in parallel
@@ -498,8 +475,8 @@ Step 3: analyze_category (section dimension)
 
 **Important:** After transformation:
 - Section count changes (100 → 3)
-- Section results from before transformation are cleared
-- Only results AFTER transformation persist
+- Original section results preserved internally for cost calculation
+- New dimensions work with transformed sections
 - You analyze the NEW sections, not the old ones
 
 ---
@@ -518,21 +495,26 @@ result.globalResults.group_by_category  // Still has the grouping data
 // ✅ Available: Results from AFTER transformation
 result.sections[0].results.analyze_category  // Category analysis
 
-// ❌ Lost: Original 100 section results
-// result.sections[0].results.classify is NOT available
-// (unless you save it in the global dimension or metadata,
-// or even in global state of the plugin)
+// ⚠️  Original section results: Preserved internally for costs
+// The engine stores original results for cost calculation
+// but result.sections only contains post-transformation data
+result.costs  // ✅ Includes costs from BOTH original AND transformed sections
 ```
 
-**To preserve original data:**
+**To access original data explicitly:**
+
+Store it in the global dimension's metadata:
+
 ```typescript
 transformSections(context) {
   if (context.dimension === 'group_by_category') {
     const categories = context.result.data.categories;
     
-    // Save original classifications in global result
-    context.result.metadata.originalClassifications = 
-      context.dependencies.classify.data.sections;
+    // Save original classifications in result metadata
+    context.result.metadata = {
+      ...context.result.metadata,
+      originalClassifications: context.dependencies.classify.data.sections
+    };
     
     return categories.map(cat => ({
       content: cat.items.join('\n'),
@@ -546,6 +528,95 @@ Then access via:
 ```typescript
 result.globalResults.group_by_category.metadata.originalClassifications
 ```
+
+### When to Use Transformations
+
+**✅ Good use cases:**
+- Grouping items by category/type
+- Filtering out unwanted sections
+- Merging related sections
+- Splitting large sections
+- Reordering based on analysis
+
+**❌ Avoid transformations for:**
+- Simple data extraction (use metadata instead)
+- Calculations that don't change sections
+- Operations that can be done in `finalizeResults`
+
+---
+
+## Common Pitfalls
+
+### ❌ Pitfall 1: Creating Unnecessary Dependencies
+
+```typescript
+// BAD: summary doesn't actually need sentiment data
+defineDependencies() {
+  return {
+    sentiment: [],
+    summary: ['sentiment']  // ← Creates unnecessary wait time
+  };
+}
+
+// GOOD: Let them run in parallel
+defineDependencies() {
+  return {
+    sentiment: [],
+    summary: []  // ← Both run simultaneously
+  };
+}
+```
+
+**Ask yourself:** "Does dimension B truly need dimension A's result?"
+
+### ❌ Pitfall 2: Using Section Dimensions for Aggregation
+
+```typescript
+// BAD: 100 sections = 100 API calls trying to aggregate
+this.dimensions = ['find_common_themes'];  // Runs per-section
+
+// GOOD: 100 sections = 1 API call
+this.dimensions = [
+  { name: 'find_common_themes', scope: 'global' }
+];
+```
+
+### ❌ Pitfall 3: Transforming Too Late
+
+```typescript
+// BAD: Analyze 100 items, then filter to 10
+dimensions = [
+  'analyze_deeply',      // 100 expensive analyses
+  { name: 'filter', scope: 'global' }  // Reduces to 10 (wasted 90)
+]
+
+// GOOD: Filter to 10, then analyze
+dimensions = [
+  { name: 'filter', scope: 'global' },  // Reduces to 10
+  'analyze_deeply'       // Only 10 analyses needed
+]
+```
+
+### ❌ Pitfall 4: Forgetting isGlobal Check
+
+```typescript
+// BAD: Crashes on global dimensions
+createPrompt(context) {
+  const content = context.sections[0].content;  // ← undefined for global!
+  return `Analyze: ${content}`;
+}
+
+// GOOD: Handle both cases
+createPrompt(context) {
+  if (context.isGlobal) {
+    const allContent = context.sections.map(s => s.content).join('\n');
+    return `Analyze all: ${allContent}`;
+  }
+  return `Analyze: ${context.sections[0].content}`;
+}
+```
+
+---
 
 ## Execution Order Summary
 
@@ -623,49 +694,289 @@ defineDependencies() {
 2. C, D (parallel, wait for A, B)
 3. E (waits for C, D)
 
+---
+
+## Performance Best Practices
+
+### 1. Minimize Dependencies
+
+**❌ Bad:** Everything sequential
+```typescript
+defineDependencies() {
+  return {
+    A: [],
+    B: ['A'],
+    C: ['B'],
+    D: ['C']
+  };
+}
+// Duration: A + B + C + D = 16 seconds
+```
+
+**✅ Good:** Parallel where possible
+```typescript
+defineDependencies() {
+  return {
+    A: [],
+    B: [],
+    C: [],
+    D: ['A', 'B', 'C']
+  };
+}
+// Duration: max(A, B, C) + D = 8 seconds
+```
+
+### 2. Use Global Dimensions Wisely
+
+**Section dimensions:** Scale with section count (100 sections = 100 API calls)  
+**Global dimensions:** Fixed cost (100 sections = 1 API call)
+
+For aggregation tasks, prefer global dimensions:
+
+```typescript
+// ❌ Inefficient: 100 API calls to aggregate
+dimensions = ['aggregate_per_section']
+
+// ✅ Efficient: 1 API call to aggregate
+dimensions = [{ name: 'aggregate_all', scope: 'global' }]
+```
+
+### 3. Order Transformations Early
+
+If you're going to filter/reduce sections, do it early:
+
+```typescript
+// ✅ Good: Filter early, analyze less
+dimensions = [
+  { name: 'filter_spam', scope: 'global' },  // 100 → 80 sections
+  'sentiment',                                // 80 analyses
+  'topics'                                    // 80 analyses
+]
+
+// ❌ Bad: Analyze everything, then filter
+dimensions = [
+  'sentiment',                                // 100 analyses
+  'topics',                                   // 100 analyses
+  { name: 'filter_spam', scope: 'global' }   // 100 → 80 sections (wasted 20)
+]
+```
+
+---
+
+## Quick Reference Cheatsheet
+
+### Dimension Definition
+
+```typescript
+// Section dimension (default)
+this.dimensions = ['sentiment', 'topics'];
+
+// Global dimension (explicit)
+this.dimensions = [
+  { name: 'categorize', scope: 'global' }
+];
+
+// Mixed
+this.dimensions = [
+  'sentiment',                              // section
+  { name: 'overall_tone', scope: 'global' } // global
+];
+```
+
+### Dependency Syntax
+
+```typescript
+defineDependencies() {
+  return {
+    A: [],              // No dependencies (runs first)
+    B: ['A'],          // Waits for A
+    C: ['A', 'B'],     // Waits for both A and B
+  };
+}
+```
+
+### Accessing Results
+
+```typescript
+// In section dimensions
+context.dependencies.sentiment.data
+// → { sentiment: 'positive', score: 0.95 }
+
+// In global dimensions
+context.dependencies.sentiment.data.sections
+// → [{ data: {...} }, { data: {...} }, ...]
+```
+
+### Transformation Return
+
+```typescript
+transformSections(context) {
+  if (context.dimension === 'group') {
+    return [
+      { content: '...', metadata: {...} },
+      { content: '...', metadata: {...} }
+    ];
+  }
+  return undefined;  // No transformation
+}
+```
+
+---
+
 ## Key Takeaways
 
-### Sections
-✅ Your input data  
-✅ Each has `content` and `metadata`  
-✅ Can be any text-based data
+### 🎯 Core Principles
 
-### Dimensions
-✅ The analyses you run  
-✅ **Section scope** = per-item (parallel)  
-✅ **Global scope** = all items together (once)  
-✅ Mix both types freely
+1. **Sections** = Your input data with `content` and `metadata`
+2. **Dimensions** = Analyses that run on sections (section or global scope)
+3. **Dependencies** = Execution order (parallel by default, sequential when needed)
+4. **Transformations** = Restructure sections mid-pipeline (global dimensions only)
 
-### Dependencies
-✅ Control execution order  
-✅ No dependencies = parallel  
-✅ With dependencies = sequential  
-✅ Forms a DAG for optimal scheduling
+### ⚡ Performance Rules
 
-### Transformations
-✅ Global dimensions can restructure sections  
-✅ Changes section count mid-pipeline  
-✅ Clears previous section results  
-✅ Useful for grouping/filtering
+1. **Minimize dependencies** → More parallel execution → Faster processing
+2. **Use global for aggregation** → 1 API call instead of N
+3. **Transform early** → Filter/reduce before expensive analyses
+4. **Think parallel-first** → Only add dependencies when truly needed
+
+### 🔍 Mental Models
+
+**Section Dimensions:** "For each X, do Y"
+- Scales with section count
+- Results stored per-section
+- Perfect for independent analysis
+
+**Global Dimensions:** "Looking at all X, do Y"
+- Fixed cost (one execution)
+- Results stored globally
+- Perfect for aggregation/grouping
+
+**Dependencies:** "Y needs X's result"
+- Only use when Y truly depends on X
+- Creates sequential execution
+- Trade speed for data access
+
+**Transformations:** "Change what sections look like"
+- Happens between dimension steps
+- Affects all downstream dimensions
+- Original sections preserved for costs
+
+---
+
+## Common Patterns
+
+### Pattern 1: Filter → Analyze
+
+```typescript
+dimensions = [
+  { name: 'filter', scope: 'global' },  // Remove unwanted items
+  'analyze'                              // Analyze remaining items
+]
+```
+
+### Pattern 2: Classify → Group → Aggregate
+
+```typescript
+dimensions = [
+  'classify',                            // Classify each item
+  { name: 'group', scope: 'global' },   // Group by classification
+  'analyze_group'                        // Analyze each group
+]
+```
+
+### Pattern 3: Extract → Aggregate → Summarize
+
+```typescript
+dimensions = [
+  'extract_features',                    // Extract from each
+  { name: 'aggregate', scope: 'global' }, // Combine all features
+  { name: 'summarize', scope: 'global' }  // Final summary
+]
+```
+
+### Pattern 4: Parallel Analysis → Synthesis
+
+```typescript
+dimensions = [
+  'sentiment',                           // Parallel
+  'topics',                              // Parallel
+  'entities',                            // Parallel
+  { name: 'synthesize', scope: 'global' } // Combine insights
+]
+```
+
+---
+
+## Troubleshooting
+
+### "My dimension isn't receiving dependency data"
+
+✅ **Check:** Did you declare the dependency in `defineDependencies()`?
+
+```typescript
+// This won't work - summary can't access sentiment
+defineDependencies() {
+  return {
+    sentiment: [],
+    summary: []  // ← No dependency declared!
+  };
+}
+```
+
+### "Global dimension shows wrong data structure"
+
+✅ **Check:** Are you accessing the `.sections` array?
+
+```typescript
+// Wrong
+const sentiment = context.dependencies.sentiment.data.sentiment;
+
+// Correct for global dimensions
+const sentiments = context.dependencies.sentiment.data.sections.map(
+	s => s.data.sentiment
+);
+```
+
+### "Transformations aren't applying"
+
+✅ **Check three things:**
+1. Is the dimension scope: `'global'`?
+2. Does `transformSections()` return a section array?
+3. Is the dimension listed in `defineDependencies()`?
+
+### "Performance is slow"
+
+✅ **Check:**
+1. Are you creating unnecessary dependencies?
+2. Are you using section dimensions for aggregation?
+3. Are you transforming late in the pipeline?
+
+See [Performance Best Practices](#performance-best-practices) above.
+
+---
 
 ## Next Steps
 
 **Ready to master dependencies?**
-- [Dependencies Guide](/guide/dependencies) - Advanced dependency patterns and optimization
+- [Dependencies Example](/examples/02-dependencies) - Advanced dependency patterns and execution order
 
-**Want to see real examples?**
-- [Examples](/guide/examples) - Complete workflows with real use cases
+**Want to see transformations in action?**
+- [Transformations Example](/examples/04-transformations) - Section manipulation and grouping
 
 **Need to handle errors?**
-- [Error Handling](/guide/error-handling) - Retries, fallbacks, and graceful degradation
+- [Error Handling](/examples/08-error-handling) - Retries, fallbacks, and graceful degradation
 
 **Want to optimize costs?**
-- [Skip Logic](/guide/skip-logic) - Skip unnecessary processing
+- [Skip Logic](/examples/05-skip-logic) - Skip unnecessary processing and caching
+
+**Working with providers?**
+- [Providers Example](/examples/06-providers) - Multiple providers, fallbacks, and gateway routing
 
 ## Related
 
 - [Quick Start](/guide/quick-start) - Build your first workflow
-- [API Reference](/api/engine) - Configuration options
-- [Lifecycle Hooks](/lifecycle/hooks) - Extension points
-
-Ready for the next page?
+- [Advanced Quickstart](/examples/00-quickstart) - Step-by-step walkthrough
+- [Section vs Global](/examples/03-section-vs-global) - Understanding dimension scopes
+- [API Reference](/api/engine) - DagEngine configuration
+- [Plugin API](/api/plugin) - Create custom plugins
+- [Async Hooks](/examples/07-async-hooks) - Lifecycle extension points

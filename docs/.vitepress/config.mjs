@@ -38,7 +38,6 @@ export default defineConfig({
 				text: "Getting Started",
 				collapsed: false,
 				items: [
-					{ text: "Installation", link: "/guide/installation" },
 					{ text: "Quick Start", link: "/guide/quick-start" },
 					{ text: "Core Concepts", link: "/guide/core-concepts" },
 				],
@@ -62,17 +61,6 @@ export default defineConfig({
 				text: "Advanced",
 				collapsed: true,
 				items: [
-					{ text: "Custom Providers", link: "/advanced/custom-providers" },
-					{ text: "Performance", link: "/advanced/performance" },
-					{ text: "Testing", link: "/advanced/testing" },
-				],
-			},
-			{
-				text: "Lifecycle",
-				collapsed: true,
-				items: [
-					{ text: "All Hooks", link: "/lifecycle/hooks" },
-					{ text: "Hook Reference", link: "/lifecycle/reference" },
 				],
 			},
 			{
