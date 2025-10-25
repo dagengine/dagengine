@@ -543,8 +543,6 @@ result.globalResults.group_by_category.metadata.originalClassifications
 - Calculations that don't change sections
 - Operations that can be done in `finalizeResults`
 
----
-
 ## Common Pitfalls
 
 ### ❌ Pitfall 1: Creating Unnecessary Dependencies
@@ -615,8 +613,6 @@ createPrompt(context) {
   return `Analyze: ${context.sections[0].content}`;
 }
 ```
-
----
 
 ## Execution Order Summary
 
@@ -694,8 +690,6 @@ defineDependencies() {
 2. C, D (parallel, wait for A, B)
 3. E (waits for C, D)
 
----
-
 ## Performance Best Practices
 
 ### 1. Minimize Dependencies
@@ -761,8 +755,6 @@ dimensions = [
 ]
 ```
 
----
-
 ## Quick Reference Cheatsheet
 
 ### Dimension Definition
@@ -821,8 +813,6 @@ transformSections(context) {
 }
 ```
 
----
-
 ## Key Takeaways
 
 ### 🎯 Core Principles
@@ -860,8 +850,6 @@ transformSections(context) {
 - Happens between dimension steps
 - Affects all downstream dimensions
 - Original sections preserved for costs
-
----
 
 ## Common Patterns
 
@@ -904,8 +892,6 @@ dimensions = [
   { name: 'synthesize', scope: 'global' } // Combine insights
 ]
 ```
-
----
 
 ## Troubleshooting
 
@@ -952,31 +938,3 @@ const sentiments = context.dependencies.sentiment.data.sections.map(
 3. Are you transforming late in the pipeline?
 
 See [Performance Best Practices](#performance-best-practices) above.
-
----
-
-## Next Steps
-
-**Ready to master dependencies?**
-- [Dependencies Example](/examples/02-dependencies) - Advanced dependency patterns and execution order
-
-**Want to see transformations in action?**
-- [Transformations Example](/examples/04-transformations) - Section manipulation and grouping
-
-**Need to handle errors?**
-- [Error Handling](/examples/08-error-handling) - Retries, fallbacks, and graceful degradation
-
-**Want to optimize costs?**
-- [Skip Logic](/examples/05-skip-logic) - Skip unnecessary processing and caching
-
-**Working with providers?**
-- [Providers Example](/examples/06-providers) - Multiple providers, fallbacks, and gateway routing
-
-## Related
-
-- [Quick Start](/guide/quick-start) - Build your first workflow
-- [Advanced Quickstart](/examples/00-quickstart) - Step-by-step walkthrough
-- [Section vs Global](/examples/03-section-vs-global) - Understanding dimension scopes
-- [API Reference](/api/engine) - DagEngine configuration
-- [Plugin API](/api/plugin) - Create custom plugins
-- [Async Hooks](/examples/07-async-hooks) - Lifecycle extension points
