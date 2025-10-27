@@ -214,8 +214,8 @@ export const VALIDATION = {
 	/** Minimum allowed concurrency */
 	MIN_CONCURRENCY: 1,
 
-	/** Maximum allowed concurrency (to prevent resource exhaustion) */
-	MAX_CONCURRENCY: 100,
+	/** Maximum allowed concurrency */
+	MAX_CONCURRENCY: 10000,
 
 	/** Minimum allowed retry attempts */
 	MIN_RETRIES: 0,

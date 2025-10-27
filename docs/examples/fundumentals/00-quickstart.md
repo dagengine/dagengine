@@ -1,5 +1,5 @@
 ---
-title: 00 - Production Quickstart
+title: 00 - Advanced Quickstart
 description: Build a production-ready review analyzer with all dag-ai features
 ---
 

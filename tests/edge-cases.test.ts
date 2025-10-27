@@ -16,7 +16,7 @@ describe("DagEngine - Edge Cases", () => {
 		registry.register(mockProvider);
 	});
 
-	test("should handle very large number of sections (100+)", async () => {
+	test("should handle very large number of sections (150+)", async () => {
 		class LargePlugin extends Plugin {
 			constructor() {
 				super("large", "Large", "Test");
