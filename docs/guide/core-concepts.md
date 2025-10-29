@@ -448,7 +448,7 @@ class MyPlugin extends Plugin {
 }
 ```
 
-**💡 See the full implementation:** [Transformations Example](/examples/04-transformations)
+**💡 See the full implementation:** [Transformations Example](/examples/fundamentals/04-transformations)
 
 ### Transformation Lifecycle
 
