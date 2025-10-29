@@ -28,7 +28,7 @@ cp .env.example .env
 npm run 00
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/00-quickstart)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/00-quickstart)**
 
 ## What You'll See
 ```

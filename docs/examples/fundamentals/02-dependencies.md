@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 02
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/02-dependencies)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/02-dependencies)**
 
 ## What You'll See
 ```

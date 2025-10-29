@@ -26,7 +26,7 @@ cp .env.example .env
 npm run 08
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/08-error-handling)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/08-error-handling)**
 
 ## What You'll See
 ```

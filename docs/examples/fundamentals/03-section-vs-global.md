@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 03
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/03-section-vs-global)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/03-section-vs-global)**
 
 ## What You'll See
 ```
