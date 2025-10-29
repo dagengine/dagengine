@@ -2,36 +2,26 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-	title: "dag-ai",
-	description:
-		"Production-ready AI workflow orchestration with intelligent dependency management",
-	cleanUrls: true,
-
 	themeConfig: {
 		logo: "/logo.svg",
 		siteTitle: "dag-ai",
 
 		// ==========================================
-		// NAVIGATION (Simple)
+		// NO TOP NAV - Just version dropdown
 		// ==========================================
 		nav: [
-			{ text: "Guide", link: "/guide/quick-start" },
-			{ text: "API", link: "/api/engine" },
-			{ text: "Recipes", link: "/recipes/" },
 			{
 				text: "v1.0.0",
 				items: [
-					{
-						text: "Changelog",
-						link: "https://github.com/ivan629/dag-ai/releases",
-					},
+					{ text: "Changelog", link: "https://github.com/ivan629/dag-ai/releases" },
 					{ text: "GitHub", link: "https://github.com/ivan629/dag-ai" },
+					{ text: "npm", link: "https://www.npmjs.com/package/@ivan629/dag-ai" },
 				],
 			},
 		],
 
 		// ==========================================
-		// SIDEBAR (Lean & Clean)
+		// EVERYTHING IN SIDEBAR (Single sidebar)
 		// ==========================================
 		sidebar: [
 			{
@@ -46,21 +36,21 @@ export default defineConfig({
 				text: "Fundamentals",
 				collapsed: false,
 				items: [
-					{ text: "Advanced Quickstart", link: "/examples/fundamentals/00-quickstart" },
-					{ text: "Hello World", link: "/examples/fundamentals/01-hello-world" },
-					{ text: "Dependencies", link: "/examples/fundamentals/02-dependencies" },
-					{ text: "Section vs Global", link: "/examples/fundamentals/03-section-vs-global" },
-					{ text: "Transformations", link: "/examples/fundamentals/04-transformations" },
-					{ text: "Skip Logic", link: "/examples/fundamentals/05-skip-logic" },
-					{ text: "Providers", link: "/examples/fundamentals/06-providers" },
-					{ text: "Async Hooks", link: "/examples/fundamentals/07-async-hooks" },
-					{ text: "Error Handling", link: "/examples/fundamentals/08-error-handling" },
+					{ text: "01 - Hello World", link: "/examples/fundamentals/01-hello-world" },
+					{ text: "02 - Dependencies", link: "/examples/fundamentals/02-dependencies" },
+					{ text: "03 - Section vs Global", link: "/examples/fundamentals/03-section-vs-global" },
+					{ text: "04 - Transformations", link: "/examples/fundamentals/04-transformations" },
+					{ text: "05 - Skip Logic", link: "/examples/fundamentals/05-skip-logic" },
+					{ text: "06 - Providers", link: "/examples/fundamentals/06-providers" },
+					{ text: "07 - Async Hooks", link: "/examples/fundamentals/07-async-hooks" },
+					{ text: "08 - Error Handling", link: "/examples/fundamentals/08-error-handling" },
 				],
 			},
 			{
 				text: "Advanced",
-				collapsed: true,
+				collapsed: false,
 				items: [
+					{ text: "Advanced Quickstart", link: "/examples/fundamentals/00-quickstart" },
 					{ text: "Portkey Gateway", link: "/examples/advanced/01-portkey" },
 				],
 			},
@@ -72,88 +62,11 @@ export default defineConfig({
 					{ text: "Configuration", link: "/api/configuration" },
 					{ text: "Types", link: "/api/types" },
 				],
-			}
-		],
-
-		// ==========================================
-		// SOCIAL LINKS
-		// ==========================================
-		socialLinks: [
-			{ icon: "github", link: "https://github.com/ivan629/dag-ai" },
-			{ icon: "npm", link: "https://www.npmjs.com/package/@ivan629/dag-ai" },
-		],
-
-		// ==========================================
-		// SEARCH
-		// ==========================================
-		search: {
-			provider: "local",
-		},
-
-		// ==========================================
-		// FOOTER
-		// ==========================================
-		footer: {
-			message: "Released under the MIT License.",
-			copyright: "Copyright © 2025-present Ivan Holovach",
-		},
-
-		// ==========================================
-		// EDIT LINK
-		// ==========================================
-		editLink: {
-			pattern: "https://github.com/ivan629/dag-ai/edit/main/docs/:path",
-			text: "Edit this page on GitHub",
-		},
-
-		// ==========================================
-		// TABLE OF CONTENTS
-		// ==========================================
-		outline: {
-			level: [2, 3],
-			label: "On this page",
-		},
-	},
-
-	// ==========================================
-	// MARKDOWN CONFIGURATION
-	// ==========================================
-	markdown: {
-		theme: {
-			light: "github-light",
-			dark: "github-dark",
-		},
-		lineNumbers: true,
-	},
-
-	// ==========================================
-	// HEAD TAGS
-	// ==========================================
-	head: [
-		["link", { rel: "icon", type: "image/svg+xml", href: "/logo.svg" }],
-		["meta", { name: "theme-color", content: "#0D9373" }],
-		["meta", { property: "og:type", content: "website" }],
-		[
-			"meta",
-			{ property: "og:title", content: "dag-ai | AI Workflow Orchestration" },
-		],
-		[
-			"meta",
-			{
-				property: "og:description",
-				content:
-					"Production-ready AI pipelines with intelligent dependency management and 70% cost savings",
 			},
 		],
-	],
 
-	// ==========================================
-	// SITEMAP
-	// ==========================================
-	sitemap: {
-		hostname: "https://dag-ai.dev",
+		socialLinks: [
+			{ icon: "github", link: "https://github.com/ivan629/dag-ai" },
+		],
 	},
-
-	lastUpdated: true,
-	appearance: "dark",
 });

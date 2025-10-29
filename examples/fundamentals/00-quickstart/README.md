@@ -3,7 +3,7 @@ title: 00 - Advanced Quickstart
 description: Build a production-ready review analyzer with all dag-ai features
 ---
 
-# 00 - Production Quickstart
+# 00 - Advanced Quickstart
 
 Build a complete customer review analyzer that demonstrates spam filtering, parallel execution, smart grouping, multi-model orchestration, and real-time cost tracking.
 

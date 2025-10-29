@@ -4,144 +4,252 @@ layout: home
 hero:
   name: dag-ai
   text: AI Workflow Orchestration
-  tagline: Build production-ready AI pipelines with intelligent dependency management and zero complexity
+  tagline: Production-ready AI pipelines with intelligent dependency management and zero complexity
   actions:
     - theme: brand
-      text: Quick Start
+      text: Get Started
       link: /guide/quick-start
     - theme: alt
-      text: GitHub
+      text: View on GitHub
       link: https://github.com/ivan629/dag-ai
 
 features:
-  - icon: 🎯
-    title: DAG-Based Execution
-    details: Topological sorting with DAG-based execution. Define dependencies once, let the engine handle execution order and parallelization.
+  - icon: 🚀
+    title: Zero Infrastructure
+    details: Define dependencies, get automatic parallelization. No queues, workers, or orchestration logic required.
 
-  - icon: 📦
-    title: Section & Global Dimensions
-    details: The dual dimension nature and shared across all stages in workflow.
-
-  - icon: 🎨
-    title: Section Transformations
-    details: Merge, split, or reorder sections based on the previous dimension result, or current section metadata.
+  - icon: 💰
+    title: Cost Optimized
+    details: Skip unnecessary processing. Route to optimal models. Track costs per dimension in real-time.
 
   - icon: 🔄
-    title: Provider Fallback
-    details: Configure provider chains with automatic retry and exponential backoff. Switch providers when failures occur.
+    title: Production Ready
+    details: Automatic retry with exponential backoff. Provider fallback chains. Graceful error recovery.
+
+  - icon: 🎯
+    title: Flexible Processing
+    details: Section dimensions analyze items independently. Global dimensions aggregate across all items.
+
+  - icon: 🎨
+    title: Dynamic Transformations
+    details: Group, filter, or merge sections mid-pipeline. Reshape data at the optimal moment.
 
   - icon: 🪝
-    title: Lifecycle Hooks
-    details: Intercept execution at 16 stages. Skip processing, transform data, handle errors, integrate external tools like databases, caching and etc.
-
-  - icon: 📊
-    title: Cost Tracking
-    details: Track token usage and costs per dimension and provider in real-time. Exported with results.
+    title: Deep Integration
+    details: 18 lifecycle hooks with full async support. Integrate databases, caches, and external APIs.
 ---
 
-## Example
-
-```typescript
+## Build AI Workflows in Minutes
+````typescript
 import { DagEngine, Plugin } from '@ivan629/dag-ai';
 
-class CatAnalysis extends Plugin {
-  dimensions = [
-    { name: 'breed_detection', scope: 'section' },
-    { name: 'categorize_by_breed', scope: 'global' },
-    { name: 'generate_insights', scope: 'section' }
-  ];
-  
+class ReviewAnalyzer extends Plugin {
+  constructor() {
+    super('review-analyzer', 'Review Analyzer', 'Analyze feedback');
+    this.dimensions = ['sentiment', 'topics', 'summary'];
+  }
+
   defineDependencies() {
-    return {
-      categorize_by_breed: ['breed_detection'],
-      generate_insights: ['categorize_by_breed']
-    };
+    return { summary: ['sentiment', 'topics'] };
   }
-  
+
   createPrompt(ctx) {
-    if (ctx.dimension === 'breed_detection') {
-      return `Identify the cat breed in this description: "${ctx.section.content}"
-      Return JSON: {"breed": "...", "confidence": 0-1}`;
+    if (ctx.dimension === 'sentiment') {
+      return `Analyze sentiment: "${ctx.sections[0].content}"
+      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
     }
     
-    if (ctx.dimension === 'generate_insights') {
-      const category = ctx.dependencies.categorize_by_breed.data;
-      return `Generate insights about this ${category.breed_group} cat:
-      Breed: ${ctx.section.breed}
-      Description: ${ctx.section.content}
-      Return JSON with personality traits and care tips.`;
+    if (ctx.dimension === 'topics') {
+      return `Extract topics: "${ctx.sections[0].content}"
+      Return JSON: {"topics": ["topic1", "topic2"]}`;
     }
     
-    return `Analyze cats`;
-  }
-  
-  transformSections(ctx) {
-    if (ctx.dimension === 'categorize_by_breed') {
-      // Group cats by breed family
-      const groups = ctx.result.data.breed_groups;
-      
-      return groups.map(group => ({
-        content: group.cats.map(c => c.description).join('\n'),
-        breed: group.name,
-        metadata: { count: group.cats.length }
-      }));
+    if (ctx.dimension === 'summary') {
+      const { sentiment } = ctx.dependencies.sentiment.data;
+      const { topics } = ctx.dependencies.topics.data;
+      return `Create ${sentiment} summary covering: ${topics.join(', ')}`;
     }
   }
-  
+
   selectProvider() {
-    return { 
+    return {
       provider: 'anthropic',
-      options: { model: 'claude-sonnet-4-5-20250929' },
-      fallbacks: [{ provider: 'openai', options: { model: 'gpt-4o' } }]
+      options: { model: 'claude-3-5-haiku-20241022' }
     };
   }
 }
 
 const engine = new DagEngine({
-  plugin: new CatAnalysis(),
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
-    openai: { apiKey: process.env.OPENAI_API_KEY }
-  }
+  plugin: new ReviewAnalyzer(),
+  providers: { anthropic: { apiKey: process.env.ANTHROPIC_API_KEY } }
 });
 
-const cats = [
-  { content: 'Fluffy orange cat with green eyes', metadata: {} },
-  { content: 'Sleek black cat with yellow eyes', metadata: {} },
-  { content: 'White persian with blue eyes', metadata: {} }
-];
+const result = await engine.process([
+  { content: 'Amazing product! Highly recommended.', metadata: {} },
+  { content: 'Disappointed with quality.', metadata: {} }
+]);
+````
 
-const result = await engine.process(cats);
-```
+<div class="tip custom-block" style="padding-top: 8px">
 
-**Execution:** `breed_detection` processes 3 cats in parallel → `categorize_by_breed` groups them by breed family (transforms 3 sections into breed groups) → `generate_insights` processes each group with breed context.
+**Automatic Execution:** `sentiment` + `topics` run in parallel → `summary` waits for both → all reviews processed simultaneously
 
-## Installation
+</div>
 
-::: code-group
+## Key Capabilities
 
-```bash [npm]
-npm install @ivan629/dag-ai
-```
+<div class="vp-doc">
 
-```bash [yarn]
-yarn add @ivan629/dag-ai
-```
+### Intelligent Parallelization
 
-```bash [pnpm]
-pnpm add @ivan629/dag-ai
-```
+Define task dependencies once. The engine automatically calculates optimal execution order and runs independent tasks in parallel.
+````typescript
+defineDependencies() {
+  return {
+    summary: ['sentiment', 'topics']  // Waits for both
+  };
+}
+````
 
-:::
+### Cost Optimization
 
----
+Skip expensive analysis on low-value content. Route different tasks to different models based on complexity.
+````typescript
+shouldSkipSectionDimension(ctx) {
+  if (ctx.dimension === 'deep_analysis') {
+    const quality = ctx.dependencies.quality_check.data;
+    return quality.score < 0.7;
+  }
+}
+````
 
-## Documentation
+**Result:** 100 items → 40 high-quality → 60% cost reduction
 
-- [Quick Start](/guide/quick-start) - Build your first workflow
-- [Core Concepts](/guide/core-concepts) - Dependencies and processing modes
-- [Cost Optimization](/guide/skip-logic) - Reduce API costs
-- [Lifecycle Hooks](/lifecycle/hooks) - Extension points reference
-- [Examples](/guide/examples) - Working implementations
-- [API Reference](/api/engine) - Complete API documentation
+### Data Transformations
 
+Reshape sections between processing stages. Group 100 reviews into 5 categories, then analyze categories.
+````typescript
+transformSections(ctx) {
+  if (ctx.dimension === 'group') {
+    return ctx.result.data.categories.map(cat => ({
+      content: cat.items.join('\n'),
+      metadata: { category: cat.name }
+    }));
+  }
+}
+````
+
+**Result:** 100 analyses → 5 analyses (95% fewer API calls)
+
+### Error Recovery
+
+Automatic retry with exponential backoff. Provider fallback when failures occur. Graceful degradation with fallback results.
+````typescript
+selectProvider(dimension) {
+  return {
+    provider: 'anthropic',
+    options: { model: 'claude-3-5-sonnet-20241022' },
+    fallbacks: [
+      { provider: 'openai', options: { model: 'gpt-4o' } }
+    ]
+  };
+}
+````
+
+</div>
+
+## Production Features
+
+<div class="features-grid">
+
+<div class="feature-card">
+
+### Multi-Provider Support
+
+Route different tasks to different AI providers. Use Claude for filtering, GPT-4 for analysis, Gemini for synthesis.
+
+</div>
+
+<div class="feature-card">
+
+### Real-Time Cost Tracking
+
+Track token usage and costs per dimension and provider. Export detailed breakdowns with results.
+
+</div>
+
+<div class="feature-card">
+
+### External Integration
+
+All hooks support async/await. Integrate Redis caching, PostgreSQL logging, external APIs seamlessly.
+
+</div>
+
+<div class="feature-card">
+
+### Gateway Support
+
+Built-in Portkey integration for advanced retry policies, load balancing, and semantic caching.
+
+</div>
+
+</div>
+
+## Get Started
+
+<div class="vp-doc">
+
+<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+
+<div style="flex: 1; padding: 1.5rem; border: 1px solid var(--vp-c-divider); border-radius: 8px;">
+
+### Learn
+
+- [Quick Start](/guide/quick-start)
+- [Core Concepts](/guide/core-concepts)
+- [Hello World](/examples/fundamentals/01-hello-world)
+
+</div>
+
+<div style="flex: 1; padding: 1.5rem; border: 1px solid var(--vp-c-divider); border-radius: 8px;">
+
+### Reference
+
+- [Lifecycle Hooks](/api/hooks)
+- [Configuration](/api/configuration)
+- [Type Definitions](/api/types)
+
+</div>
+
+</div>
+
+</div>
+
+<style>
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+}
+
+.feature-card h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  border: none;
+}
+
+.feature-card p {
+  margin-bottom: 0;
+  font-size: 0.95rem;
+  color: var(--vp-c-text-2);
+}
+</style>
