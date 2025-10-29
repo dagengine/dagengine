@@ -1,32 +1,30 @@
 {
 	"name": "@dagengine/core",
 	"version": "1.0.0",
-	"description": "AI-powered DAG engine with advanced graph analytics and workflow visualization",
+	"description": "Type-safe DAG execution engine for AI workflows",
 	"keywords": [
 		"dag",
 		"ai",
 		"workflow",
-		"analysis",
-		"graph",
-		"analytics",
-		"visualization",
+		"orchestration",
 		"typescript",
 		"directed-acyclic-graph",
-		"orchestration",
 		"llm",
-		"ai-agents"
+		"ai-agents",
+		"graph",
+		"analytics",
+		"visualization"
 	],
-	"homepage": "https://github.com/ivan629/dag-engine#readme",
+	"homepage": "https://dagengine.ai",
 	"bugs": {
-		"url": "https://github.com/ivan629/dag-engine/issues"
+		"url": "https://github.com/dagengine/dagengine/issues"
 	},
 	"publishConfig": {
-		"registry": "https://npm.pkg.github.com",
-		"@ivan629:registry": "https://npm.pkg.github.com"
+		"access": "public"
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/ivan629/dag-engine.git"
+		"url": "git+https://github.com/dagengine/dagengine.git"
 	},
 	"license": "MIT",
 	"author": "Ivan Holovach <ivan.holovach@example.com>",

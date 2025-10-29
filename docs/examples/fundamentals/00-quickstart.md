@@ -28,7 +28,7 @@ cp .env.example .env
 npm run 00
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/00-quickstart)**
+**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/fundamentals/00-quickstart)**
 
 ## What You'll See
 ```
@@ -155,7 +155,7 @@ Product shows strong value proposition with comprehensive features and rapid ROI
 
 The pipeline combines skip logic, parallel execution, transformations, and multi-model selection into a production-ready workflow.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/00-quickstart)**
+**[📁 View full source on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/00-quickstart)**
 ```typescript
 class ReviewAnalyzer extends Plugin {
 	constructor() {

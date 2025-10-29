@@ -214,7 +214,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           # For GitHub Packages, change to:
           # registry-url: 'https://npm.pkg.github.com'
-          # scope: '@ivan629'
+          # scope: '@dagengine'
 
       - run: npm ci
       - run: npm run build

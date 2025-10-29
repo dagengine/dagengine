@@ -282,7 +282,7 @@ async function main(): Promise<void> {
 			} else {
 				console.error("Error:", error.message);
 				console.error("\n💡 If this persists, please report:");
-				console.error("   https://github.com/ivan629/dag-engine/issues\n");
+				console.error("   https://github.com/dagengine/dag-engine/issues\n");
 			}
 		}
 

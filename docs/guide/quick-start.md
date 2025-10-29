@@ -5,22 +5,22 @@ description: Build your first AI workflow in 5 minutes
 
 # Quick Start
 
-Get started with dag-engine in 5 minutes. Build a simple sentiment analysis workflow.
+Get started with dagengine in 5 minutes. Build a simple sentiment analysis workflow.
 
 ## Installation
 
 ::: code-group
 
 ```bash [npm]
-npm install @ivan629/dag-engine
+npm install @dagengine/dagengine
 ```
 
 ```bash [yarn]
-yarn add @ivan629/dag-engine
+yarn add @dagengine/dagengine
 ```
 
 ```bash [pnpm]
-pnpm add @ivan629/dag-engine
+pnpm add @dagengine/dagengine
 ```
 
 :::
@@ -42,7 +42,7 @@ Get your API key from [Anthropic Console](https://console.anthropic.com/).
 A **plugin** defines what analyses to run. Here's a simple sentiment analyzer:
 
 ```typescript
-import { Plugin } from '@ivan629/dag-engine';
+import { Plugin } from '@dagengine/dagengine';
 
 class SentimentPlugin extends Plugin {
   constructor() {
@@ -91,7 +91,7 @@ class SentimentPlugin extends Plugin {
 The **engine** runs your plugin on your data:
 
 ```typescript
-import { DagEngine } from '@ivan629/dag-engine';
+import { DagEngine } from '@dagengine/dagengine';
 
 const engine = new DagEngine({
   plugin: new SentimentPlugin(),
@@ -144,7 +144,7 @@ Reasoning: Factual statement without emotional language
 Here's the full code in one place:
 
 ```typescript
-import { DagEngine, Plugin } from '@ivan629/dag-engine';
+import { DagEngine, Plugin } from '@dagengine/dagengine';
 
 class SentimentPlugin extends Plugin {
   constructor() {

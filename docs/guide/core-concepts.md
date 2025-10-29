@@ -5,11 +5,11 @@ description: Understand sections, dimensions, dependencies and transformations
 
 # Core Concepts
 
-> **TL;DR** - dag-engine processes your data (sections) through multiple analyses (dimensions) in parallel. Use dependencies to control order when needed. Use transformations to restructure data mid-pipeline.
+> **TL;DR** - dagengine processes your data (sections) through multiple analyses (dimensions) in parallel. Use dependencies to control order when needed. Use transformations to restructure data mid-pipeline.
 >
 > **Read time:** ~15 minutes
 
-Master the four core concepts of dag-engine: **Sections**, **Dimensions**, **Dependencies**, and **Transformations**.
+Master the four core concepts of dagengine: **Sections**, **Dimensions**, **Dependencies**, and **Transformations**.
 
 ## Quick Overview
 

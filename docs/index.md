@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: dag-engine
+  name: dagengine
   text: AI Workflow Orchestration
   tagline: Production-ready AI pipelines with intelligent dependency management and zero complexity
   actions:
@@ -11,7 +11,7 @@ hero:
       link: /guide/quick-start
     - theme: alt
       text: View on GitHub
-      link: https://github.com/ivan629/dag-engine
+      link: https://github.com/dagengine/dag-engine
 
 features:
   - icon: 🚀
@@ -41,7 +41,7 @@ features:
 
 ## Build AI Workflows in Minutes
 ````typescript
-import { DagEngine, Plugin } from '@ivan629/dag-engine';
+import { DagEngine, Plugin } from '@dagengine/dag-engine';
 
 class ReviewAnalyzer extends Plugin {
   constructor() {

@@ -13,7 +13,7 @@ export default defineConfig({
 
 	themeConfig: {
 		logo: "/logo.svg",
-		siteTitle: "dag-engine",
+		siteTitle: "DagEngine",
 
 		// Add search configuration
 		search: {
@@ -48,9 +48,9 @@ export default defineConfig({
 			{
 				text: "v1.0.0",
 				items: [
-					{ text: "Changelog", link: "https://github.com/ivan629/dag-engine/releases" },
-					{ text: "GitHub", link: "https://github.com/ivan629/dag-engine" },
-					{ text: "npm", link: "https://www.npmjs.com/package/@ivan629/dag-engine" },
+					{ text: "Changelog", link: "https://github.com/dagengine/dag-engine/releases" },
+					{ text: "GitHub", link: "https://github.com/dagengine/dag-engine" },
+					{ text: "npm", link: "https://www.npmjs.com/package/@dagengine/dag-engine" },
 				],
 			},
 		],
@@ -98,7 +98,7 @@ export default defineConfig({
 		],
 
 		socialLinks: [
-			{ icon: "github", link: "https://github.com/ivan629/dag-engine" },
+			{ icon: "github", link: "https://github.com/dagengine/dagengine" },
 		],
 
 		footer: {

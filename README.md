@@ -1,20 +1,20 @@
-# @ivan629/dag-engine
+# @dagengine/dag-engine
 
 <div align="center">
 
 **AI-powered DAG engine with advanced graph analytics and workflow visualization**
 
-[![CI/CD Pipeline](https://github.com/ivan629/dag-engine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/ivan629/dag-engine/actions)
-[![codecov](https://codecov.io/gh/ivan629/dag-engine/branch/main/graph/badge.svg)](https://codecov.io/gh/ivan629/dag-engine)
+[![CI/CD Pipeline](https://github.com/dagengine/dagengine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/dagengine/dag-engine/actions)
+[![codecov](https://codecov.io/gh/dagengine/dagengine/branch/main/graph/badge.svg)](https://codecov.io/gh/dagengine/dag-engine)
 [![npm version](https://badge.fury.io/js/%40ivan629%2Fdag-ai.svg)](https://badge.fury.io/js/%40ivan629%2Fdag-ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
-[![Snyk](https://snyk.io/test/github/ivan629/dag-engine/badge.svg)](https://snyk.io/test/github/ivan629/dag-engine)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ivan629/dag-engine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ivan629/dag-engine)
+[![Snyk](https://snyk.io/test/github/dagengine/dagengine/badge.svg)](https://snyk.io/test/github/dagengine/dag-engine)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dagengine/dagengine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dagengine/dag-engine)
 
-[Documentation](https://github.com/ivan629/dag-engine#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
+[Documentation](https://github.com/dagengine/dagengine#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
 
 </div>
 
@@ -43,13 +43,13 @@
 ### Installation
 
 ```bash
-npm install @ivan629/dag-engine
+npm install @dagengine/dagengine
 ```
 
 ### Basic Example
 
 ```typescript
-import { DagEngine, Plugin } from '@ivan629/dag-engine';
+import { DagEngine, Plugin } from '@dagengine/dag-engine';
 
 // Define your workflow
 class SentimentPlugin extends Plugin {
@@ -406,7 +406,7 @@ const engine = new DagEngine({
 
 ```bash
 # Clone repository
-git clone https://github.com/ivan629/dag-engine.git
+git clone https://github.com/dagengine/dag-engine.git
 cd dag-engine
 
 # Install dependencies
@@ -491,7 +491,7 @@ Built with:
 ## Links
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/ivan629/dag-engine/issues)
-- 💬 [Discussions](https://github.com/ivan629/dag-engine/discussions)
-- 📦 [npm Package](https://www.npmjs.com/package/@ivan629/dag-engine)
+- 🐛 [Issue Tracker](https://github.com/dagengine/dagengine/issues)
+- 💬 [Discussions](https://github.com/dagengine/dagengine/discussions)
+- 📦 [npm Package](https://www.npmjs.com/package/@dagengine/dagengine)
 - 🔐 [Security Policy](SECURITY.md)
