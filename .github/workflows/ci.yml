@@ -8,7 +8,6 @@ on:
   schedule:
     - cron: '0 0 * * 1'  # Weekly security scan
 
-# Add workflow-level permissions
 permissions:
   contents: read
   security-events: write
@@ -19,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ==================== MAIN VALIDATION (Always runs - FREE) ====================
+  # ==================== MAIN VALIDATION ====================
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -51,12 +50,7 @@ jobs:
         run: npm run build
 
       - name: Check bundle size
-        run: |
-          if npm run | grep -q "size"; then
-            npm run size
-          else
-            echo "Bundle size check not configured, skipping..."
-          fi
+        run: npm run size
         continue-on-error: true
 
       - name: Upload coverage to Codecov
@@ -65,25 +59,106 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-  # ==================== COMPATIBILITY CHECK (Always runs - FREE) ====================
-  compatibility:
-    name: Node ${{ matrix.node-version }}
+  # ==================== DOCUMENTATION VALIDATION ====================
+  docs:
+    name: Documentation
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs
+        run: npm run docs:build || (cd docs && npm install && npm run build)
+        continue-on-error: false
+
+      - name: Check for broken links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress --accept 200,429 'docs/**/*.md' 'README.md'
+          fail: true
+        continue-on-error: true
+
+      - name: Spell check documentation
+        uses: rojopolis/spellcheck-github-actions@0.40.0
+        with:
+          config_path: .github/spellcheck-config.yml
+        continue-on-error: true
+
+  # ==================== PACKAGE VALIDATION ====================
+  package:
+    name: Package Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Check package contents
+        run: |
+          npm pack --dry-run
+          echo "Package contents:"
+          tar -tzf *.tgz || echo "No tarball created"
+        continue-on-error: true
+
+      - name: Check exports
+        run: |
+          node -e "const pkg = require('./package.json'); console.log('Exports:', JSON.stringify(pkg.exports, null, 2))"
+
+      - name: Validate package.json
+        run: |
+          npm pkg fix --dry-run
+          npx publint
+
+      - name: Check for breaking changes
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            console.log('Checking for potential breaking changes...');
+            // Add custom breaking change detection logic here
+
+  # ==================== COMPATIBILITY CHECK ====================
+  compatibility:
+    name: Node ${{ matrix.node-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18, 22]
+        node-version: [18, 20, 22]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+
       - run: npm ci
+
       - run: npm test
+
       - run: npm run build
 
-  # ==================== SECURITY CHECKS (Always runs - FREE) ====================
+  # ==================== SECURITY CHECKS ====================
   security:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -98,18 +173,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # npm audit (FREE - always available)
       - name: Run npm audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
 
-      # License check (FREE - always available)
       - name: Check licenses
         run: npx license-checker --summary --production --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD"
         continue-on-error: true
 
-      # Snyk (Manual override: set ENABLE_SNYK=true or false)
-      # Default: runs on public repos only
       - name: Run Snyk security scan
         if: vars.ENABLE_SNYK == 'true' || (vars.ENABLE_SNYK != 'false' && github.event.repository.visibility == 'public')
         uses: snyk/actions/node@master
@@ -119,12 +190,26 @@ jobs:
         with:
           args: --severity-threshold=high
 
-  # ==================== CODE SCANNING - CodeQL (Manual override available) ====================
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+        continue-on-error: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+
+  # ==================== CODE SCANNING - CodeQL ====================
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    # Manual override: set ENABLE_CODEQL=true to force enable, false to force disable
-    # Default: only runs on public repos
     if: vars.ENABLE_CODEQL == 'true' || (vars.ENABLE_CODEQL != 'false' && github.event.repository.visibility == 'public')
     permissions:
       security-events: write
@@ -145,12 +230,10 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
 
-  # ==================== DEPENDENCY REVIEW (Manual override available) ====================
+  # ==================== DEPENDENCY REVIEW ====================
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    # Manual override: set ENABLE_DEPENDENCY_REVIEW=true to force enable
-    # Default: only runs on public repos + PRs
     if: github.event_name == 'pull_request' && (vars.ENABLE_DEPENDENCY_REVIEW == 'true' || (vars.ENABLE_DEPENDENCY_REVIEW != 'false' && github.event.repository.visibility == 'public'))
     steps:
       - uses: actions/checkout@v5
@@ -161,12 +244,10 @@ jobs:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
 
-  # ==================== OSSF SCORECARD (Manual override available) ====================
+  # ==================== OSSF SCORECARD ====================
   scorecard:
     name: OSSF Scorecard
     runs-on: ubuntu-latest
-    # Manual override: set ENABLE_SCORECARD=true to force enable
-    # Default: only runs on public repos, main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (vars.ENABLE_SCORECARD == 'true' || (vars.ENABLE_SCORECARD != 'false' && github.event.repository.visibility == 'public'))
     permissions:
       security-events: write
@@ -190,10 +271,40 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  # ==================== AUTOMATED RELEASE (Always runs - FREE) ====================
+  # ==================== COMMUNITY HEALTH ====================
+  community:
+    name: Community Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check community files
+        run: |
+          echo "Checking for required community files..."
+          files=(
+            "README.md"
+            "LICENSE"
+            "CONTRIBUTING.md"
+            "CODE_OF_CONDUCT.md"
+            ".github/ISSUE_TEMPLATE"
+            ".github/PULL_REQUEST_TEMPLATE.md"
+            "SECURITY.md"
+            "CHANGELOG.md"
+          )
+          
+          for file in "${files[@]}"; do
+            if [ -e "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "⚠️  $file missing (recommended)"
+            fi
+          done
+
+  # ==================== AUTOMATED RELEASE ====================
   release:
     name: Release
-    needs: [validate, security]
+    needs: [validate, docs, package, security]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -212,15 +323,46 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-          # For GitHub Packages, change to:
-          # registry-url: 'https://npm.pkg.github.com'
-          # scope: '@dagengine'
 
       - run: npm ci
+
       - run: npm run build
 
-      - name: Release
+      - name: Release to npm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
+
+  # ==================== PERFORMANCE MONITORING ====================
+  performance:
+    name: Performance Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Run benchmarks
+        run: |
+          if npm run | grep -q "bench"; then
+            npm run bench
+          else
+            echo "No benchmarks configured"
+          fi
+        continue-on-error: true
+
+      - name: Size comparison
+        uses: andresz1/size-limit-action@v1
+        if: github.event_name == 'pull_request'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
