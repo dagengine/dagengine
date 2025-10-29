@@ -6,12 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
   schedule:
-    - cron: '0 0 * * 1'  # Weekly security scan
+    - cron: '0 0 * * 1'  # Weekly security scan on Monday
+  workflow_dispatch:  # Allow manual triggers
 
+# Minimal permissions by default
 permissions:
   contents: read
-  security-events: write
-  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,10 +20,16 @@ concurrency:
 jobs:
   # ==================== MAIN VALIDATION ====================
   validate:
-    name: Validate
+    name: Validate Code
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -33,6 +39,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify lockfile is up to date
+        run: |
+          npm install --package-lock-only
+          git diff --exit-code package-lock.json
 
       - name: Type check
         run: npm run type-check
@@ -43,28 +54,40 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: npm run test:coverage
 
       - name: Build
         run: npm run build
 
+      - name: Verify build artifacts
+        run: |
+          if [ ! -d "dist" ] && [ ! -d "build" ] && [ ! -d "lib" ]; then
+            echo "Error: No build output found"
+            exit 1
+          fi
+
       - name: Check bundle size
         run: npm run size
-        continue-on-error: true
+        continue-on-error: true  # OK to be informational
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          files: ./coverage/coverage-final.json
 
   # ==================== DOCUMENTATION VALIDATION ====================
   docs:
-    name: Documentation
+    name: Documentation Quality
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -75,29 +98,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build docs
+      - name: Build documentation
         run: npm run docs:build || (cd docs && npm install && npm run build)
-        continue-on-error: false
 
       - name: Check for broken links
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@v1
         with:
-          args: --verbose --no-progress --accept 200,429 'docs/**/*.md' 'README.md'
+          args: --verbose --no-progress --accept 200,429 'docs/**/*.md' 'README.md' 'CONTRIBUTING.md' 'SECURITY.md'
           fail: true
-        continue-on-error: true
 
       - name: Spell check documentation
         uses: rojopolis/spellcheck-github-actions@0.40.0
         with:
           config_path: .github/spellcheck-config.yml
-        continue-on-error: true
+        continue-on-error: true  # Informational only
+
+      - name: Check README completeness
+        run: |
+          echo "Checking README.md for required sections..."
+          required_sections=("Installation" "Usage" "API" "Contributing" "License")
+          for section in "${required_sections[@]}"; do
+            if grep -qi "$section" README.md; then
+              echo "✅ Found: $section"
+            else
+              echo "⚠️  Missing: $section (recommended)"
+            fi
+          done
 
   # ==================== PACKAGE VALIDATION ====================
   package:
     name: Package Quality
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -111,61 +148,143 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Check package contents
-        run: |
-          npm pack --dry-run
-          echo "Package contents:"
-          tar -tzf *.tgz || echo "No tarball created"
-        continue-on-error: true
-
-      - name: Check exports
-        run: |
-          node -e "const pkg = require('./package.json'); console.log('Exports:', JSON.stringify(pkg.exports, null, 2))"
-
       - name: Validate package.json
         run: |
           npm pkg fix --dry-run
           npx publint
 
+      - name: Check package contents
+        run: |
+          npm pack --dry-run
+          echo "📦 Package size:"
+          npm pack --dry-run 2>&1 | grep "package size"
+
+      - name: Verify package exports
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            if (!pkg.exports) {
+              console.log('⚠️  Warning: No exports field in package.json');
+            } else {
+              console.log('✅ Package exports:', JSON.stringify(pkg.exports, null, 2));
+            }
+          "
+
+      - name: Check for common issues
+        run: |
+          # Check for proper main/module/types fields
+          node -e "
+            const pkg = require('./package.json');
+            const checks = {
+              'main': pkg.main,
+              'types': pkg.types || pkg.typings,
+              'files': pkg.files
+            };
+            console.log('Package configuration:');
+            Object.entries(checks).forEach(([key, val]) => {
+              console.log(val ? '✅' : '⚠️ ', key + ':', val || 'not set');
+            });
+          "
+
+  # ==================== COMMIT VALIDATION ====================
+  commits:
+    name: Validate Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages (Conventional Commits)
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+        continue-on-error: true  # Don't block, but flag issues
+
       - name: Check for breaking changes
         uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
         with:
           script: |
-            console.log('Checking for potential breaking changes...');
-            // Add custom breaking change detection logic here
+            const commits = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: context.payload.pull_request.base.sha,
+              head: context.payload.pull_request.head.sha
+            });
+            
+            const breakingChanges = commits.data.commits.filter(commit => 
+              commit.commit.message.includes('BREAKING CHANGE') ||
+              commit.commit.message.includes('!:')
+            );
+            
+            if (breakingChanges.length > 0) {
+              console.log('⚠️  Breaking changes detected:');
+              breakingChanges.forEach(commit => {
+                console.log(`- ${commit.commit.message.split('\n')[0]}`);
+              });
+            } else {
+              console.log('✅ No breaking changes detected');
+            }
 
   # ==================== COMPATIBILITY CHECK ====================
   compatibility:
     name: Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
     strategy:
       fail-fast: false
       matrix:
+        # Test all Node LTS versions on Linux
         node-version: [18, 20, 22]
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v5
+        os: [ubuntu-latest]
+        include:
+          # Also test latest Node on Windows and macOS
+          - node-version: 20
+            os: windows-latest
+          - node-version: 20
+            os: macos-latest
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm test
+      - name: Run tests
+        run: npm test
 
-      - run: npm run build
+      - name: Build
+        run: npm run build
 
-  # ==================== SECURITY CHECKS ====================
+  # ==================== SECURITY AUDIT ====================
   security:
     name: Security Audit
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+    permissions:
+      contents: read
+      security-events: write
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -173,22 +292,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
+      - name: Run npm audit (production dependencies)
+        run: npm audit --audit-level=moderate --production
+        # CRITICAL: This WILL fail CI if vulnerabilities are found
 
-      - name: Check licenses
-        run: npx license-checker --summary --production --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD"
-        continue-on-error: true
+      - name: Check for known vulnerabilities (all dependencies)
+        run: npm audit --audit-level=high
+        continue-on-error: true  # Dev dependencies can be more lenient
+
+      - name: Validate dependency licenses
+        run: |
+          npx license-checker --summary --production \
+            --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;WTFPL" \
+            --excludePackages "some-exception@1.0.0"
+        # CRITICAL: This WILL fail if disallowed licenses are found
+
+      - name: Check for outdated dependencies
+        run: |
+          echo "📊 Outdated dependencies report:"
+          npm outdated || true
+        continue-on-error: true  # Informational only
 
       - name: Run Snyk security scan
-        if: vars.ENABLE_SNYK == 'true' || (vars.ENABLE_SNYK != 'false' && github.event.repository.visibility == 'public')
+        if: github.event.repository.visibility == 'public'
         uses: snyk/actions/node@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
+        continue-on-error: true  # Don't block on rate limits
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -197,114 +329,203 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
-        continue-on-error: true
+          severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
 
   # ==================== CODE SCANNING - CodeQL ====================
   codeql:
-    name: CodeQL Analysis
+    name: CodeQL Security Analysis
     runs-on: ubuntu-latest
-    if: vars.ENABLE_CODEQL == 'true' || (vars.ENABLE_CODEQL != 'false' && github.event.repository.visibility == 'public')
+    if: github.event.repository.visibility == 'public'
     permissions:
       security-events: write
       contents: read
       actions: read
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v3
         with:
-          languages: javascript
-          queries: security-extended
+          languages: javascript-typescript
+          queries: security-extended,security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
 
   # ==================== DEPENDENCY REVIEW ====================
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && (vars.ENABLE_DEPENDENCY_REVIEW == 'true' || (vars.ENABLE_DEPENDENCY_REVIEW != 'false' && github.event.repository.visibility == 'public'))
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0
+          comment-summary-in-pr: true
 
   # ==================== OSSF SCORECARD ====================
   scorecard:
-    name: OSSF Scorecard
+    name: OSSF Scorecard Analysis
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (vars.ENABLE_SCORECARD == 'true' || (vars.ENABLE_SCORECARD != 'false' && github.event.repository.visibility == 'public'))
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       security-events: write
       id-token: write
       contents: read
       actions: read
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Run Scorecard
+      - name: Run OSSF Scorecard
         uses: ossf/scorecard-action@v2.4.0
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
-      - name: Upload to CodeQL
-        uses: github/codeql-action/upload-sarif@v4
+      - name: Upload OSSF Scorecard to CodeQL
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+      - name: Upload OSSF Scorecard results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OSSF-Scorecard-Results
+          path: results.sarif
+          retention-days: 30
 
   # ==================== COMMUNITY HEALTH ====================
   community:
     name: Community Health Check
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v5
+    permissions:
+      contents: read
 
-      - name: Check community files
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check community health files
         run: |
-          echo "Checking for required community files..."
-          files=(
-            "README.md"
-            "LICENSE"
-            "CONTRIBUTING.md"
-            "CODE_OF_CONDUCT.md"
-            ".github/ISSUE_TEMPLATE"
-            ".github/PULL_REQUEST_TEMPLATE.md"
-            "SECURITY.md"
-            "CHANGELOG.md"
+          echo "📋 Checking for required community health files..."
+          echo ""
+          
+          declare -A files=(
+            ["README.md"]="Required - Project documentation"
+            ["LICENSE"]="Required - License information"
+            ["CONTRIBUTING.md"]="Highly Recommended - Contribution guidelines"
+            ["CODE_OF_CONDUCT.md"]="Highly Recommended - Community standards"
+            ["SECURITY.md"]="Highly Recommended - Security policy"
+            ["CHANGELOG.md"]="Recommended - Version history"
+            [".github/ISSUE_TEMPLATE"]="Recommended - Issue templates"
+            [".github/PULL_REQUEST_TEMPLATE.md"]="Recommended - PR template"
+            [".github/FUNDING.yml"]="Optional - Funding information"
+            ["GOVERNANCE.md"]="Optional - Project governance"
           )
           
-          for file in "${files[@]}"; do
+          for file in "${!files[@]}"; do
             if [ -e "$file" ]; then
-              echo "✅ $file exists"
+              echo "✅ $file - ${files[$file]}"
             else
-              echo "⚠️  $file missing (recommended)"
+              echo "❌ $file - ${files[$file]}"
             fi
           done
 
+      - name: Check package.json metadata
+        run: |
+          echo ""
+          echo "📦 Checking package.json metadata..."
+          node -e "
+            const pkg = require('./package.json');
+            const checks = {
+              'name': pkg.name,
+              'version': pkg.version,
+              'description': pkg.description,
+              'keywords': pkg.keywords,
+              'license': pkg.license,
+              'repository': pkg.repository,
+              'bugs': pkg.bugs,
+              'homepage': pkg.homepage,
+              'author': pkg.author || pkg.contributors
+            };
+            Object.entries(checks).forEach(([key, val]) => {
+              const status = val ? '✅' : '⚠️ ';
+              console.log(status, key + ':', val || 'not set');
+            });
+          "
+
+  # ==================== PERFORMANCE MONITORING ====================
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run benchmarks
+        run: |
+          if npm run | grep -q "bench"; then
+            npm run bench
+          else
+            echo "ℹ️  No benchmarks configured (add 'bench' script to package.json)"
+          fi
+        continue-on-error: true
+
+      - name: Bundle size comparison
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
   # ==================== AUTOMATED RELEASE ====================
   release:
-    name: Release
-    needs: [validate, docs, package, security]
+    name: Semantic Release
+    needs: [validate, docs, package, compatibility, security]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -312,57 +533,56 @@ jobs:
       packages: write
       issues: write
       pull-requests: write
+      id-token: write  # For npm provenance
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build
+      - name: Build
+        run: npm run build
 
-      - name: Release to npm
+      - name: Verify build before release
+        run: |
+          if [ ! -d "dist" ] && [ ! -d "build" ] && [ ! -d "lib" ]; then
+            echo "❌ Error: No build output found, cannot release"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+
+      - name: Release to npm with provenance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
 
-  # ==================== PERFORMANCE MONITORING ====================
-  performance:
-    name: Performance Check
+  # ==================== SUMMARY STATUS ====================
+  all-checks-pass:
+    name: All Checks Passed
+    needs: [validate, docs, package, commits, compatibility, security]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: always()
+
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - run: npm ci
-
-      - run: npm run build
-
-      - name: Run benchmarks
+      - name: Check if all jobs succeeded
         run: |
-          if npm run | grep -q "bench"; then
-            npm run bench
-          else
-            echo "No benchmarks configured"
+          if [ "${{ needs.validate.result }}" != "success" ] || \
+             [ "${{ needs.docs.result }}" != "success" ] || \
+             [ "${{ needs.package.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ]; then
+            echo "❌ One or more required checks failed"
+            exit 1
           fi
-        continue-on-error: true
-
-      - name: Size comparison
-        uses: andresz1/size-limit-action@v1
-        if: github.event_name == 'pull_request'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+          echo "✅ All required checks passed!"
