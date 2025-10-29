@@ -68,9 +68,8 @@ export default defineConfig({
 				text: "API Reference",
 				collapsed: true,
 				items: [
-					{ text: "DagEngine", link: "/api/engine" },
-					{ text: "Plugin", link: "/api/plugin" },
-					{ text: "Providers", link: "/api/providers" },
+					{ text: "Hooks", link: "/api/hooks" },
+					{ text: "Configuration", link: "/api/configuration" },
 					{ text: "Types", link: "/api/types" },
 				],
 			}

@@ -359,7 +359,7 @@ This example focuses on parallel request handling with smart retries. Portkey of
 
 **Semantic Caching** - Cache similar requests to reduce costs and latency (up to 90% cost reduction)
 
-**Observability Dashboard** - Track all requests, costs, latency, and errors in real-time at [app.portkey.ai/logs](https://app.portkey.ai/logs)
+**Observability Dashboard** - Track all requests, costs, latency, and errors in real-time at [app.portkey.ai](https://app.portkey.ai)
 
 **Config Management** - Store routing strategies in Portkey dashboard and update without code deployments
 
@@ -369,7 +369,7 @@ This example focuses on parallel request handling with smart retries. Portkey of
 
 **What you learned:**
 
-✅ **Parallel Processing** - Process 150 emails simultaneously with controlled concurrency  
+✅ **Parallel Processing** - Process 100 emails simultaneously with controlled concurrency  
 ✅ **Smart Retries** - Automatic retry on failures with exponential backoff through Portkey  
 ✅ **Rate Limit Protection** - Handle high-volume workloads without manual rate limit logic  
 ✅ **Real-Time Metrics** - Track throughput, success rate, and cost automatically

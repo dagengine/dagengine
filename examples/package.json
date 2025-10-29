@@ -9,7 +9,7 @@
     "06-providers": "tsx 06-providers/06-providers.ts",
     "07-async-hooks": "tsx 07-async-hooks/07-async-hooks.ts",
     "08-error-handling": "tsx 08-error-handling/08-error-handling.ts",
-    "01-portkey": "tsx advanced/01-portkey/01-portkey.ts"
+    "01-portkey": "tsx advanced/01-portkey/01-portkey.ts",
   },
   "dependencies": {
     "boxen": "^8.0.1",
