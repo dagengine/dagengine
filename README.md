@@ -1,20 +1,20 @@
-# @ivan629/dag-ai
+# @ivan629/dag-engine
 
 <div align="center">
 
 **AI-powered DAG engine with advanced graph analytics and workflow visualization**
 
-[![CI/CD Pipeline](https://github.com/ivan629/dag-ai/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/ivan629/dag-ai/actions)
-[![codecov](https://codecov.io/gh/ivan629/dag-ai/branch/main/graph/badge.svg)](https://codecov.io/gh/ivan629/dag-ai)
+[![CI/CD Pipeline](https://github.com/ivan629/dag-engine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/ivan629/dag-engine/actions)
+[![codecov](https://codecov.io/gh/ivan629/dag-engine/branch/main/graph/badge.svg)](https://codecov.io/gh/ivan629/dag-engine)
 [![npm version](https://badge.fury.io/js/%40ivan629%2Fdag-ai.svg)](https://badge.fury.io/js/%40ivan629%2Fdag-ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
-[![Snyk](https://snyk.io/test/github/ivan629/dag-ai/badge.svg)](https://snyk.io/test/github/ivan629/dag-ai)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ivan629/dag-ai/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ivan629/dag-ai)
+[![Snyk](https://snyk.io/test/github/ivan629/dag-engine/badge.svg)](https://snyk.io/test/github/ivan629/dag-engine)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ivan629/dag-engine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ivan629/dag-engine)
 
-[Documentation](https://github.com/ivan629/dag-ai#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
+[Documentation](https://github.com/ivan629/dag-engine#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
 
 </div>
 
@@ -22,7 +22,7 @@
 
 ## Overview
 
-**dag-ai** is an enterprise-grade TypeScript library for building complex AI workflows using Directed Acyclic Graphs (DAGs). Process data through multiple AI providers with automatic dependency management, fallback handling, and advanced optimization.
+**dag-engine** is an enterprise-grade TypeScript library for building complex AI workflows using Directed Acyclic Graphs (DAGs). Process data through multiple AI providers with automatic dependency management, fallback handling, and advanced optimization.
 
 ### Key Features
 
@@ -43,13 +43,13 @@
 ### Installation
 
 ```bash
-npm install @ivan629/dag-ai
+npm install @ivan629/dag-engine
 ```
 
 ### Basic Example
 
 ```typescript
-import { DagEngine, Plugin } from '@ivan629/dag-ai';
+import { DagEngine, Plugin } from '@ivan629/dag-engine';
 
 // Define your workflow
 class SentimentPlugin extends Plugin {
@@ -406,8 +406,8 @@ const engine = new DagEngine({
 
 ```bash
 # Clone repository
-git clone https://github.com/ivan629/dag-ai.git
-cd dag-ai
+git clone https://github.com/ivan629/dag-engine.git
+cd dag-engine
 
 # Install dependencies
 npm install
@@ -491,7 +491,7 @@ Built with:
 ## Links
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/ivan629/dag-ai/issues)
-- 💬 [Discussions](https://github.com/ivan629/dag-ai/discussions)
-- 📦 [npm Package](https://www.npmjs.com/package/@ivan629/dag-ai)
+- 🐛 [Issue Tracker](https://github.com/ivan629/dag-engine/issues)
+- 💬 [Discussions](https://github.com/ivan629/dag-engine/discussions)
+- 📦 [npm Package](https://www.npmjs.com/package/@ivan629/dag-engine)
 - 🔐 [Security Policy](SECURITY.md)

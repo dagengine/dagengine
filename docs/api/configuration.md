@@ -10,7 +10,7 @@ Complete reference for `DagEngine` configuration options.
 ## Constructor
 
 ```typescript
-import { DagEngine } from '@ivan629/dag-ai';
+import { DagEngine } from '@ivan629/dag-engine';
 
 const engine = new DagEngine(config: EngineConfig);
 ```
@@ -53,7 +53,7 @@ The plugin is the core of the engine. It defines:
 
 **Example:**
 ```typescript
-import { Plugin } from '@ivan629/dag-ai';
+import { Plugin } from '@ivan629/dag-engine';
 
 class MyPlugin extends Plugin {
   constructor() {
@@ -117,7 +117,7 @@ const engine = new DagEngine({
 Use when you need more control over provider configuration.
 
 ```typescript
-import { ProviderAdapter } from '@ivan629/dag-ai';
+import { ProviderAdapter } from '@ivan629/dag-engine';
 
 const adapter = new ProviderAdapter({
   anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
@@ -137,7 +137,7 @@ const engine = new DagEngine({
 Use for custom providers or advanced scenarios.
 
 ```typescript
-import { ProviderRegistry, AnthropicProvider } from '@ivan629/dag-ai';
+import { ProviderRegistry, AnthropicProvider } from '@ivan629/dag-engine';
 
 const registry = new ProviderRegistry();
 registry.register(new AnthropicProvider({ 
@@ -777,7 +777,7 @@ const DEFAULT_EXECUTION_CONFIG = {
 
 **Accessing defaults:**
 ```typescript
-import { DEFAULT_EXECUTION_CONFIG } from '@ivan629/dag-ai';
+import { DEFAULT_EXECUTION_CONFIG } from '@ivan629/dag-engine';
 
 const myConfig = {
   ...DEFAULT_EXECUTION_CONFIG,
@@ -788,7 +788,7 @@ const myConfig = {
 ## Complete Example
 
 ```typescript
-import { DagEngine } from '@ivan629/dag-ai';
+import { DagEngine } from '@ivan629/dag-engine';
 import { MyPlugin } from './my-plugin';
 
 const engine = new DagEngine({

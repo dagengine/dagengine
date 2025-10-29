@@ -1,11 +1,11 @@
 ---
 title: 01 - Hello World
-description: Build your first dag-ai plugin with a single dimension
+description: Build your first dag-engine plugin with a single dimension
 ---
 
 # 01 - Hello World
 
-Build your first dag-ai plugin with a single dimension and parallel processing.
+Build your first dag-engine plugin with a single dimension and parallel processing.
 
 ## What You'll Learn
 
@@ -27,13 +27,13 @@ cp .env.example .env
 npm run guide:01
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/01-hello-world)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/01-hello-world)**
 
 ## What You'll See
 ```
 📚 Fundamentals 01: Hello World
 
-The simplest possible dag-ai plugin.
+The simplest possible dag-engine plugin.
 
 Step 1: Creating engine with HelloWorldPlugin...
 ✓ Engine created
@@ -267,7 +267,7 @@ providers: {
 
 **Key insight:**
 
-The dag-ai engine handles all the complexity of parallel processing, error handling, and result aggregation. You define what to ask the AI (`createPrompt`) and which AI to use (`selectProvider`). The engine does the rest - batching requests, managing concurrency, and structuring results. This lets you focus on your workflow logic instead of infrastructure.
+The dag-engine engine handles all the complexity of parallel processing, error handling, and result aggregation. You define what to ask the AI (`createPrompt`) and which AI to use (`selectProvider`). The engine does the rest - batching requests, managing concurrency, and structuring results. This lets you focus on your workflow logic instead of infrastructure.
 
 ## Troubleshooting
 

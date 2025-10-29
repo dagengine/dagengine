@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 01-portkey
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/advanced/01-portkey)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/advanced/01-portkey)**
 
 ## What You'll See
 
@@ -266,7 +266,7 @@ console.log(`Total Cost: $${result.costs?.totalCost.toFixed(4)}`);
 
 **Key point:** The callback provides real-time completion tracking. After processing, calculate throughput (emails/second) and success rate. Cost tracking is automatic through `result.costs` - Portkey returns token counts and the engine calculates costs using your pricing config.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/03-advanced/01-portkey)**
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/03-advanced/01-portkey)**
 
 ## Key Concepts
 

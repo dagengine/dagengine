@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 07
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/07-async-hooks)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/07-async-hooks)**
 
 ## What You'll See
 

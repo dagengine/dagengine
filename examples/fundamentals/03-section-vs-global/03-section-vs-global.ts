@@ -179,7 +179,7 @@ Return JSON:
 
 async function main(): Promise<void> {
 	console.log("\n📚 Fundamentals 03: Section vs Global\n");
-	console.log("THE killer feature of dag-ai.\n");
+	console.log("THE killer feature of dag-engine.\n");
 
 	// Setup
 	const sections: SectionData[] = [

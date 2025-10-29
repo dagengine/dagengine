@@ -1,6 +1,6 @@
 ---
 title: Advanced Quickstart
-description: Build a production-ready review analyzer with all dag-ai features
+description: Build a production-ready review analyzer with all dag-engine features
 ---
 
 # Advanced Quickstart
@@ -28,11 +28,11 @@ cp .env.example .env
 npm run 00
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/00-quickstart)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/00-quickstart)**
 
 ## What You'll See
 ```
-🚀 dag-ai Quickstart: Review Analysis
+🚀 dag-engine Quickstart: Review Analysis
 
 📊 Analyzing 20 customer reviews...
 
@@ -155,7 +155,7 @@ Product shows strong value proposition with comprehensive features and rapid ROI
 
 The pipeline combines skip logic, parallel execution, transformations, and multi-model selection into a production-ready workflow.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/00-quickstart)**
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/00-quickstart)**
 ```typescript
 class ReviewAnalyzer extends Plugin {
 	constructor() {

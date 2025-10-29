@@ -1,7 +1,7 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-	title: "dag-ai",
+	title: "DagEngine",
 	description: "Type-safe DAG execution framework for AI workflows",
 
 	head: [
@@ -13,7 +13,7 @@ export default defineConfig({
 
 	themeConfig: {
 		logo: "/logo.svg",
-		siteTitle: "dag-ai",
+		siteTitle: "dag-engine",
 
 		// Add search configuration
 		search: {
@@ -48,9 +48,9 @@ export default defineConfig({
 			{
 				text: "v1.0.0",
 				items: [
-					{ text: "Changelog", link: "https://github.com/ivan629/dag-ai/releases" },
-					{ text: "GitHub", link: "https://github.com/ivan629/dag-ai" },
-					{ text: "npm", link: "https://www.npmjs.com/package/@ivan629/dag-ai" },
+					{ text: "Changelog", link: "https://github.com/ivan629/dag-engine/releases" },
+					{ text: "GitHub", link: "https://github.com/ivan629/dag-engine" },
+					{ text: "npm", link: "https://www.npmjs.com/package/@ivan629/dag-engine" },
 				],
 			},
 		],
@@ -98,7 +98,7 @@ export default defineConfig({
 		],
 
 		socialLinks: [
-			{ icon: "github", link: "https://github.com/ivan629/dag-ai" },
+			{ icon: "github", link: "https://github.com/ivan629/dag-engine" },
 		],
 
 		footer: {

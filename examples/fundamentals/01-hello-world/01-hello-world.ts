@@ -1,7 +1,7 @@
 /**
  * Fundamentals 01: Hello World
  *
- * The absolute simplest dag-ai plugin.
+ * The absolute simplest dag-engine plugin.
  *
  * Learn:
  * - Plugin class structure
@@ -67,7 +67,7 @@ class HelloWorldPlugin extends Plugin {
 	/**
 	 * REQUIRED METHOD 1: createPrompt
 	 *
-	 * This method tells dag-ai what to ask the AI.
+	 * This method tells dag-engine what to ask the AI.
 	 * It's called once per section.
 	 *
 	 * @param ctx - Context with section data
@@ -90,7 +90,7 @@ Return JSON with this structure:
 	/**
 	 * REQUIRED METHOD 2: selectProvider
 	 *
-	 * This method tells dag-ai which AI provider to use.
+	 * This method tells dag-engine which AI provider to use.
 	 *
 	 * @param dimension - The dimension being processed
 	 * @returns Provider configuration
@@ -112,7 +112,7 @@ Return JSON with this structure:
 
 async function main(): Promise<void> {
 	console.log("\n📚 Fundamentals 01: Hello World\n");
-	console.log("The simplest possible dag-ai plugin.\n");
+	console.log("The simplest possible dag-engine plugin.\n");
 
 	// ============================================================================
 	// STEP 1: Create the engine

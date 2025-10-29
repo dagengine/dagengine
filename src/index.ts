@@ -1,5 +1,5 @@
 /**
- * @ivan629/dag-ai
+ * @ivan629/dag-engine
  * AI-powered DAG engine for multi-dimensional data analysis
  *
  * @version 1.0.0

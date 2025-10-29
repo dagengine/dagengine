@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/dag-ai.iml" filepath="$PROJECT_DIR$/.idea/dag-ai.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/dagengine.iml" filepath="$PROJECT_DIR$/.idea/dagengine.iml" />
     </modules>
   </component>
 </project>

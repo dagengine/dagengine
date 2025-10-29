@@ -1,11 +1,11 @@
 ---
 title: Type Reference
-description: TypeScript interfaces and types used in dag-ai
+description: TypeScript interfaces and types used in dag-engine
 ---
 
 # Type Reference
 
-Complete TypeScript interfaces and types used throughout dag-ai.
+Complete TypeScript interfaces and types used throughout dag-engine.
 
 ## Table of Contents
 

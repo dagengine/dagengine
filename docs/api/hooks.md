@@ -1,11 +1,11 @@
 ---
 title: Plugin Hooks API
-description: Complete reference for all lifecycle hooks in dag-ai plugins
+description: Complete reference for all lifecycle hooks in dag-engine plugins
 ---
 
 # Plugin Hooks API
 
-Complete reference for all lifecycle hooks in dag-ai plugins.
+Complete reference for all lifecycle hooks in dag-engine plugins.
 
 ## Overview
 

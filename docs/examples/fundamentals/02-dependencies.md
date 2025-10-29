@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 02
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/02-dependencies)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/02-dependencies)**
 
 ## What You'll See
 ```
@@ -40,7 +40,7 @@ EXECUTION PLAN
 Dependencies defined:
   summary → [sentiment, topics]
 
-dag-ai will automatically:
+dag-engine will automatically:
   1. Run sentiment + topics IN PARALLEL (no dependencies)
   2. Wait for BOTH to complete
   3. Run summary (using sentiment + topics results)
@@ -206,7 +206,7 @@ defineDependencies() {
 
 ### 3. Execution Flow
 
-dag-ai automatically builds an execution plan:
+dag-engine automatically builds an execution plan:
 ```
 Input: 2 sections with 3 dimensions each
 
@@ -304,7 +304,7 @@ Use when a final task needs to synthesize multiple independent analyses.
 
 **Key insight:**
 
-Dependencies are declarative, not imperative. You define what depends on what, and dag-ai calculates the optimal execution plan automatically. Tasks with no dependencies run in parallel immediately, while dependent tasks wait only for their specific requirements. This creates efficient pipelines without manual concurrency management.
+Dependencies are declarative, not imperative. You define what depends on what, and dag-engine calculates the optimal execution plan automatically. Tasks with no dependencies run in parallel immediately, while dependent tasks wait only for their specific requirements. This creates efficient pipelines without manual concurrency management.
 
 ## Troubleshooting
 

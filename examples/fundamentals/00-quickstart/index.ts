@@ -1,7 +1,7 @@
 /**
  * 00-quickstart - Customer Review Analysis Pipeline
  *
- * A complete example showing dag-ai's core capabilities:
+ * A complete example showing dag-engine's core capabilities:
  * - Automatic spam filtering with skip logic
  * - Parallel sentiment and category analysis
  * - Dynamic section transformation (grouping)
@@ -233,7 +233,7 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	console.log("\n🚀 dag-ai Quickstart: Review Analysis\n");
+	console.log("\n🚀 dag-engine Quickstart: Review Analysis\n");
 	console.log(`📊 Analyzing ${SAMPLE_REVIEWS.length} customer reviews...\n`);
 
 	const startTime = Date.now();
@@ -282,7 +282,7 @@ async function main(): Promise<void> {
 			} else {
 				console.error("Error:", error.message);
 				console.error("\n💡 If this persists, please report:");
-				console.error("   https://github.com/ivan629/dag-ai/issues\n");
+				console.error("   https://github.com/ivan629/dag-engine/issues\n");
 			}
 		}
 

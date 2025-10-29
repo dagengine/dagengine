@@ -26,7 +26,7 @@ cp .env.example .env
 npm run 06
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/06-providers)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/06-providers)**
 
 ## What You'll See
 ```
@@ -100,7 +100,7 @@ SUMMARY
 
 The plugin routes each dimension to the appropriate model based on task complexity.
 
-**[📁 View full source on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/02-fundamentals/06-providers)**
+**[📁 View full source on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/02-fundamentals/06-providers)**
 ```typescript
 class MultiProviderAnalyzer extends Plugin {
 	constructor() {

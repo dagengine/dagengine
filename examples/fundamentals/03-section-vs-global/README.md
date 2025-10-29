@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 03
 ```
 
-**[📁 View example on GitHub](https://github.com/ivan629/dag-ai/tree/main/examples/fundamentals/03-section-vs-global)**
+**[📁 View example on GitHub](https://github.com/ivan629/dag-engine/tree/main/examples/fundamentals/03-section-vs-global)**
 
 ## What You'll See
 ```
@@ -103,7 +103,7 @@ GLOBAL RESULTS (across all reviews)
 **What happened?**
 
 - 5 reviews analyzed independently with section dimension (5 parallel API calls)
-- dag-ai automatically aggregated all sentiment results
+- dag-engine automatically aggregated all sentiment results
 - 1 overall analysis synthesized across all reviews with global dimension (1 sequential call)
 - Total execution: 5.17 seconds, $0.0044 cost, 1,054 tokens across 6 API calls
 
@@ -222,7 +222,7 @@ this.dimensions = [
 
 ### 3. Automatic Aggregation
 
-dag-ai automatically packages section results for global dimensions:
+dag-engine automatically packages section results for global dimensions:
 ```typescript
 // Define dependency
 defineDependencies() {
@@ -231,7 +231,7 @@ defineDependencies() {
   };
 }
 
-// dag-ai automatically:
+// dag-engine automatically:
 // 1. Collects all section results
 // 2. Packages into aggregated format
 // 3. Passes to global dimension via ctx.dependencies
@@ -255,7 +255,7 @@ SECTION SCOPE:
   Review 5 → analyze_sentiment → Result 5
 
 AUTOMATIC AGGREGATION:
-  dag-ai collects: [Result 1, Result 2, ..., Result 5]
+  dag-engine collects: [Result 1, Result 2, ..., Result 5]
 
 GLOBAL SCOPE:
   All 5 results → overall_analysis → Overall result
@@ -358,13 +358,13 @@ Optimize cost for bulk work, optimize quality for synthesis.
 
 ✅ **Section dimensions** - Per-item parallel analysis for independent tasks  
 ✅ **Global dimensions** - Cross-item sequential synthesis for aggregation  
-✅ **Automatic aggregation** - dag-ai handles data flow between scopes  
+✅ **Automatic aggregation** - dag-engine handles data flow between scopes  
 ✅ **Scope selection** - Clear rules for choosing section vs global  
 ✅ **Multi-scope workflows** - Combine both scopes for powerful pipelines
 
 **Key insight:**
 
-Section and global dimensions create a natural pattern for scalable data processing. Section dimensions parallelize independent work across items, while global dimensions synthesize results across the entire dataset. dag-ai automatically aggregates section results and passes them to global dimensions, eliminating manual coordination code. This dual-scope architecture handles both breadth (analyzing many items) and depth (synthesizing insights) in a single pipeline.
+Section and global dimensions create a natural pattern for scalable data processing. Section dimensions parallelize independent work across items, while global dimensions synthesize results across the entire dataset. dag-engine automatically aggregates section results and passes them to global dimensions, eliminating manual coordination code. This dual-scope architecture handles both breadth (analyzing many items) and depth (synthesizing insights) in a single pipeline.
 
 ## Troubleshooting
 
