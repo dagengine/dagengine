@@ -26,7 +26,7 @@ cp .env.example .env
 npm run 08
 ```
 
-**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/fundamentals/08-error-handling)**
+**[📁 View example on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/fundamentals/08-error-handling)**
 
 ## What You'll See
 ```
@@ -108,7 +108,7 @@ SUMMARY
 
 The plugin demonstrates error recovery by using an intentionally invalid model name for one dimension.
 
-**[📁 View full source on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/02-fundamentals/08-error-handling)**
+**[📁 View full source on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/02-fundamentals/08-error-handling)**
 ```typescript
 class ErrorHandlingPlugin extends Plugin {
 	private errorCount: number = 0;
