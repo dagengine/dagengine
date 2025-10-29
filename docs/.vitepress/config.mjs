@@ -1,14 +1,49 @@
-// docs/.vitepress/config.mjs
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
+	title: "dag-ai",
+	description: "Type-safe DAG execution framework for AI workflows",
+
+	head: [
+		['link', { rel: 'icon', href: '/logo.svg' }],
+		['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+		['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+		['link', { href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', rel: 'stylesheet' }],
+	],
+
 	themeConfig: {
 		logo: "/logo.svg",
 		siteTitle: "dag-ai",
 
-		// ==========================================
-		// NO TOP NAV - Just version dropdown
-		// ==========================================
+		// Add search configuration
+		search: {
+			provider: 'local',
+			options: {
+				placeholder: 'Search docs...',
+				translations: {
+					button: {
+						buttonText: 'Search',
+						buttonAriaLabel: 'Search docs'
+					},
+					modal: {
+						displayDetails: 'Display detailed list',
+						resetButtonTitle: 'Reset search',
+						backButtonTitle: 'Close search',
+						noResultsText: 'No results for',
+						footer: {
+							selectText: 'to select',
+							selectKeyAriaLabel: 'enter',
+							navigateText: 'to navigate',
+							navigateUpKeyAriaLabel: 'up arrow',
+							navigateDownKeyAriaLabel: 'down arrow',
+							closeText: 'to close',
+							closeKeyAriaLabel: 'escape'
+						}
+					}
+				}
+			}
+		},
+
 		nav: [
 			{
 				text: "v1.0.0",
@@ -20,9 +55,6 @@ export default defineConfig({
 			},
 		],
 
-		// ==========================================
-		// EVERYTHING IN SIDEBAR (Single sidebar)
-		// ==========================================
 		sidebar: [
 			{
 				text: "Getting Started",
@@ -68,5 +100,10 @@ export default defineConfig({
 		socialLinks: [
 			{ icon: "github", link: "https://github.com/ivan629/dag-ai" },
 		],
+
+		footer: {
+			message: 'Released under the MIT License.',
+			copyright: 'Copyright © 2025'
+		}
 	},
 });
