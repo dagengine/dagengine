@@ -180,7 +180,7 @@ interface DimensionDependencies {
 **Example:**
 ```typescript
 // In createPrompt()
-createPrompt(context) {
+createPrompt(context: PromptContext) {
   const dependencies: DimensionDependencies = context.dependencies;
   
   // Access dependency results
@@ -246,6 +246,43 @@ interface BaseContext {
 
 ---
 
+### PromptContext
+
+Context passed to `createPrompt()` method. Used to build prompts for AI providers.
+
+```typescript
+interface PromptContext {
+  sections: SectionData[];              // Sections to process
+  dimension: string;                    // Current dimension name
+  dependencies: DimensionDependencies;  // Results from dependencies
+  isGlobal: boolean;                    // false for section, true for global
+}
+```
+
+**Example:**
+```typescript
+createPrompt(context: PromptContext): string {
+  const { dimension, sections, dependencies, isGlobal } = context;
+  
+  if (dimension === 'sentiment') {
+    return `Analyze the sentiment of this review:
+    
+    "${sections[0].content}"
+    
+    Respond with JSON: { "sentiment": "positive" | "negative" | "neutral", "score": 0-1 }`;
+  }
+  
+  if (dimension === 'summary' && isGlobal) {
+    const sentiments = dependencies.sentiment?.data?.sections || [];
+    return `Create a summary of ${sentiments.length} reviews...`;
+  }
+  
+  return `Analyze: ${sections[0].content}`;
+}
+```
+
+---
+
 ### ProcessContext
 
 Context for process-level hooks (`defineDependencies`, etc.).
@@ -271,6 +308,56 @@ interface BeforeProcessStartContext extends BaseContext {
 }
 ```
 
+**Example:**
+```typescript
+async beforeProcessStart(
+  context: BeforeProcessStartContext
+): Promise<ProcessStartResult> {
+  console.log(`Starting process ${context.processId}`);
+  console.log(`Processing ${context.sections.length} sections`);
+  
+  // Filter out empty sections
+  const filteredSections = context.sections.filter(
+    s => s.content.trim().length > 0
+  );
+  
+  return {
+    sections: filteredSections,
+    metadata: { originalCount: context.sections.length }
+  };
+}
+```
+
+---
+
+### ProcessStartResult
+
+Return type for `beforeProcessStart` hook.
+
+```typescript
+interface ProcessStartResult {
+  sections?: SectionData[];  // Modified sections
+  metadata?: unknown;        // Custom metadata
+}
+```
+
+**Example:**
+```typescript
+// Return modified sections
+return {
+  sections: filteredSections,
+  metadata: { timestamp: Date.now() }
+};
+
+// Return just metadata
+return {
+  metadata: { environment: 'production' }
+};
+
+// Return nothing (no changes)
+return undefined;
+```
+
 ---
 
 ### ProcessResultContext
@@ -284,6 +371,26 @@ interface ProcessResultContext extends ProcessContext {
   totalDimensions: number;      // Total dimensions executed
   successfulDimensions: number; // Successful dimensions
   failedDimensions: number;     // Failed dimensions
+}
+```
+
+**Example:**
+```typescript
+async afterProcessComplete(
+  context: ProcessResultContext
+): Promise<ProcessResult> {
+  console.log(`Process completed in ${context.duration}ms`);
+  console.log(`Success: ${context.successfulDimensions}/${context.totalDimensions}`);
+  
+  // Add custom metadata to result
+  return {
+    ...context.result,
+    metadata: {
+      ...context.result.metadata,
+      duration: context.duration,
+      successRate: context.successfulDimensions / context.totalDimensions
+    }
+  };
 }
 ```
 
@@ -301,6 +408,27 @@ interface ProcessFailureContext extends ProcessContext {
 }
 ```
 
+**Example:**
+```typescript
+async handleProcessFailure(
+  context: ProcessFailureContext
+): Promise<ProcessResult | void> {
+  console.error(`Process failed after ${context.duration}ms`);
+  console.error(`Error: ${context.error.message}`);
+  
+  // Return partial results
+  return {
+    sections: context.partialResults.sections || [],
+    globalResults: context.partialResults.globalResults || {},
+    transformedSections: context.partialResults.transformedSections || [],
+    metadata: {
+      failed: true,
+      error: context.error.message
+    }
+  };
+}
+```
+
 ---
 
 ### DimensionContext
@@ -309,11 +437,11 @@ Context for dimension-level hooks.
 
 ```typescript
 interface DimensionContext extends BaseContext {
-  dimension: string;                    // Current dimension name
-  isGlobal: boolean;                    // false for section, true for global
-  sections: SectionData[];              // All sections
-  dependencies: DimensionDependencies;  // Results from dependencies
-  globalResults: Record<string, DimensionResult>;  // Previous global results
+  dimension: string;                              // Current dimension name
+  isGlobal: boolean;                              // false for section, true for global
+  sections: SectionData[];                        // All sections
+  dependencies: DimensionDependencies;            // Results from dependencies
+  globalResults: Record<string, DimensionResult>; // Previous global results
 }
 ```
 
@@ -321,6 +449,26 @@ interface DimensionContext extends BaseContext {
 - `shouldSkipGlobalDimension`
 - `transformDependencies`
 - `beforeDimensionExecute`
+
+**Example:**
+```typescript
+async shouldSkipGlobalDimension(
+  context: DimensionContext
+): Promise<boolean> {
+  // Skip if no sections
+  if (context.sections.length === 0) {
+    return true;
+  }
+  
+  // Skip if dependency failed
+  const required = context.dependencies.required_data;
+  if (required?.error) {
+    return true;
+  }
+  
+  return false;
+}
+```
 
 ---
 
@@ -340,9 +488,11 @@ interface SectionDimensionContext extends DimensionContext {
 
 **Example:**
 ```typescript
-shouldSkipSectionDimension(context: SectionDimensionContext) {
-  console.log('Processing section', context.sectionIndex);
-  console.log('Section content:', context.section.content);
+async shouldSkipSectionDimension(
+  context: SectionDimensionContext
+): Promise<boolean | SkipWithResult> {
+  console.log(`Processing section ${context.sectionIndex}`);
+  console.log(`Section content: ${context.section.content}`);
   
   // Skip based on section content
   if (context.section.content.length < 50) {
@@ -351,7 +501,23 @@ shouldSkipSectionDimension(context: SectionDimensionContext) {
   
   // Skip based on dependency
   const spamCheck = context.dependencies.spam_check;
-  return spamCheck?.data?.is_spam === true;
+  if (spamCheck?.data?.is_spam === true) {
+    return true;
+  }
+  
+  // Return cached result
+  const cached = await redis.get(`${context.dimension}:${context.sectionIndex}`);
+  if (cached) {
+    return {
+      skip: true,
+      result: {
+        data: JSON.parse(cached),
+        metadata: { cached: true }
+      }
+    };
+  }
+  
+  return false;
 }
 ```
 
@@ -369,6 +535,27 @@ interface ProviderContext extends DimensionContext {
 }
 ```
 
+**Example:**
+```typescript
+async beforeProviderExecute(
+  context: ProviderContext
+): Promise<ProviderRequest> {
+  console.log(`Executing ${context.dimension} with ${context.provider}`);
+  
+  // Log request
+  console.log('Request:', context.request.input);
+  
+  // Modify request
+  return {
+    ...context.request,
+    options: {
+      ...context.request.options,
+      temperature: 0.2  // Override temperature
+    }
+  };
+}
+```
+
 ---
 
 ### ProviderResultContext
@@ -380,6 +567,26 @@ interface ProviderResultContext extends ProviderContext {
   result: ProviderResponse;   // The response received
   duration: number;           // Request duration (ms)
   tokensUsed?: TokenUsage;    // Token usage
+}
+```
+
+**Example:**
+```typescript
+async afterProviderExecute(
+  context: ProviderResultContext
+): Promise<ProviderResponse> {
+  console.log(`${context.provider} responded in ${context.duration}ms`);
+  console.log(`Tokens used: ${context.tokensUsed?.totalTokens}`);
+  
+  // Validate response
+  if (!context.result.data) {
+    return {
+      error: 'Empty response from provider',
+      metadata: context.result.metadata
+    };
+  }
+  
+  return context.result;
 }
 ```
 
@@ -407,23 +614,47 @@ interface DimensionResultContext extends BaseContext {
 }
 ```
 
+**Example:**
+```typescript
+async afterDimensionExecute(
+  context: DimensionResultContext
+): Promise<void> {
+  const type = context.isGlobal ? 'global' : `section ${context.sectionIndex}`;
+  console.log(`${context.dimension} (${type}) completed in ${context.duration}ms`);
+  
+  if (context.tokensUsed) {
+    console.log(`Tokens: ${context.tokensUsed.totalTokens}`);
+    console.log(`Cost: $${context.cost?.toFixed(4)}`);
+  }
+  
+  // Log to analytics
+  await analytics.track('dimension_complete', {
+    dimension: context.dimension,
+    duration: context.duration,
+    tokens: context.tokensUsed?.totalTokens
+  });
+}
+```
+
 ---
 
 ### TransformSectionsContext
 
-Context for `transformSections` hook (extends DimensionResultContext).
+Context for `transformSections` hook (extends ProviderResultContext).
 
 ```typescript
-interface TransformSectionsContext extends DimensionResultContext {
+interface TransformSectionsContext extends ProviderResultContext {
   currentSections: SectionData[];  // Current sections before transformation
 }
 ```
 
 **Example:**
 ```typescript
-transformSections(context: TransformSectionsContext) {
+async transformSections(
+  context: TransformSectionsContext
+): Promise<SectionData[] | undefined> {
   if (context.dimension !== 'group_by_category') {
-    return context.currentSections;  // No transformation
+    return undefined;  // No transformation
   }
   
   const groups = context.result.data?.groups || [];
@@ -433,7 +664,8 @@ transformSections(context: TransformSectionsContext) {
     content: group.reviews.join('\n\n'),
     metadata: {
       category: group.category,
-      count: group.reviews.length
+      count: group.reviews.length,
+      originalSections: group.indices
     }
   }));
 }
@@ -447,11 +679,35 @@ Context for `finalizeResults` hook.
 
 ```typescript
 interface FinalizeContext extends BaseContext {
-  results: Record<string, DimensionResult>;  // All dimension results
-  originalSections: SectionData[];           // Original input sections
-  currentSections: SectionData[];            // Current sections (post-transform)
-  globalResults: Record<string, DimensionResult>;
-  duration: number;                          // Total process duration (ms)
+  results: Record<string, DimensionResult>;       // All dimension results
+  originalSections: SectionData[];                // Original input sections
+  currentSections: SectionData[];                 // Current sections (post-transform)
+  globalResults: Record<string, DimensionResult>; // Global results
+  duration: number;                               // Total process duration (ms)
+}
+```
+
+**Example:**
+```typescript
+async finalizeResults(
+  context: FinalizeContext
+): Promise<Record<string, DimensionResult>> {
+  console.log(`Finalizing ${Object.keys(context.results).length} results`);
+  console.log(`Process took ${context.duration}ms`);
+  
+  // Add summary statistics
+  const modifiedResults = { ...context.results };
+  
+  modifiedResults['_summary'] = {
+    data: {
+      totalDimensions: Object.keys(context.results).length,
+      totalSections: context.originalSections.length,
+      finalSections: context.currentSections.length,
+      duration: context.duration
+    }
+  };
+  
+  return modifiedResults;
 }
 ```
 
@@ -465,13 +721,13 @@ Request sent to AI provider.
 
 ```typescript
 interface ProviderRequest {
-  input: string | string[];       // Prompt(s)
-  options?: Record<string, unknown>;  // Model, temperature, etc.
-  dimension?: string;
-  isGlobal?: boolean;
+  input: string | string[];               // Prompt(s)
+  options?: Record<string, unknown>;      // Model, temperature, etc.
+  dimension?: string;                     // Dimension name
+  isGlobal?: boolean;                     // Global or section dimension
   metadata?: {
-    sectionIndex?: number;
-    totalSections?: number;
+    sectionIndex?: number;                // Section index (for section dims)
+    totalSections?: number;               // Total sections in process
     [key: string]: unknown;
   };
 }
@@ -537,13 +793,14 @@ Metadata about execution.
 
 ```typescript
 interface ProviderMetadata {
-  model?: string;
-  tokens?: TokenUsage;
-  provider?: string;
-  cost?: number;
-  cached?: boolean;
-  skipped?: boolean;
-  [key: string]: unknown;  // Custom metadata
+  model?: string;              // Model used
+  tokens?: TokenUsage;         // Token usage
+  provider?: string;           // Provider name
+  cost?: number;               // Cost incurred
+  cached?: boolean;            // Whether result was cached
+  skipped?: boolean;           // Whether dimension was skipped
+  reason?: string;             // Skip reason (if skipped)
+  [key: string]: unknown;      // Custom metadata
 }
 ```
 
@@ -560,8 +817,9 @@ const metadata: ProviderMetadata = {
   cost: 0.0105,
   cached: false,
   skipped: false,
-  duration: 2500,  // Custom: request duration
-  requestId: 'req-123'  // Custom: provider request ID
+  duration: 2500,           // Custom: request duration
+  requestId: 'req-123',     // Custom: provider request ID
+  retries: 0                // Custom: number of retries
 };
 ```
 
@@ -601,12 +859,12 @@ Provider selection returned by `selectProvider`.
 
 ```typescript
 interface ProviderSelection {
-  provider: string;
-  options: Record<string, unknown>;
-  fallbacks?: Array<{
+  provider: string;                       // Primary provider name
+  options: Record<string, unknown>;       // Provider options
+  fallbacks?: Array<{                     // Fallback providers
     provider: string;
     options: Record<string, unknown>;
-    retryAfter?: number;
+    retryAfter?: number;                  // Delay before trying (ms)
   }>;
 }
 ```
@@ -618,17 +876,24 @@ selectProvider(dimension: string): ProviderSelection {
     provider: 'anthropic',
     options: {
       model: 'claude-3-5-sonnet-20241022',
-      temperature: 0.3
+      temperature: 0.3,
+      max_tokens: 2000
     },
     fallbacks: [
       {
         provider: 'openai',
-        options: { model: 'gpt-4o' },
+        options: { 
+          model: 'gpt-4o',
+          temperature: 0.3 
+        },
         retryAfter: 1000  // Wait 1s before trying fallback
       },
       {
         provider: 'gemini',
-        options: { model: 'gemini-1.5-pro' }
+        options: { 
+          model: 'gemini-1.5-pro',
+          temperature: 0.3 
+        }
       }
     ]
   };
@@ -645,10 +910,10 @@ Cost breakdown for entire process.
 
 ```typescript
 interface CostSummary {
-  totalCost: number;
-  totalTokens: number;
-  byDimension: Record<string, DimensionCost>;
-  byProvider: Record<string, {
+  totalCost: number;                              // Total cost (USD)
+  totalTokens: number;                            // Total tokens used
+  byDimension: Record<string, DimensionCost>;     // Cost per dimension
+  byProvider: Record<string, {                    // Cost per provider
     cost: number;
     tokens: TokenUsage;
     models: string[];
@@ -705,11 +970,25 @@ Cost for a single dimension.
 
 ```typescript
 interface DimensionCost {
-  cost: number;
-  tokens: TokenUsage;
-  model: string;
-  provider: string;
+  cost: number;           // Cost in USD
+  tokens: TokenUsage;     // Token usage
+  model: string;          // Model used
+  provider: string;       // Provider used
 }
+```
+
+**Example:**
+```typescript
+const dimensionCost: DimensionCost = {
+  cost: 0.0115,
+  tokens: {
+    inputTokens: 6548,
+    outputTokens: 1559,
+    totalTokens: 8107
+  },
+  model: 'claude-3-5-haiku-20241022',
+  provider: 'anthropic'
+};
 ```
 
 ---
@@ -720,8 +999,8 @@ Pricing configuration for cost tracking.
 
 ```typescript
 interface PricingConfig {
-  models: Record<string, ModelPricing>;
-  lastUpdated?: string;
+  models: Record<string, ModelPricing>;  // Model pricing rates
+  lastUpdated?: string;                  // Last update date
 }
 
 interface ModelPricing {
@@ -741,10 +1020,21 @@ const pricing: PricingConfig = {
     'claude-3-5-sonnet-20241022': { 
       inputPer1M: 3.00, 
       outputPer1M: 15.00 
+    },
+    'gpt-4o': {
+      inputPer1M: 2.50,
+      outputPer1M: 10.00
     }
   },
   lastUpdated: '2024-01-15'
 };
+
+// Use in engine config
+const engine = new DagEngine({
+  plugin: myPlugin,
+  providers: myAdapter,
+  pricing
+});
 ```
 
 ---
@@ -757,16 +1047,16 @@ Real-time progress information.
 
 ```typescript
 interface ProgressUpdate {
-  completed: number;
-  total: number;
-  percent: number;
-  cost: number;
-  estimatedCost: number;
-  elapsedSeconds: number;
-  etaSeconds: number;
-  currentDimension: string;
-  currentSection: number;
-  dimensions: {
+  completed: number;                    // Completed operations
+  total: number;                        // Total operations
+  percent: number;                      // Completion percentage
+  cost: number;                         // Cost so far (USD)
+  estimatedCost: number;                // Estimated total cost (USD)
+  elapsedSeconds: number;               // Time elapsed (seconds)
+  etaSeconds: number;                   // Estimated time remaining (seconds)
+  currentDimension: string;             // Current dimension name
+  currentSection: number;               // Current section index
+  dimensions: {                         // Per-dimension progress
     [dimension: string]: {
       completed: number;
       total: number;
@@ -785,11 +1075,16 @@ interface ProgressUpdate {
 // In process options
 const result = await engine.process(sections, {
   onProgress: (progress: ProgressUpdate) => {
-    console.log(`Progress: ${progress.percent}%`);
+    console.log(`Progress: ${progress.percent.toFixed(1)}%`);
     console.log(`Cost so far: $${progress.cost.toFixed(4)}`);
     console.log(`Estimated total: $${progress.estimatedCost.toFixed(4)}`);
     console.log(`ETA: ${progress.etaSeconds}s`);
     console.log(`Current: ${progress.currentDimension}`);
+    
+    // Per-dimension progress
+    Object.entries(progress.dimensions).forEach(([dim, stats]) => {
+      console.log(`  ${dim}: ${stats.percent.toFixed(1)}% ($${stats.cost.toFixed(4)})`);
+    });
   }
 });
 
@@ -798,6 +1093,61 @@ const progress = engine.getProgress();
 if (progress) {
   console.log(`${progress.completed}/${progress.total} completed`);
 }
+```
+
+---
+
+### ProgressDisplayOptions
+
+Options for built-in progress display.
+
+```typescript
+interface ProgressDisplayOptions {
+  display?: "simple" | "bar" | "multi" | "none";  // Display style
+  format?: string;                                 // Custom format string
+  showDimensions?: boolean;                        // Show dimension info
+  throttleMs?: number;                             // Update throttle (ms)
+}
+```
+
+**Example:**
+```typescript
+// Simple text progress
+const engine = new DagEngine({
+  plugin: myPlugin,
+  providers: myAdapter,
+  progressDisplay: {
+    display: 'simple'
+  }
+});
+
+// Progress bar (requires cli-progress)
+const engine = new DagEngine({
+  plugin: myPlugin,
+  providers: myAdapter,
+  progressDisplay: {
+    display: 'bar',
+    format: 'Progress |{bar}| {percentage}% | ${cost} | ETA: {eta}s'
+  }
+});
+
+// Multiple bars per dimension
+const engine = new DagEngine({
+  plugin: myPlugin,
+  providers: myAdapter,
+  progressDisplay: {
+    display: 'multi',
+    showDimensions: true,
+    throttleMs: 100
+  }
+});
+
+// Disable display (use onProgress callback instead)
+const engine = new DagEngine({
+  plugin: myPlugin,
+  providers: myAdapter,
+  progressDisplay: false
+});
 ```
 
 ---
@@ -815,19 +1165,20 @@ type Dimension = string | DimensionConfig;
 **Examples:**
 ```typescript
 // String form (section dimension)
-this.dimensions = ['sentiment', 'topics'];
+this.dimensions = ['sentiment', 'topics', 'category'];
 
 // Config form (global dimension)
 this.dimensions = [
-  'sentiment',  // section
-  { name: 'summary', scope: 'global' }  // global
+  'sentiment',                              // section
+  { name: 'summary', scope: 'global' }      // global
 ];
 
 // Mixed
 this.dimensions = [
   'sentiment',
   'topics',
-  { name: 'overall', scope: 'global' }
+  { name: 'overall', scope: 'global' },
+  { name: 'categorize', scope: 'global' }
 ];
 ```
 
@@ -839,9 +1190,9 @@ Dimension configuration object.
 
 ```typescript
 interface DimensionConfig {
-  name: string;
-  scope: 'section' | 'global';
-  transform?: (
+  name: string;                             // Dimension name
+  scope: 'section' | 'global';              // Execution scope
+  transform?: (                             // Optional transform function
     result: DimensionResult,
     sections: SectionData[]
   ) => SectionData[] | Promise<SectionData[]>;
@@ -865,9 +1216,14 @@ const dimension: DimensionConfig = {
   scope: 'global',
   transform: (result, sections) => {
     const groups = result.data?.groups || [];
+    
+    // Transform: 100 sections → 5 category groups
     return groups.map(group => ({
       content: group.items.join('\n'),
-      metadata: { category: group.name }
+      metadata: { 
+        category: group.name,
+        count: group.items.length
+      }
     }));
   }
 };
@@ -879,10 +1235,95 @@ const dimension: DimensionConfig = {
   name: 'enrich',
   scope: 'global',
   transform: async (result, sections) => {
-    const enriched = await api.enrichData(sections);
-    return enriched;
+    const enrichedData = await api.enrichData(sections);
+    
+    return sections.map((section, i) => ({
+      ...section,
+      metadata: {
+        ...section.metadata,
+        enrichment: enrichedData[i]
+      }
+    }));
   }
 };
+```
+
+**Filter transform:**
+```typescript
+const dimension: DimensionConfig = {
+  name: 'filter_spam',
+  scope: 'global',
+  transform: (result, sections) => {
+    const spamIndices = result.data?.spam_indices || [];
+    
+    // Filter out spam sections
+    return sections.filter((_, i) => !spamIndices.includes(i));
+  }
+};
+```
+
+---
+
+## Process Options
+
+### ProcessOptions
+
+Options passed to `engine.process()`.
+
+```typescript
+interface ProcessOptions {
+  // Core options
+  processId?: string;                                     // Custom process ID
+  metadata?: unknown;                                     // Custom metadata
+  
+  // Progress tracking
+  onProgress?: (progress: ProgressUpdate) => void;        // Progress callback
+  updateEvery?: number;                                   // Update frequency
+  progressDisplay?: ProgressDisplayOptions | boolean;     // Built-in display
+  
+  // Lifecycle callbacks
+  onDimensionStart?: (dimension: string) => void;
+  onDimensionComplete?: (dimension: string, result: DimensionResult) => void;
+  onSectionStart?: (index: number, total: number) => void;
+  onSectionComplete?: (index: number, total: number) => void;
+  onError?: (context: string, error: Error) => void;
+  
+  // Additional custom options
+  [key: string]: unknown;
+}
+```
+
+**Example:**
+```typescript
+const result = await engine.process(sections, {
+  processId: 'custom-id-123',
+  metadata: { userId: 456, environment: 'production' },
+  
+  onProgress: (progress) => {
+    console.log(`${progress.percent}% - $${progress.cost}`);
+  },
+  
+  onDimensionStart: (dimension) => {
+    console.log(`Starting: ${dimension}`);
+  },
+  
+  onDimensionComplete: (dimension, result) => {
+    if (result.error) {
+      console.error(`${dimension} failed:`, result.error);
+    } else {
+      console.log(`${dimension} completed`);
+    }
+  },
+  
+  onError: (context, error) => {
+    console.error(`Error in ${context}:`, error.message);
+  },
+  
+  progressDisplay: {
+    display: 'bar',
+    showDimensions: true
+  }
+});
 ```
 
 ---
@@ -907,6 +1348,29 @@ interface RetryContext extends ProviderContext {
 }
 ```
 
+**Example:**
+```typescript
+handleRetry(context: RetryContext): RetryResponse {
+  console.log(`Retry attempt ${context.attempt}/${context.maxAttempts}`);
+  console.log(`Error: ${context.error.message}`);
+  
+  // Custom exponential backoff
+  const delayMs = Math.pow(2, context.attempt) * 1000;
+  
+  // Don't retry rate limit errors
+  if (context.error.message.includes('rate limit')) {
+    return { shouldRetry: false };
+  }
+  
+  // Don't retry after 5 attempts
+  if (context.attempt >= 5) {
+    return { shouldRetry: false };
+  }
+  
+  return { shouldRetry: true, delayMs };
+}
+```
+
 ---
 
 ### RetryResponse
@@ -924,17 +1388,30 @@ interface RetryResponse {
 
 **Example:**
 ```typescript
-handleRetry(context: RetryContext): RetryResponse {
-  // Custom exponential backoff
-  const delayMs = Math.pow(2, context.attempt) * 1000;
-  
-  // Don't retry rate limit errors
-  if (context.error.message.includes('rate limit')) {
-    return { shouldRetry: false };
+// Simple retry with delay
+return { delayMs: 2000 };
+
+// Don't retry
+return { shouldRetry: false };
+
+// Modify request for retry
+return {
+  modifiedRequest: {
+    ...context.request,
+    options: {
+      ...context.request.options,
+      temperature: 0.5  // Increase temperature
+    }
   }
-  
-  return { delayMs };
-}
+};
+
+// Switch to different model
+return {
+  modifiedRequest: {
+    ...context.request,
+    options: { model: 'claude-3-5-sonnet-20241022' }
+  }
+};
 ```
 
 ---
@@ -945,9 +1422,24 @@ Context for `handleProviderFallback` hook.
 
 ```typescript
 interface FallbackContext extends RetryContext {
-  failedProvider: string;              // The provider that failed
-  fallbackProvider: string;            // The fallback being tried
-  fallbackOptions: Record<string, unknown>;  // Fallback provider options
+  failedProvider: string;                      // The provider that failed
+  fallbackProvider: string;                    // The fallback being tried
+  fallbackOptions: Record<string, unknown>;    // Fallback provider options
+}
+```
+
+**Example:**
+```typescript
+async handleProviderFallback(
+  context: FallbackContext
+): Promise<FallbackResponse> {
+  console.log(`${context.failedProvider} failed, trying ${context.fallbackProvider}`);
+  
+  // Wait before trying fallback
+  return {
+    shouldFallback: true,
+    delayMs: 1000
+  };
 }
 ```
 
@@ -965,6 +1457,26 @@ interface FallbackResponse {
 }
 ```
 
+**Example:**
+```typescript
+// Allow fallback with delay
+return {
+  shouldFallback: true,
+  delayMs: 2000
+};
+
+// Skip fallback
+return { shouldFallback: false };
+
+// Modify request for fallback
+return {
+  modifiedRequest: {
+    ...context.request,
+    input: simplifiedPrompt
+  }
+};
+```
+
 ---
 
 ### FailureContext
@@ -975,6 +1487,29 @@ Context for `handleDimensionFailure` hook.
 interface FailureContext extends RetryContext {
   totalAttempts: number;       // Total attempts made
   providers: string[];         // All providers tried
+}
+```
+
+**Example:**
+```typescript
+async handleDimensionFailure(
+  context: FailureContext
+): Promise<DimensionResult | void> {
+  console.error(`All providers failed for ${context.dimension}`);
+  console.error(`Tried: ${context.providers.join(', ')}`);
+  console.error(`Total attempts: ${context.totalAttempts}`);
+  
+  // Return fallback result
+  return {
+    data: {
+      fallback: true,
+      defaultValue: null
+    },
+    metadata: {
+      failed: true,
+      error: context.error.message
+    }
+  };
 }
 ```
 
@@ -996,6 +1531,12 @@ interface SkipWithResult {
 async shouldSkipSectionDimension(
   context: SectionDimensionContext
 ): Promise<boolean | SkipWithResult> {
+  // Simple skip
+  if (context.section.content.length < 50) {
+    return true;
+  }
+  
+  // Skip with cached result
   const cacheKey = `${context.dimension}:${context.section.metadata.id}`;
   const cached = await redis.get(cacheKey);
   
@@ -1004,7 +1545,11 @@ async shouldSkipSectionDimension(
       skip: true,
       result: {
         data: JSON.parse(cached),
-        metadata: { cached: true }
+        metadata: { 
+          cached: true,
+          cacheKey,
+          timestamp: Date.now()
+        }
       }
     };
   }
@@ -1026,11 +1571,7 @@ Check if skip result includes a cached result.
 ```typescript
 function isSkipWithResult(
   result: boolean | SkipWithResult
-): result is SkipWithResult {
-  return typeof result === 'object' && 
-         result.skip === true && 
-         'result' in result;
-}
+): result is SkipWithResult
 ```
 
 **Example:**
@@ -1039,12 +1580,13 @@ const skipResult = await plugin.shouldSkipSectionDimension(context);
 
 if (isSkipWithResult(skipResult)) {
   // Use cached result
+  console.log('Using cached result:', skipResult.result.data);
   return skipResult.result;
 } else if (skipResult === true) {
   // Skip without result
   return { metadata: { skipped: true } };
 } else {
-  // Don't skip
+  // Don't skip - execute normally
   return await executeNormally();
 }
 ```
@@ -1058,9 +1600,7 @@ Check if dimension result is an error.
 ```typescript
 function isErrorResult(
   result: DimensionResult
-): result is { error: string } {
-  return 'error' in result && typeof result.error === 'string';
-}
+): result is { error: string }
 ```
 
 **Example:**
@@ -1069,6 +1609,7 @@ const result = section.results.sentiment;
 
 if (isErrorResult(result)) {
   console.error('Dimension failed:', result.error);
+  console.error('Provider:', result.metadata?.provider);
 } else {
   console.log('Sentiment:', result.data.sentiment);
 }
@@ -1083,9 +1624,7 @@ Check if dimension result has data.
 ```typescript
 function isSuccessResult(
   result: DimensionResult
-): result is { data: unknown } {
-  return 'data' in result && !('error' in result);
-}
+): result is { data: unknown }
 ```
 
 **Example:**
@@ -1094,9 +1633,13 @@ const result = section.results.sentiment;
 
 if (isSuccessResult(result)) {
   console.log('Success:', result.data);
+  console.log('Model:', result.metadata?.model);
   console.log('Tokens:', result.metadata?.tokens);
+  console.log('Cost:', result.metadata?.cost);
 } else if (isErrorResult(result)) {
   console.error('Error:', result.error);
+} else {
+  console.log('Skipped');
 }
 ```
 
@@ -1107,15 +1650,15 @@ if (isSuccessResult(result)) {
 ### Core Data Flow
 
 ```typescript
-// Input
+// 1. Input
 const sections: SectionData[] = [
-  { content: '...', metadata: { ... } }
+  { content: '...', metadata: { id: 1 } }
 ];
 
-// Execute
+// 2. Execute
 const result: ProcessResult = await engine.process(sections);
 
-// Access results
+// 3. Access section results
 result.sections.forEach(sectionResult => {
   const section: SectionData = sectionResult.section;
   const results: Record<string, DimensionResult> = sectionResult.results;
@@ -1124,6 +1667,13 @@ result.sections.forEach(sectionResult => {
   const data = sentiment.data;
   const metadata: ProviderMetadata = sentiment.metadata;
 });
+
+// 4. Access global results
+const summary = result.globalResults.overall_summary?.data;
+
+// 5. Access costs
+const totalCost = result.costs?.totalCost;
+const dimensionCost = result.costs?.byDimension.sentiment?.cost;
 ```
 
 ### Context Hierarchy
@@ -1144,6 +1694,7 @@ BaseContext
 │  ├─ DimensionResultContext
 │  │  └─ TransformSectionsContext
 │  └─ FinalizeContext
+└─ PromptContext (standalone)
 ```
 
 ### Common Patterns
@@ -1185,5 +1736,34 @@ const sentiment = context.dependencies.sentiment as
 
 if (sentiment?.data) {
   const score: number = sentiment.data.score;
+}
+```
+
+**Using type guards:**
+```typescript
+if (isErrorResult(result)) {
+  console.error('Error:', result.error);
+} else if (isSuccessResult(result)) {
+  console.log('Data:', result.data);
+} else {
+  console.log('Skipped');
+}
+```
+
+**Progress tracking:**
+```typescript
+await engine.process(sections, {
+  onProgress: (progress: ProgressUpdate) => {
+    console.log(`${progress.percent}% - $${progress.cost}`);
+  }
+});
+```
+
+**Skip with cached result:**
+```typescript
+const skipResult = await plugin.shouldSkipSectionDimension(context);
+
+if (isSkipWithResult(skipResult)) {
+  return skipResult.result;  // Use cached
 }
 ```

@@ -39,6 +39,50 @@ The Plugin class provides 18 lifecycle hooks that fire at different stages of wo
 | `handleProviderFallback` | When switching providers | Fallback config | Provider selection |
 | `handleDimensionFailure` | After all retries fail | Fallback result or void | Graceful degradation |
 
+## Hook Return Value Behavior
+
+**Important:**
+- Hooks that return `void` cannot modify behavior (logging/side effects only)
+- Hooks that return `Promise<void>` are awaited but cannot change state
+- Hooks that return data (`ProcessResult`, `DimensionResult`, etc.) can modify the workflow
+- Returning `undefined` or `void` from data hooks means "no changes"
+
+**Examples:**
+- `beforeDimensionExecute` returns `void` → Cannot stop execution
+- `shouldSkipGlobalDimension` returns `boolean` → Can stop execution
+- `transformDependencies` returns `DimensionDependencies` → Must return modified or original
+
+## Hook Error Behavior
+
+**What happens if a hook throws an error?**
+
+1. **Process Lifecycle Hooks** (`beforeProcessStart`, `afterProcessComplete`):
+   - Error is caught and logged
+   - `options.onError` callback is called
+   - For `beforeProcessStart`: Error is re-thrown (stops process)
+   - For `afterProcessComplete`: Error is logged, original result returned
+
+2. **Dimension Hooks** (`beforeDimensionExecute`, `afterDimensionExecute`):
+   - Error is logged to console
+   - `options.onError` callback is called
+   - Dimension continues execution
+
+3. **Provider Hooks** (`beforeProviderExecute`, `afterProviderExecute`):
+   - Error is logged to console
+   - Original request/response is used (hook is skipped)
+   - Provider call continues
+
+4. **Error Handling Hooks** (`handleRetry`, `handleProviderFallback`, `handleDimensionFailure`):
+   - Error is logged to console
+   - Default behavior is used (retry proceeds, fallback proceeds, dimension fails)
+
+5. **Transform Hooks** (`transformDependencies`, `transformSections`, `finalizeResults`):
+   - Error is caught and logged
+   - `options.onError` callback is called
+   - Original data is used (no transformation applied)
+
+**See `src/core/lifecycle/hook-executor.ts` for full error handling implementation.**
+
 ## Required Methods
 
 Before diving into lifecycle hooks, note that Plugin has 2 **required** abstract methods:
@@ -91,8 +135,8 @@ abstract selectProvider(
   sections?: SectionData[],
   context?: {
     isGlobal: boolean;
-    sectionIndex?: number;
-    totalSections?: number;
+    sectionIndex?: number;    // Only present for section dimensions
+    totalSections?: number;   // Total number of sections in process
   }
 ): ProviderSelection | Promise<ProviderSelection>
 ```
@@ -112,7 +156,7 @@ interface ProviderSelection {
 
 **Example:**
 ```typescript
-selectProvider(dimension) {
+selectProvider(dimension, sections, context) {
   if (dimension === 'spam_check') {
     return {
       provider: 'anthropic',
@@ -153,9 +197,9 @@ async beforeProcessStart(
 
 **Context:**
 ```typescript
-interface BeforeProcessStartContext {
-  processId: string;        // Unique process ID (UUID)
-  timestamp: number;        // Start time (ms since epoch)
+interface BeforeProcessStartContext extends BaseContext {
+  processId: string;        // Unique process ID (UUID) - from BaseContext
+  timestamp: number;        // Start time (ms since epoch) - from BaseContext
   sections: SectionData[];  // Input sections
   options: ProcessOptions;  // Process options
 }
@@ -219,7 +263,7 @@ async afterProcessComplete(
 
 **Context:**
 ```typescript
-interface ProcessResultContext {
+interface ProcessResultContext extends ProcessContext {
   processId: string;
   timestamp: number;
   sections: SectionData[];
@@ -231,6 +275,8 @@ interface ProcessResultContext {
   successfulDimensions: number; // Successful dimensions
   failedDimensions: number;     // Failed dimensions
 }
+
+// Note: Also aliased as AfterProcessCompleteContext (deprecated)
 ```
 
 **Returns:**
@@ -296,7 +342,7 @@ async handleProcessFailure(
 
 **Context:**
 ```typescript
-interface ProcessFailureContext {
+interface ProcessFailureContext extends ProcessContext {
   processId: string;
   timestamp: number;
   sections: SectionData[];
@@ -364,7 +410,7 @@ async defineDependencies(
 
 **Context:**
 ```typescript
-interface ProcessContext {
+interface ProcessContext extends BaseContext {
   processId: string;
   timestamp: number;
   sections: SectionData[];
@@ -432,7 +478,7 @@ async shouldSkipGlobalDimension(
 
 **Context:**
 ```typescript
-interface DimensionContext {
+interface DimensionContext extends BaseContext {
   processId: string;
   timestamp: number;
   dimension: string;                    // Current dimension name
@@ -507,7 +553,7 @@ async shouldSkipSectionDimension(
 
 **Context:**
 ```typescript
-interface SectionDimensionContext {
+interface SectionDimensionContext extends DimensionContext {
   processId: string;
   timestamp: number;
   dimension: string;                    // Current dimension name
@@ -570,13 +616,14 @@ Called after dependencies resolve but before creating the prompt. Use to enrich 
 **Signature:**
 ```typescript
 async transformDependencies(
-  context: DimensionContext
+  context: DimensionContext | SectionDimensionContext
 ): Promise<DimensionDependencies>
 ```
 
 **Context:**
 ```typescript
-interface DimensionContext {
+// Can be either DimensionContext (for global) or SectionDimensionContext (for section)
+interface DimensionContext extends BaseContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -584,6 +631,11 @@ interface DimensionContext {
   sections: SectionData[];
   dependencies: DimensionDependencies;  // Original dependencies
   globalResults: Record<string, DimensionResult>;
+}
+
+interface SectionDimensionContext extends DimensionContext {
+  section: SectionData;      // Only present when isGlobal === false
+  sectionIndex: number;      // Only present when isGlobal === false
 }
 ```
 
@@ -593,6 +645,8 @@ interface DimensionDependencies {
   [dimensionName: string]: DimensionResult;
 }
 ```
+
+**Note:** This hook is called for both global and section dimensions. Check `context.isGlobal` to determine which type you're handling. For section dimensions, `context.section` and `context.sectionIndex` are available.
 
 **Examples:**
 
@@ -634,6 +688,19 @@ async transformDependencies(context) {
   
   return enhanced;
 }
+
+// Handle both global and section contexts
+async transformDependencies(context) {
+  if (context.isGlobal) {
+    // Global dimension - use all sections
+    console.log(`Transforming deps for global ${context.dimension}`);
+  } else {
+    // Section dimension - use specific section
+    console.log(`Transforming deps for section ${context.sectionIndex}`);
+  }
+  
+  return context.dependencies;
+}
 ```
 
 ### beforeDimensionExecute
@@ -643,13 +710,13 @@ Called immediately before a dimension executes. Use for logging, validation, or 
 **Signature:**
 ```typescript
 async beforeDimensionExecute(
-  context: DimensionContext
+  context: DimensionContext | SectionDimensionContext
 ): Promise<void>
 ```
 
 **Context:**
 ```typescript
-interface DimensionContext {
+interface DimensionContext extends BaseContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -657,6 +724,12 @@ interface DimensionContext {
   sections: SectionData[];
   dependencies: DimensionDependencies;
   globalResults: Record<string, DimensionResult>;
+}
+
+// For section dimensions, also includes:
+interface SectionDimensionContext extends DimensionContext {
+  section: SectionData;
+  sectionIndex: number;
 }
 ```
 
@@ -706,7 +779,7 @@ async afterDimensionExecute(
 
 **Context:**
 ```typescript
-interface DimensionResultContext {
+interface DimensionResultContext extends BaseContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -783,7 +856,7 @@ async beforeProviderExecute(
 
 **Context:**
 ```typescript
-interface ProviderContext {
+interface ProviderContext extends DimensionContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -871,7 +944,7 @@ async afterProviderExecute(
 
 **Context:**
 ```typescript
-interface ProviderResultContext {
+interface ProviderResultContext extends ProviderContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -966,7 +1039,7 @@ async transformSections(
 
 **Context:**
 ```typescript
-interface TransformSectionsContext {
+interface TransformSectionsContext extends ProviderResultContext {
   processId: string;
   timestamp: number;
   dimension: string;            // The dimension that just completed
@@ -974,14 +1047,12 @@ interface TransformSectionsContext {
   sections: SectionData[];
   dependencies: DimensionDependencies;
   globalResults: Record<string, DimensionResult>;
-  section?: SectionData;
-  sectionIndex?: number;
+  request: ProviderRequest;
+  provider: string;
+  providerOptions: Record<string, unknown>;
   result: DimensionResult;      // Result from the dimension that just ran
   duration: number;
-  provider: string;
-  model?: string;
   tokensUsed?: TokenUsage;
-  cost?: number;
   currentSections: SectionData[];  // Current sections before transformation
 }
 ```
@@ -990,6 +1061,11 @@ interface TransformSectionsContext {
 ```typescript
 SectionData[]  // New sections array
 ```
+
+**Important Notes:**
+- This hook is only called for **global dimensions** (never for section dimensions)
+- Return `undefined` or the original `currentSections` to indicate no transformation
+- Transforming sections resets all section-level results (dimensions are re-executed)
 
 **Examples:**
 
@@ -1059,7 +1135,7 @@ async finalizeResults(
 
 **Context:**
 ```typescript
-interface FinalizeContext {
+interface FinalizeContext extends BaseContext {
   processId: string;
   timestamp: number;
   results: Record<string, DimensionResult>;  // All dimension results
@@ -1074,6 +1150,11 @@ interface FinalizeContext {
 ```typescript
 Record<string, DimensionResult>  // Modified results
 ```
+
+**Result Key Format:**
+The `results` object contains:
+- **Global dimensions:** `dimensionName` (e.g., `'summary'`)
+- **Section dimensions:** `dimensionName_section_N` (e.g., `'sentiment_section_0'`, `'sentiment_section_1'`)
 
 **Examples:**
 
@@ -1143,7 +1224,7 @@ async handleRetry(
 
 **Context:**
 ```typescript
-interface RetryContext {
+interface RetryContext extends ProviderContext {
   processId: string;
   timestamp: number;
   dimension: string;
@@ -1175,6 +1256,9 @@ interface RetryResponse {
   modifiedProvider?: string;           // Switch provider
 }
 ```
+
+**Gateway Mode Note:**
+When using Portkey gateway (`gateway: 'portkey'`), retries are handled by the gateway and this hook may not be called. This hook primarily affects direct provider mode.
 
 **Examples:**
 
@@ -1254,6 +1338,9 @@ interface FallbackResponse {
 }
 ```
 
+**Gateway Mode Note:**
+When using Portkey gateway (`gateway: 'portkey'`), fallbacks are handled by the gateway configuration and this hook may not be called. This hook primarily affects direct provider mode with fallbacks configured in `selectProvider`.
+
 **Examples:**
 
 ```typescript
@@ -1321,7 +1408,7 @@ interface FailureContext extends RetryContext {
 
 **Returns:**
 - `DimensionResult` - Provide fallback result (processing continues)
-- `void` - Error propagates (dimension fails, continueOnError determines if process stops)
+- `void` - Error propagates (dimension fails, `continueOnError` setting determines if process stops)
 
 **Examples:**
 
@@ -1382,36 +1469,71 @@ async handleDimensionFailure(context) {
 
 ## Hook Execution Order
 
-**For a typical process with 3 sections and 3 dimensions:**
+**For a typical process with 3 sections and 3 dimensions (1 global, 2 section-level):**
 
 ```
 1. beforeProcessStart (once)
+   └─ Returns modified sections and/or metadata
+
 2. defineDependencies (once)
+   └─ Returns dependency graph
 
 For each dimension (in dependency order):
-  3. shouldSkipGlobalDimension (if global) OR shouldSkipSectionDimension (if section, per section)
-  4. transformDependencies (per dimension execution)
-  5. beforeDimensionExecute (per dimension execution)
-  
-  For each section (if section dimension):
-    6. beforeProviderExecute
-    7. [API CALL TO PROVIDER]
-    8. afterProviderExecute
-  
-  For global dimension:
-    6. beforeProviderExecute
-    7. [API CALL TO PROVIDER]
-    8. afterProviderExecute
-  
-  9. afterDimensionExecute (per dimension execution)
-  10. transformSections (if global dimension)
+
+  GLOBAL DIMENSION (e.g., 'classify'):
+  ├─ 3. shouldSkipGlobalDimension
+  │    └─ Returns: false (execute) or true (skip) or cached result
+  ├─ 4. transformDependencies
+  │    └─ Returns: modified dependencies
+  ├─ 5. beforeDimensionExecute
+  ├─ 6. beforeProviderExecute
+  │    └─ Returns: modified request
+  ├─ 7. [API CALL TO PROVIDER]
+  │    └─ On error:
+  │        ├─ handleRetry (per retry attempt)
+  │        ├─ handleProviderFallback (when switching providers)
+  │        └─ handleDimensionFailure (after all retries exhausted)
+  ├─ 8. afterProviderExecute (only on success)
+  │    └─ Returns: modified response
+  ├─ 9. afterDimensionExecute
+  └─ 10. transformSections
+       └─ Returns: modified sections array (or original to skip transform)
+
+  SECTION DIMENSION (e.g., 'sentiment'):
+  For each section (3x):
+    ├─ 3. shouldSkipSectionDimension (per section)
+    │    └─ Returns: false, true, or cached result
+    ├─ 4. transformDependencies (per section)
+    │    └─ Returns: modified dependencies
+    ├─ 5. beforeDimensionExecute (per section)
+    ├─ 6. beforeProviderExecute (per section)
+    │    └─ Returns: modified request
+    ├─ 7. [API CALL TO PROVIDER]
+    │    └─ On error:
+    │        ├─ handleRetry (per retry attempt)
+    │        ├─ handleProviderFallback (when switching providers)
+    │        └─ handleDimensionFailure (after all retries exhausted)
+    ├─ 8. afterProviderExecute (only on success, per section)
+    │    └─ Returns: modified response
+    └─ 9. afterDimensionExecute (per section)
 
 11. finalizeResults (once)
+    └─ Returns: modified results map
+
 12. afterProcessComplete (once)
+    └─ Returns: modified ProcessResult (optional)
 ```
 
-**On error:**
-- `handleRetry` - Per retry attempt
-- `handleProviderFallback` - When switching providers
-- `handleDimensionFailure` - After all retries exhausted
-- `handleProcessFailure` - If entire process fails
+**On process-level error:**
+```
+handleProcessFailure
+└─ Returns: ProcessResult (partial results) or void (re-throw error)
+```
+
+**Key Points:**
+- Hooks run in the order shown above
+- Section dimensions execute hooks once per section
+- Error handling hooks (`handleRetry`, `handleProviderFallback`, `handleDimensionFailure`) only fire on errors
+- `transformSections` only fires for global dimensions
+- Provider lifecycle hooks run inside the retry loop
+- All hooks support async/await
