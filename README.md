@@ -1,18 +1,18 @@
-# @dagengine/dag-engine
+# @dagengine/dagengine
 
 <div align="center">
 
 **AI-powered DAG engine with advanced graph analytics and workflow visualization**
 
-[![CI/CD Pipeline](https://github.com/dagengine/dagengine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/dagengine/dag-engine/actions)
-[![codecov](https://codecov.io/gh/dagengine/dagengine/branch/main/graph/badge.svg)](https://codecov.io/gh/dagengine/dag-engine)
+[![CI/CD Pipeline](https://github.com/dagengine/dagengine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/dagengine/dagengine/actions)
+[![codecov](https://codecov.io/gh/dagengine/dagengine/branch/main/graph/badge.svg)](https://codecov.io/gh/dagengine/dagengine)
 [![npm version](https://badge.fury.io/js/%40ivan629%2Fdag-ai.svg)](https://badge.fury.io/js/%40ivan629%2Fdag-ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
-[![Snyk](https://snyk.io/test/github/dagengine/dagengine/badge.svg)](https://snyk.io/test/github/dagengine/dag-engine)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dagengine/dagengine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dagengine/dag-engine)
+[![Snyk](https://snyk.io/test/github/dagengine/dagengine/badge.svg)](https://snyk.io/test/github/dagengine/dagengine)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dagengine/dagengine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dagengine/dagengine)
 
 [Documentation](https://github.com/dagengine/dagengine#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
 
@@ -22,7 +22,7 @@
 
 ## Overview
 
-**dag-engine** is an enterprise-grade TypeScript library for building complex AI workflows using Directed Acyclic Graphs (DAGs). Process data through multiple AI providers with automatic dependency management, fallback handling, and advanced optimization.
+**dagengine** is an enterprise-grade TypeScript library for building complex AI workflows using Directed Acyclic Graphs (DAGs). Process data through multiple AI providers with automatic dependency management, fallback handling, and advanced optimization.
 
 ### Key Features
 

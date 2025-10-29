@@ -28,7 +28,7 @@ cp .env.example .env
 npm run 04
 ```
 
-**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/fundamentals/04-transformations)**
+**[📁 View example on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/fundamentals/04-transformations)**
 
 ## What You'll See
 

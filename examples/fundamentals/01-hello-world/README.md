@@ -27,7 +27,7 @@ cp .env.example .env
 npm run guide:01
 ```
 
-**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/fundamentals/01-hello-world)**
+**[📁 View example on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/fundamentals/01-hello-world)**
 
 ## What You'll See
 ```

@@ -27,7 +27,7 @@ cp .env.example .env
 npm run 01-portkey
 ```
 
-**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/advanced/01-portkey)**
+**[📁 View example on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/advanced/01-portkey)**
 
 ## What You'll See
 

@@ -28,7 +28,7 @@ cp .env.example .env
 npm run 05
 ```
 
-**[📁 View example on GitHub](https://github.com/dagengine/dag-engine/tree/main/examples/fundamentals/05-skip-logic)**
+**[📁 View example on GitHub](https://github.com/dagengine/dagengine/tree/main/examples/fundamentals/05-skip-logic)**
 
 ## What You'll See
 
