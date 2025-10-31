@@ -18,7 +18,7 @@ describe("DagEngine - Async Performance", () => {
 		registry.register(mockProvider);
 	});
 
-	test.skipIf(isWindows)("async createPrompt should not slow down", async () => {
+	test("async createPrompt should not slow down", async () => {
 		class FastAsyncPlugin extends Plugin {
 			constructor() {
 				super("fast-async", "Fast Async", "Test");
@@ -92,7 +92,7 @@ describe("DagEngine - Async Performance", () => {
 		console.log(`Parallel: ${duration}ms (sequential would be ~150ms)`);
 	});
 
-	test("should handle many async operations efficiently", async () => {
+	test.skipIf(isWindows)("should handle many async operations efficiently", async () => {
 		class ManyAsyncPlugin extends Plugin {
 			constructor() {
 				super("many", "Many", "Test");
