@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, test, expect, beforeEach, vi, afterEach, type MockInstance } from "vitest";
 import { DagEngine } from "../../src/core/engine";
 import { Plugin, type PromptContext, type ProviderSelection } from "../../src/plugin";
 import { ProviderAdapter } from "../../src/providers/adapter";
@@ -89,7 +89,7 @@ class MockProvider {
 describe("Skip Logic Hooks", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+	let consoleErrorSpy: MockInstance;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();

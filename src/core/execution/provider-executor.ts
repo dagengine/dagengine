@@ -87,7 +87,6 @@ export class ProviderExecutor {
 		isGlobal: boolean,
 		dimensionContext: DimensionContext | SectionDimensionContext,
 	): Promise<DimensionResult> {
-
 		if (sections?.length === 0) {
 			throw new Error(`No sections provided for dimension "${dimension}"`);
 		}
@@ -110,7 +109,7 @@ export class ProviderExecutor {
 		};
 
 		// Add section-specific context
-		if (!isGlobal && 'sectionIndex' in dimensionContext) {
+		if (!isGlobal && "sectionIndex" in dimensionContext) {
 			context.sectionIndex = dimensionContext.sectionIndex;
 			context.totalSections = dimensionContext.sections.length;
 		}
@@ -119,7 +118,7 @@ export class ProviderExecutor {
 		const providerConfig = await this.selectProvider(
 			dimension,
 			sections,
-			context
+			context,
 		);
 
 		// Build list of providers to try (primary + fallbacks)
@@ -174,10 +173,10 @@ export class ProviderExecutor {
 			isGlobal: boolean;
 			sectionIndex?: number;
 			totalSections?: number;
-		}
+		},
 	): Promise<ProviderConfig> {
 		return await Promise.resolve(
-			this.plugin.selectProvider(dimension, sections, context)
+			this.plugin.selectProvider(dimension, sections, context),
 		);
 	}
 

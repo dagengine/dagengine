@@ -343,10 +343,10 @@ export class PhaseExecutor {
 		// Apply finalized results if hook modified them
 		const finalSectionResults = finalizedResults
 			? applyFinalizedResults(
-				sectionResults,
-				finalizedResults,
-				state.globalResults,
-			)
+					sectionResults,
+					finalizedResults,
+					state.globalResults,
+				)
 			: sectionResults;
 
 		// ✅ FIX: Merge original and transformed section results for cost calculation
@@ -355,8 +355,8 @@ export class PhaseExecutor {
 		if (this.originalSectionResults) {
 			// Combine original results (before transformation) with current results (after transformation)
 			costsInput = [
-				...this.originalSectionResults,  // Has: filter_spam, sentiment, categorize
-				...finalSectionResults            // Has: analyze_category
+				...this.originalSectionResults, // Has: filter_spam, sentiment, categorize
+				...finalSectionResults, // Has: analyze_category
 			];
 		}
 

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, test, expect, beforeEach, vi, afterEach, type MockInstance } from "vitest";
 import { DagEngine } from "../../src/core/engine/dag-engine.ts";
 import { Plugin } from "../../src/plugin.ts";
 import { ProviderAdapter } from "../../src/providers/adapter.ts";
@@ -477,7 +477,7 @@ describe("shouldSkipGlobalDimension - Advanced Scenarios", () => {
 describe("shouldSkipGlobalDimension - Error Handling", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+	let consoleErrorSpy: MockInstance;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();

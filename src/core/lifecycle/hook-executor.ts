@@ -22,7 +22,6 @@ import type {
 	FallbackContext,
 	FallbackResponse,
 	FailureContext,
-	BeforeProcessStartContext,
 } from "../../types.js";
 import type { SkipCheckResult } from "../shared/types.js";
 
