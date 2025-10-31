@@ -24,7 +24,7 @@ import type {
 	ProviderRequest,
 	ProviderResponse,
 	SkipWithResult,
-	BeforeProcessStartContext
+	BeforeProcessStartContext,
 } from "./types";
 
 export interface PluginConfig {
@@ -109,9 +109,9 @@ export abstract class Plugin {
 		sections?: SectionData[],
 		context?: {
 			isGlobal: boolean;
-			sectionIndex?: number;  // Only present for section dimensions
-			totalSections?: number;  // Total number of sections in process
-		}
+			sectionIndex?: number; // Only present for section dimensions
+			totalSections?: number; // Total number of sections in process
+		},
 	): ProviderSelection | Promise<ProviderSelection>;
 
 	/**

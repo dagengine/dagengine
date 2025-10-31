@@ -39,7 +39,7 @@ export function createProcessState(
 		startTime: Date.now(),
 		metadata,
 		sections: [...sections],
-		originalSections: [...sections],  // ADD THIS LINE
+		originalSections: [...sections], // ADD THIS LINE
 		globalResults: {},
 		sectionResultsMap: new Map(sections.map((_, idx) => [idx, {}])),
 	};

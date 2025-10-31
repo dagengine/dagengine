@@ -60,7 +60,7 @@ export abstract class BaseProvider {
 	}
 
 	protected getGatewayConfig(): string | undefined {
-		return  typeof this.config.gatewayConfig === 'object'
+		return typeof this.config.gatewayConfig === "object"
 			? JSON.stringify(this.config.gatewayConfig)
 			: this.config.gatewayConfig;
 	}

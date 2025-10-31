@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, test, expect, beforeEach, vi, afterEach, type MockInstance } from "vitest";
 import { DagEngine } from "../../src/core/engine";
 import { TestPlugin } from "../helpers/test-plugin";
 import { ProviderAdapter } from "../../src/providers/adapter";
@@ -49,7 +49,7 @@ class MockProvider extends BaseProvider {
 describe("Provider Execution Hooks", () => {
 	let mockProvider: MockProvider;
 	let adapter: ProviderAdapter;
-	let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+	let consoleWarnSpy: MockInstance;
 
 	beforeEach(() => {
 		mockProvider = new MockProvider();
