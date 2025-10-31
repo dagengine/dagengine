@@ -37,9 +37,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Clean npm cache
-        run: npm cache clean --force
-
       - name: Install dependencies
         run: |
           npm ci || {
@@ -126,14 +123,12 @@ jobs:
             --max-retries 2
             --exclude 'node_modules'
             --exclude 'file://'
-            --exclude-mail
             --exclude 'localhost'
             --exclude '127.0.0.1'
             'README.md'
             'CONTRIBUTING.md'
             'SECURITY.md'
             'docs/*.md'
-            '!docs/node_modules'
           fail: true
 
       - name: Spell check documentation
