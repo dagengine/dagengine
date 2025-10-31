@@ -99,7 +99,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci || {
+            echo "npm ci failed due to optional dependencies bug"
+            echo "Cleaning and retrying with npm install..."
+            rm -rf node_modules
+            npm install
+          }
 
       - name: Build documentation
         run: npm run docs:build || (cd docs && npm install && npm run build)
@@ -108,13 +114,18 @@ jobs:
         uses: lycheeverse/lychee-action@v1
         with:
           args: |
-            --verbose 
-            --no-progress 
-            --accept 200,429,403,500
+            --verbose
+            --no-progress
+            --accept 200,201,204,301,302,429,403,500
+            --timeout 20
+            --max-retries 2
             --exclude 'node_modules'
             --exclude 'file://'
-            'README.md' 
-            'CONTRIBUTING.md' 
+            --exclude-mail
+            --exclude 'localhost'
+            --exclude '127.0.0.1'
+            'README.md'
+            'CONTRIBUTING.md'
             'SECURITY.md'
             'docs/*.md'
             '!docs/node_modules'

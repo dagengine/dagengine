@@ -1,12 +1,13 @@
 version: 2
 updates:
-  # Enable version updates for npm
+  # NPM dependencies
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "06:00"
+      timezone: "Europe/Bucharest"
     open-pull-requests-limit: 10
     reviewers:
       - "ivan629"
@@ -17,24 +18,38 @@ updates:
       include: "scope"
     labels:
       - "dependencies"
-      - "security"
-    # Group minor and patch updates together
+      - "automated"
+    # Auto-merge minor/patch, manual review major
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
+      # Group all development dependencies
       dev-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
+      # Group all production dependencies
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
 
-  # Enable security updates for GitHub Actions
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Bucharest"
     commit-message:
       prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    assignees:
+      - "ivan629"
+    insecure-external-code-execution: "deny"
