@@ -106,7 +106,6 @@ jobs:
             --timeout 20
             --max-retries 2
             --exclude 'node_modules'
-            --exclude 'file://'
             --exclude 'localhost'
             --exclude '127.0.0.1'
             'README.md'
