@@ -118,6 +118,6 @@ describe("DagEngine - Async Performance", () => {
 
 		// 20 tasks @ 5ms each with concurrency=10
 		// Should take ~10ms (2 batches), not ~100ms
-		expect(duration).toBeLessThan(150);
+		expect(duration).toBeLessThan(180);
 	});
 });

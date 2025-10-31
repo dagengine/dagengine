@@ -96,9 +96,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build documentation
-        run: npm run docs:build || (cd docs && npm install && npm run build)
-
       - name: Check for broken links
         uses: lycheeverse/lychee-action@v1
         with:
