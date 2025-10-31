@@ -38,12 +38,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci || {
-            echo "npm ci failed, cleaning and retrying..."
-            rm -rf node_modules
-            npm install
-          }
+        run: npm install
 
       - name: Verify lockfile is up to date
         run: |
@@ -101,13 +96,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci || {
-            echo "npm ci failed due to optional dependencies bug"
-            echo "Cleaning and retrying with npm install..."
-            rm -rf node_modules
-            npm install
-          }
+        run: npm install
 
       - name: Build documentation
         run: npm run docs:build || (cd docs && npm install && npm run build)
@@ -167,12 +156,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci || {
-            echo "npm ci failed, cleaning and retrying..."
-            rm -rf node_modules
-            npm install
-          }
+        run: npm install
 
       - name: Build package
         run: npm run build
@@ -292,12 +276,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci || {
-            echo "npm ci failed, cleaning and retrying..."
-            rm -rf node_modules
-            npm install
-          }
+        run: npm install
 
       - name: Run tests
         run: npm test
@@ -324,12 +303,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci || {
-            echo "npm ci failed, cleaning and retrying..."
-            rm -rf node_modules
-            npm install
-          }
+        run: npm install
 
       - name: Run npm audit (production dependencies)
         run: npm audit --audit-level=moderate --production
