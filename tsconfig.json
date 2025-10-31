@@ -7,30 +7,12 @@
 
 		"typeRoots": ["./node_modules/@types", "./src/types"],
 
-		// Emit settings (for build)
-		"declaration": true,
-		"declarationMap": true,
-		"sourceMap": true,
-		"outDir": "./dist",  // 👈 ADD: Specify output directory
-
 		// Strict type checking
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"noImplicitReturns": true,
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true,
-		"noPropertyAccessFromIndexSignature": false,
-		"allowUnusedLabels": false,
-		"allowUnreachableCode": false,
-
-		// Additional safety
-		"noImplicitAny": true,
-		"strictNullChecks": true,
-		"strictFunctionTypes": true,
-		"strictBindCallApply": true,
-		"strictPropertyInitialization": true,
-		"noImplicitThis": true,
-		"alwaysStrict": true,
 
 		// Module resolution
 		"esModuleInterop": true,
@@ -38,7 +20,6 @@
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 
-		// Other
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"allowImportingTsExtensions": true,

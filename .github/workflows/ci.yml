@@ -253,7 +253,7 @@ jobs:
       fail-fast: false
       matrix:
         # Test all Node LTS versions on Linux
-        node-version: [18, 20, 22]
+        node-version: [20, 22, 24]
         os: [ubuntu-latest]
         include:
           # Also test latest Node on Windows and macOS
@@ -296,7 +296,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
@@ -490,22 +489,3 @@ jobs:
               console.log(status, key + ':', val || 'not set');
             });
           "
-
-  # ==================== PERFORMANCE MONITORING ====================
-  performance:
-    name: Performance Benchmarks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
