@@ -102,7 +102,7 @@ jobs:
         run: npm run docs:build || (cd docs && npm install && npm run build)
 
       - name: Check for broken links
-        uses: lycheeverse/lychee-action@v1
+        uses: lycheeverse/lychee-action@v2.0.2
         with:
           args: --verbose --no-progress --accept 200,429 'docs/**/*.md' 'README.md' 'CONTRIBUTING.md' 'SECURITY.md'
           fail: true
