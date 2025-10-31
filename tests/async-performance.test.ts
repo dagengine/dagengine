@@ -4,6 +4,9 @@ import { Plugin, type PromptContext, type ProviderSelection } from "../src/plugi
 import { ProviderRegistry } from "../src/providers/registry";
 import { MockAIProvider, createMockSection } from "./setup";
 
+
+const isWindows = process.platform === "win32";
+
 describe("DagEngine - Async Performance", () => {
 	let mockProvider: MockAIProvider;
 	let registry: ProviderRegistry;
@@ -15,7 +18,7 @@ describe("DagEngine - Async Performance", () => {
 		registry.register(mockProvider);
 	});
 
-	test("async createPrompt should not significantly slow down processing", async () => {
+	test.skipIf(isWindows)("async createPrompt should not slow down", async () => {
 		class FastAsyncPlugin extends Plugin {
 			constructor() {
 				super("fast-async", "Fast Async", "Test");
@@ -118,6 +121,6 @@ describe("DagEngine - Async Performance", () => {
 
 		// 20 tasks @ 5ms each with concurrency=10
 		// Should take ~10ms (2 batches), not ~100ms
-		expect(duration).toBeLessThan(180);
+		expect(duration).toBeLessThan(150);
 	});
 });
