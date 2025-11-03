@@ -6,11 +6,11 @@
  * Run: npm run 08
  */
 
-import { config } from "dotenv";
 import { resolve } from "path";
+import { config } from "dotenv";
 import {
-	DagEngine,
 	Plugin,
+	DagEngine,
 	type PromptContext,
 	type ProviderSelection,
 	type SectionData,
