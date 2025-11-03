@@ -1,0 +1,151 @@
+{
+	"name": "@dagengine/core",
+	"version": "0.0.0-development",
+	"description": "Type-safe DAG execution engine for AI workflows",
+	"keywords": [
+		"dag",
+		"workflow",
+		"orchestration",
+		"typescript",
+		"ai",
+		"llm",
+		"ai-agents",
+		"agent-framework",
+		"pipeline",
+		"task-scheduler",
+		"execution-engine",
+		"graph-execution",
+		"directed-acyclic-graph",
+		"dependency-graph",
+		"async-workflow",
+		"ai-orchestration",
+		"llm-workflow",
+		"chain-of-thought",
+		"agentic-ai",
+		"workflow-automation"
+	],
+	"homepage": "https://dagengine.ai",
+	"bugs": {
+		"url": "https://github.com/dagengine/dagengine/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dagengine/dagengine.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Ivan Holovach igolovac629@gmail.com>",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsc --project tsconfig.build.json",
+		"build:watch": "tsc --watch",
+		"dev": "tsup --watch --onSuccess \"node dist/index.js\"",
+		"format": "prettier --write \"src/**/*.{ts,json,md}\"",
+		"format:check": "prettier --check \"src/**/*.{ts,json,md}\"",
+		"format:all": "npm run format",
+		"lint": "eslint src",
+		"lint:fix": "eslint src --fix",
+		"fix": "npm run format && npm run lint:fix",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"test:portkey": "tsx tests/test-portkey.ts",
+		"type-check": "tsc --noEmit",
+		"size": "size-limit",
+		"deps:check": "npm outdated",
+		"deps:update": "npm-check-updates -u && npm install",
+		"security:audit": "npm audit --audit-level=high --production",
+		"security:audit-dev": "npm audit --audit-level=moderate || echo 'Dev vulnerabilities found - acceptable'",
+		"security:licenses": "license-checker --summary",
+		"security:check": "npm run security:audit && npm run security:licenses",
+		"validate": "npm run type-check && npm run lint && npm run format:check && npm run security:check && npm run test",
+		"prepare": "husky",
+		"prepublishOnly": "npm run validate && npm run build",
+		"commit": "cz",
+		"docs:prepare": "node scripts/copy-example-docs.js"
+	},
+	"dependencies": {
+		"@dagrejs/graphlib": "^2.2.4",
+		"@types/cli-progress": "^3.11.6",
+		"cli-progress": "^3.12.0",
+		"dotenv": "^17.2.3",
+		"inngest": "^3.44.3",
+		"jsonrepair": "^3.13.1",
+		"p-queue": "^9.0.0",
+		"p-retry": "^7.1.0"
+	},
+	"devDependencies": {
+		"@commitlint/cli": "^20.1.0",
+		"@commitlint/config-conventional": "^20.0.0",
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/commit-analyzer": "^13.0.1",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^12.0.1",
+		"@semantic-release/npm": "^13.1.1",
+		"@semantic-release/release-notes-generator": "^14.1.0",
+		"@size-limit/preset-small-lib": "^11.2.0",
+		"@types/node": "^24.8.1",
+		"@typescript-eslint/eslint-plugin": "^8.46.1",
+		"@typescript-eslint/parser": "^8.41.0",
+		"@vitest/coverage-v8": "^4.0.6",
+		"@vitest/ui": "^4.0.6",
+		"commitizen": "^4.3.1",
+		"cz-conventional-changelog": "^3.3.0",
+		"eslint": "^9.38.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-import-resolver-typescript": "^4.4.4",
+		"eslint-plugin-import": "^2.32.0",
+		"globals": "^16.4.0",
+		"husky": "^9.1.7",
+		"license-checker": "^25.0.1",
+		"lint-staged": "^16.1.5",
+		"npm-check-updates": "^19.1.1",
+		"prettier": "^3.6.2",
+		"rimraf": "^6.0.1",
+		"semantic-release": "^25.0.1",
+		"size-limit": "^11.2.0",
+		"tsx": "^4.20.6",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.12",
+		"vitest": "^4.0.6"
+	},
+	"optionalDependencies": {
+		"@rollup/rollup-linux-x64-gnu": "4.6.1"
+	},
+	"engines": {
+		"node": ">=18.0.0",
+		"npm": ">=9.0.0"
+	},
+	"lint-staged": {
+		"*.ts": [
+			"prettier --write",
+			"eslint --fix"
+		],
+		"*.{json,md}": [
+			"prettier --write"
+		]
+	},
+	"private": false,
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-conventional-changelog"
+		}
+	}
+}

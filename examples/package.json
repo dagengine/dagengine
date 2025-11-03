@@ -1,0 +1,22 @@
+{
+  "scripts": {
+    "00-quickstart": "tsx fundamentals/00-quickstart/index.ts",
+    "01-hello-world": "tsx fundamentals/01-hello-world/01-hello-world.ts",
+    "02-dependencies": "tsx fundamentals/02-dependencies/02-dependencies.ts",
+    "03-section-vs-global": "tsx fundamentals/03-section-vs-global/03-section-vs-global.ts",
+    "04-transformations": "tsx fundamentals/04-transformations/04-transformations.ts",
+    "05-skip-logic": "tsx fundamentals/05-skip-logic/05-skip-logic.ts",
+    "06-providers": "tsx fundamentals/06-providers/06-providers.ts",
+    "07-async-hooks": "tsx fundamentals/07-async-hooks/07-async-hooks.ts",
+    "08-error-handling": "tsx fundamentals/08-error-handling/08-error-handling.ts",
+    "01-portkey": "tsx advanced/01-portkey/01-portkey.ts"
+  },
+  "dependencies": {
+    "@dagengine/core": "^1.1.0",
+    "boxen": "^8.0.1",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "gradient-string": "^3.0.0",
+    "ora": "^9.0.0"
+  }
+}

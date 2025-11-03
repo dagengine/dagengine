@@ -1,0 +1,82 @@
+# Codecov Configuration for dagengine
+# https://docs.codecov.com/docs/codecov-yaml
+
+# Coverage targets
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    # Overall project coverage
+    project:
+      default:
+        target: 80%              # Maintain 80% overall coverage
+        threshold: 2%            # Allow 2% drop before failing
+        if_ci_failed: error      # Fail if CI fails
+        informational: false     # This check will fail CI if not met
+        only_pulls: false        # Check on all commits
+
+    # Coverage on changed lines in PRs
+    patch:
+      default:
+        target: 70%              # Lower threshold for patches
+        threshold: 10%           # More lenient for new code
+        if_ci_failed: error
+        informational: true      # Don't fail CI, just inform
+        only_pulls: true         # Only check PRs
+        # Ignore files that can't be tested
+        paths:
+          - "!.github/**"        # Ignore GitHub workflows
+          - "!**/*.md"           # Ignore documentation
+          - "!**/*.yml"          # Ignore YAML configs
+          - "!**/*.yaml"         # Ignore YAML configs
+          - "!**/*.json"         # Ignore JSON configs
+
+# Comment configuration for PRs
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default              # Update existing comment
+  require_changes: false         # Always comment
+  require_base: no               # Don't require base coverage
+  require_head: yes              # Require head coverage
+
+# Ignore these paths completely from coverage reports
+ignore:
+  - "node_modules"
+  - "dist"
+  - "build"
+  - "lib"
+  - "coverage"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.d.ts"
+  - "**/types.ts"                # Type definition files
+  - "**/index.ts"                # Re-export files (shown as 0% in your report)
+  - "**/*.config.ts"
+  - "**/*.config.js"
+  - ".github"
+  - "docs"
+
+# GitHub Checks configuration
+github_checks:
+  annotations: true              # Show inline annotations on PRs
+
+# File-level settings
+fixes:
+  - "src/::"                     # Path adjustments if needed
+
+# Flags for different parts of the codebase (optional, for future use)
+flags:
+  core:
+    paths:
+      - src/core/
+    carryforward: true
+  providers:
+    paths:
+      - src/providers/
+    carryforward: true
+  orchestration:
+    paths:
+      - src/orchestration/
+    carryforward: true
