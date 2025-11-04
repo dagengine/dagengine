@@ -46,7 +46,7 @@ export default defineConfig({
 
 		nav: [
 			{
-				text: "v1.0.0",
+				text: "v0.1.0",
 				items: [
 					{ text: "Changelog", link: "https://github.com/dagengine/dagengine/releases" },
 					{ text: "GitHub", link: "https://github.com/dagengine/dagengine" },
