@@ -585,8 +585,6 @@ Built with:
 - [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) - DAG algorithms
 - [p-queue](https://github.com/sindresorhus/p-queue) - Concurrency control
 
-Inspired by workflow orchestration patterns from Apache Airflow, Prefect, and Temporal.
-
 ---
 
 ## 📊 Project Stats
