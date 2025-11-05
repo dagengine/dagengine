@@ -222,7 +222,7 @@ selectProvider(dimension: string): ProviderSelection {
 		return {
 			provider: "anthropic",
 			options: {
-				model: "claude-3-5-sonnet-20241022", // Powerful, expensive
+				model: "claude-3-7-sonnet-20250219", // Powerful, expensive
 				temperature: 0.3                      // More creative
 			}
 		};
@@ -245,7 +245,7 @@ selectProvider(dimension: string): ProviderSelection {
 ```typescript
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+	"claude-3-7-sonnet-20250219": { inputPer1M: 3.00, outputPer1M: 15.00 }
 };
 
 const engine = new DagEngine({
@@ -391,7 +391,7 @@ selectProvider(dimension: string): ProviderSelection {
 	if (dimension === "deep_reasoning") {
 		return {
 			provider: "anthropic",
-			options: { model: "claude-3-5-sonnet-20241022" }
+			options: { model: "claude-3-7-sonnet-20250219" }
 		};
 	}
 }
@@ -453,7 +453,7 @@ const engine = new DagEngine({
 	pricing: {
 		models: {
 			'claude-3-5-haiku-20241022': { inputPer1M: 0.80, outputPer1M: 4.00 },
-			'claude-3-5-sonnet-20241022': { inputPer1M: 3.00, outputPer1M: 15.00 }
+			'claude-3-7-sonnet-20250219': { inputPer1M: 3.00, outputPer1M: 15.00 }
 		}
 	}
 });

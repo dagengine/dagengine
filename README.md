@@ -2,168 +2,251 @@
 
 <div align="center">
 
-**Type-Safe DAG Engine for AI Workflows**
+**🚀 Type-Safe DAG Engine for AI Workflows**
+
+*Build production-ready AI pipelines with intelligent dependency management and zero complexity*
 
 [![CI/CD Pipeline](https://github.com/dagengine/dagengine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/dagengine/dagengine/actions)
 [![codecov](https://codecov.io/gh/dagengine/dagengine/branch/main/graph/badge.svg)](https://codecov.io/gh/dagengine/dagengine)
 [![npm version](https://badge.fury.io/js/%40dagengine%2Fcore.svg)](https://badge.fury.io/js/%40dagengine%2Fcore)
+[![npm downloads](https://img.shields.io/npm/dm/@dagengine/core.svg?style=flat)](https://www.npmjs.com/package/@dagengine/core)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)](https://nodejs.org/)
 [![Snyk](https://snyk.io/test/github/dagengine/dagengine/badge.svg)](https://snyk.io/test/github/dagengine/dagengine)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dagengine/dagengine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dagengine/dagengine)
 
-[Documentation](https://github.com/dagengine/dagengine#readme) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference)
+[🚀 Quick Start](#quick-start) •
+[📖 Documentation](https://www.dagengine.ai/guide/quick-start.html)
+[💬 Discussions](https://github.com/dagengine/dagengine/discussions) •
+[🐛 Issues](https://github.com/dagengine/dagengine/issues) •
+[📦 Examples](examples/)
 
 </div>
 
 ---
 
-## Overview
+## 🎯 What is dagengine?
 
-A TypeScript library for building AI workflows using directed acyclic graphs (DAGs). Define task dependencies and the engine handles execution order, parallelization, and data flow between AI providers.
+**dagengine** is a production-grade TypeScript library for building AI workflows using directed acyclic graphs (DAGs). Define task dependencies and the engine handles execution order, parallelization, cost optimization, and error recovery automatically.
+```typescript
+// Define what depends on what
+defineDependencies() {
+  return { 
+    summary: ['sentiment', 'topics']  // summary waits for both
+  };
+}
 
-### Core Features
+// Engine automatically:
+// 1. Runs sentiment + topics in parallel
+// 2. Waits for both to complete
+// 3. Runs summary with their results
+```
 
-- **Automatic Dependency Resolution** - Define task dependencies, engine calculates execution order
-- **Parallel Execution** - Independent tasks run concurrently with configurable limits
-- **Multi-Provider Support** - Anthropic Claude, OpenAI, Google Gemini with unified interface
-- **Cost Tracking** - Token usage and cost reporting per dimension and provider
-- **Lifecycle Hooks** - 18 hooks for caching, logging, validation, and external integrations
-- **Type Safety** - Full TypeScript support with comprehensive type definitions
-- **Error Handling** - Automatic retry with exponential backoff and provider fallback
+**Stop writing orchestration logic. Start building AI workflows.**
 
 ---
 
-## Installation
+## ⚡ Key Features
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🎯 Zero Infrastructure
+Define task dependencies once. Engine handles execution order, parallelization, and coordination automatically. No queues, workers, or complex orchestration code.
+
+### 💰 Cost Optimized
+Skip low-value processing with conditional execution. Route tasks to optimal models. Track costs per dimension in real-time with automatic token counting.
+
+### 🔄 Production Ready
+Automatic retry with exponential backoff. Provider fallback chains. Graceful error recovery with partial results. Battle-tested reliability.
+
+</td>
+<td width="50%" valign="top">
+
+### 🌍 Multi-Provider Support
+Use Anthropic Claude, OpenAI GPT, Google Gemini with a unified interface. Switch providers per dimension. Mix models in one workflow.
+
+### 🪝 18 Lifecycle Hooks
+Full async/await support. Integrate databases, caches, APIs at every processing stage. Transform data mid-pipeline. Complete control when you need it.
+
+### 📊 Real-Time Tracking
+Built-in cost and token tracking per dimension and provider. Progress callbacks with throughput metrics. Detailed breakdowns in results.
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+### Installation
 ```bash
 npm install @dagengine/core
 ```
 
-**Requirements:**
-- Node.js >= 18.0.0
-- TypeScript >= 5.0 (recommended)
-
----
-
-## Why dagengine?
-
-**Problem:** Building AI workflows is complex
-- Manual orchestration of multiple AI calls
-- Complex dependency management
-- Cost optimization challenges
-- Error handling and retries
-
-**Solution:** dagengine handles the complexity
-- ✅ Define dependencies, engine handles execution order
-- ✅ Automatic parallelization of independent tasks
-- ✅ Built-in cost tracking and optimization
-- ✅ Smart retry and fallback strategies
-- ✅ Type-safe with full TypeScript support
-
-**vs. Alternatives:**
-- **LangChain** - More opinionated, heavier framework
-- **LlamaIndex** - Focused on RAG, less general-purpose
-- **dagengine** - Lightweight, flexible, DAG-native
-
-## Quick Start
+**Requirements:** Node.js ≥ 18.0.0, TypeScript ≥ 5.0 (recommended)
 
 ### Basic Example
-
 ```typescript
 import { DagEngine, Plugin } from '@dagengine/core';
 
-// Define your workflow
-class SentimentPlugin extends Plugin {
+// 1. Define your workflow
+class SentimentAnalyzer extends Plugin {
   constructor() {
     super('sentiment', 'Sentiment Analyzer', 'Analyzes text sentiment');
-    this.dimensions = ['sentiment'];
+    this.dimensions = ['sentiment'];  // What to analyze
   }
 
+  // 2. Build the prompt
   createPrompt(context) {
     return `Analyze sentiment: "${context.sections[0].content}"
-    Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+    
+    Return JSON:
+    {
+      "sentiment": "positive" | "negative" | "neutral",
+      "score": 0.0 to 1.0,
+      "reasoning": "brief explanation"
+    }`;
   }
 
+  // 3. Choose AI provider
   selectProvider() {
-    return { 
+    return {
       provider: 'anthropic',
-      options: { model: 'claude-sonnet-4-5-20250929' }
+      options: {
+        model: 'claude-sonnet-4-5-20250929',
+        temperature: 0.1
+      }
     };
   }
 }
 
-// Create engine
+// 4. Create engine
 const engine = new DagEngine({
-  plugin: new SentimentPlugin(),
+  plugin: new SentimentAnalyzer(),
   providers: {
     anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
   }
 });
 
-// Process data
+// 5. Process data
 const result = await engine.process([
-  { content: 'Great product!', metadata: {} }
+  { content: 'This product is amazing!', metadata: { id: 1 } },
+  { content: 'Terrible experience.', metadata: { id: 2 } }
 ]);
 
-console.log(result.sections[0].results.sentiment.data);
-// { sentiment: 'positive', score: 0.95 }
+// 6. Access results
+result.sections.forEach(section => {
+  const sentiment = section.results.sentiment.data;
+  console.log(`${sentiment.sentiment} (${sentiment.score})`);
+  // Output: positive (0.95)
+  // Output: negative (0.15)
+});
 ```
 
-### Multi-Step Workflow with Dependencies
-
-```typescript
-class ReviewAnalyzer extends Plugin {
-  constructor() {
-    super('review-analyzer', 'Review Analyzer', 'Analyzes reviews');
-    this.dimensions = ['sentiment', 'topics', 'summary'];
-  }
-
-  defineDependencies() {
-    return {
-      summary: ['sentiment', 'topics']  // summary waits for both
-    };
-  }
-
-  createPrompt(context) {
-    if (context.dimension === 'sentiment') {
-      return `Analyze sentiment: "${context.sections[0].content}"`;
-    }
-    
-    if (context.dimension === 'topics') {
-      return `Extract topics: "${context.sections[0].content}"`;
-    }
-    
-    if (context.dimension === 'summary') {
-      const sentiment = context.dependencies.sentiment.data;
-      const topics = context.dependencies.topics.data;
-      
-      return `Create summary. Sentiment: ${sentiment.sentiment}, Topics: ${topics.topics.join(', ')}`;
-    }
-  }
-
-  selectProvider() {
-    return {
-      provider: 'anthropic',
-      options: { model: 'claude-sonnet-4-5-20250929' }
-    };
-  }
-}
-```
-
-**Execution:**
-- `sentiment` and `topics` run in parallel
-- `summary` waits for both to complete
-- All sections processed concurrently
+**That's it!** The engine automatically processes all sections in parallel.
 
 ---
 
-## Examples
+## 🎯 Why Choose dagengine?
+
+### **vs. LangChain**
+
+| Feature | dagengine | LangChain |
+|---------|-----------|-----------|
+| **Learning Curve** | ⚡ Minimal (2 required methods) | 📚 Steep (many abstractions) |
+| **Dependencies** | 🎯 Explicit DAG-based | 🔀 Chains & LCEL |
+| **Parallelization** | ✅ Automatic | ⚠️ Manual coordination |
+| **Cost Tracking** | ✅ Built-in per dimension | ❌ Manual implementation |
+| **Type Safety** | ✅ Full TypeScript support | ⚠️ Partial typing |
+| **Focus** | 🎯 DAG execution engine | 🏗️ Full-stack framework |
+
+### **vs. LlamaIndex**
+
+- **dagengine**: General-purpose AI workflows with any structure
+- **LlamaIndex**: RAG-focused, document-centric pipelines with pre-built indices
+
+### **vs. Custom Solutions**
+
+**❌ Without dagengine:**
+- Write orchestration logic from scratch
+- Implement retry mechanisms
+- Build cost tracking
+- Handle provider failures
+- Manage concurrency manually
+
+**✅ With dagengine:**
+- Define dependencies → Get automatic parallelization
+- Built-in retry with exponential backoff
+- Automatic cost tracking per dimension
+- Provider fallback chains included
+- Concurrency managed automatically
+
+---
+
+## 💡 Core Concepts
+
+### 1️⃣ Sections (Your Data)
+```typescript
+const sections = [
+  { 
+    content: 'Customer review text here',
+    metadata: { id: 1, userId: 123, productId: 'SKU-789' }
+  }
+];
+```
+
+**Sections** are the pieces of data you analyze (reviews, emails, documents, etc.).
+
+### 2️⃣ Dimensions (Your Tasks)
+```typescript
+this.dimensions = ['sentiment', 'topics', 'summary'];
+```
+
+**Dimensions** are the analyses you run. Each dimension processes all sections.
+
+### 3️⃣ Dependencies (Execution Order)
+```typescript
+defineDependencies() {
+  return {
+    sentiment: [],           // No dependencies (runs first)
+    topics: [],              // No dependencies (runs first)
+    summary: ['sentiment', 'topics']  // Waits for both
+  };
+}
+```
+
+**Dependencies** control execution order. Engine automatically parallelizes independent tasks.
+```
+Execution Plan:
+sentiment ──┐
+            ├─→ Both run in parallel → summary
+topics ─────┘
+```
+
+### 4️⃣ Two Dimension Types
+
+**Section Dimensions** (default) - Analyze each item independently:
+```typescript
+this.dimensions = ['sentiment'];  // Runs once per section
+```
+
+**Global Dimensions** - Analyze all items together:
+```typescript
+this.dimensions = [
+  { name: 'categorize', scope: 'global' }  // Runs once for all sections
+];
+```
+
+---
+
+## 🎨 Advanced Features
 
 ### Cost Optimization with Skip Logic
-
 ```typescript
 class SmartAnalyzer extends Plugin {
   dimensions = ['quality_check', 'deep_analysis'];
@@ -175,7 +258,7 @@ class SmartAnalyzer extends Plugin {
   shouldSkipSectionDimension(context) {
     if (context.dimension === 'deep_analysis') {
       const quality = context.dependencies.quality_check.data;
-      return quality.score < 0.7;  // Skip low-quality content
+      return quality.score < 0.7;  // Skip low-quality items
     }
     return false;
   }
@@ -190,14 +273,15 @@ class SmartAnalyzer extends Plugin {
     
     return {
       provider: 'anthropic',
-      options: { model: 'claude-3-5-sonnet-20241022' }  // Powerful model
+      options: { model: 'claude-3-7-sonnet-20250219' }  // Expensive model
     };
   }
 }
 ```
 
-### Provider Fallback
+**Result:** 100 items → 40 high-quality → 60% fewer expensive API calls
 
+### Provider Fallback Chains
 ```typescript
 selectProvider() {
   return {
@@ -211,8 +295,9 @@ selectProvider() {
 }
 ```
 
-### Data Transformation
+**Automatic failover:** If Anthropic fails, automatically tries OpenAI, then Gemini.
 
+### Data Transformations
 ```typescript
 class CategoryAnalyzer extends Plugin {
   dimensions = [
@@ -227,7 +312,7 @@ class CategoryAnalyzer extends Plugin {
       
       // Transform: 100 sections → 5 category groups
       return categories.map(cat => ({
-        content: cat.items.join('\n'),
+        content: cat.items.join('\n\n'),
         metadata: { category: cat.name, count: cat.items.length }
       }));
     }
@@ -235,44 +320,110 @@ class CategoryAnalyzer extends Plugin {
 }
 ```
 
-**[→ View More Examples](docs/examples/)**
+**Result:** Analyze 5 category groups instead of 100 individual items (95% fewer API calls)
+
+### Async Integration Hooks
+```typescript
+class DatabaseIntegratedPlugin extends Plugin {
+  async beforeProcessStart(context) {
+    // Initialize connections
+    await this.db.connect();
+  }
+
+  async shouldSkipSectionDimension(context) {
+    // Check cache before processing
+    const cached = await this.redis.get(`${context.section.id}:${context.dimension}`);
+    if (cached) return true;
+    return false;
+  }
+
+  async afterDimensionExecute(context) {
+    // Save results to database
+    await this.db.results.insert({
+      section: context.section.id,
+      dimension: context.dimension,
+      data: context.result.data
+    });
+  }
+
+  async afterProcessComplete(context) {
+    // Cleanup
+    await this.db.disconnect();
+  }
+}
+```
+
+**All 18 hooks support async/await** for seamless external service integration.
 
 ---
 
-## Configuration
+## 📚 Documentation
 
-### Engine Configuration
+### 🎓 Learn
 
+- **[Quick Start](docs/guide/quick-start.md)** - Get started in 5 minutes
+- **[Core Concepts](docs/guide/core-concepts.md)** - Understand sections, dimensions, dependencies
+- **[Examples](examples/)** - Complete working examples
+
+### 📖 Fundamentals (Step-by-Step Guides)
+
+1. [Hello World](docs/examples/fundamentals/01-hello-world.md) - Your first plugin
+2. [Dependencies](docs/examples/fundamentals/02-dependencies.md) - Control execution order
+3. [Section vs Global](docs/examples/fundamentals/03-section-vs-global.md) - Two dimension types
+4. [Transformations](docs/examples/fundamentals/04-transformations.md) - Reshape data mid-pipeline
+5. [Skip Logic](docs/examples/fundamentals/05-skip-logic.md) - Optimize costs
+6. [Multi-Provider](docs/examples/fundamentals/06-providers.md) - Route to different models
+7. [Async Hooks](docs/examples/fundamentals/07-async-hooks.md) - Database integration
+8. [Error Handling](docs/examples/fundamentals/08-error-handling.md) - Graceful recovery
+
+### 🚀 Advanced
+
+- [Portkey Gateway](docs/examples/advanced/01-portkey.md) - Rate limit protection & caching
+- [Production Quickstart](docs/examples/fundamentals/00-quickstart.md) - Complete production workflow
+
+### 🔧 API Reference
+
+- [Configuration](docs/api/configuration.md) - Engine config options
+- [Lifecycle Hooks](docs/api/hooks.md) - All 18 hooks explained
+- [Type Definitions](docs/api/types.md) - TypeScript interfaces
+
+---
+
+## 🌐 Supported Providers
+
+| Provider | Description | Best For | Docs |
+|----------|-------------|----------|------|
+| **Anthropic** | Claude models for reasoning and analysis | Complex tasks, deep reasoning | [Docs](https://docs.anthropic.com/) |
+| **OpenAI** | GPT models for general-purpose tasks | Fast responses, versatile workflows | [Docs](https://platform.openai.com/docs) |
+| **Google Gemini** | Gemini models for high-speed processing | High throughput, multimodal inputs | [Docs](https://ai.google.dev/docs) |
+
+**Mix and match:** Route different dimensions to different providers in the same workflow.
 ```typescript
-const engine = new DagEngine({
-  plugin: new MyPlugin(),
-  
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
-    openai: { apiKey: process.env.OPENAI_API_KEY }
-  },
-  
-  execution: {
-    concurrency: 10,        // Max parallel operations
-    maxRetries: 3,          // Retry attempts
-    retryDelay: 1000,       // Base delay (ms)
-    timeout: 60000,         // Default timeout
-    continueOnError: true   // Process partial results
-  },
-  
-  pricing: {
-    models: {
-      'claude-sonnet-4-5-20250929': {
-        inputPer1M: 3.00,
-        outputPer1M: 15.00
-      }
-    }
+selectProvider(dimension) {
+  if (dimension === 'quality_check') {
+    return { provider: 'gemini', options: { model: 'gemini-1.5-flash' } };
   }
-});
+  if (dimension === 'deep_analysis') {
+    return { provider: 'anthropic', options: { model: 'claude-sonnet-4-5-20250929' } };
+  }
+}
 ```
 
-### Portkey Gateway Integration
+---
 
+## 🔄 Gateway Support
+
+dagengine supports **Portkey** as a unified AI gateway for advanced features:
+
+| Feature | Direct Mode | With Portkey Gateway |
+|---------|-------------|---------------------|
+| **Automatic Retries** | ✅ Engine-level | ✅ Gateway-level with smart backoff |
+| **Rate Limit Handling** | ⚠️ Manual | ✅ Automatic with queuing |
+| **Semantic Caching** | ❌ | ✅ Reduce costs and latency |
+| **Load Balancing** | ❌ | ✅ Multi-provider routing |
+| **Observability** | ✅ Basic | ✅ Full dashboard & analytics |
+
+**Enable Portkey:**
 ```typescript
 providers: {
   anthropic: {
@@ -284,76 +435,51 @@ providers: {
 }
 ```
 
-**Portkey Features:**
-- Automatic retry on rate limits
-- Load balancing across providers
-- Semantic caching
-- Unified observability
+**Learn more:** [Portkey Integration Guide](docs/examples/advanced/01-portkey.md) • [Portkey Docs](https://docs.portkey.ai/)
 
 ---
 
-## API Reference
-
-### Plugin API
-
+## 📦 Configuration
 ```typescript
-class MyPlugin extends Plugin {
-  // Required
-  constructor() {
-    super(id, name, description);
-    this.dimensions = ['dim1', 'dim2'];
-  }
-
-  createPrompt(context): string { }
-  selectProvider(dimension): ProviderSelection { }
-
-  // Optional
-  defineDependencies(): Record<string, string[]> { }
-  shouldSkipSectionDimension(context): boolean { }
-  shouldSkipGlobalDimension(context): boolean { }
-  transformSections(context): SectionData[] { }
+const engine = new DagEngine({
+  plugin: new MyPlugin(),
   
-  // Lifecycle hooks (16+ available)
-  async beforeProcessStart(context): Promise<void> { }
-  async afterProcessComplete(context): Promise<void> { }
-  async beforeDimensionExecute(context): Promise<void> { }
-  async afterDimensionExecute(context): Promise<void> { }
-  // ... see documentation for complete list
-}
+  // Provider credentials
+  providers: {
+    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+    openai: { apiKey: process.env.OPENAI_API_KEY }
+  },
+  
+  // Execution settings
+  execution: {
+    concurrency: 10,        // Max parallel operations
+    maxRetries: 3,          // Retry attempts
+    retryDelay: 1000,       // Base delay (ms)
+    timeout: 60000,         // Default timeout
+    continueOnError: true   // Process partial results
+  },
+  
+  // Cost tracking
+  pricing: {
+    models: {
+      'claude-sonnet-4-5-20250929': {
+        inputPer1M: 3.00,
+        outputPer1M: 15.00
+      }
+    }
+  },
+  
+  // Progress display
+  progressDisplay: {
+    display: 'bar',         // 'simple' | 'bar' | 'multi' | 'none'
+    showDimensions: true
+  }
+});
 ```
-
-### Process Result
-
-```typescript
-interface ProcessResult {
-  sections: Array<{
-    section: SectionData;
-    results: Record<string, DimensionResult>;
-  }>;
-  globalResults: Record<string, DimensionResult>;
-  transformedSections: SectionData[];
-  costs?: CostSummary;
-  metadata?: unknown;
-}
-```
-
-**[→ Complete API Documentation](docs/api/)**
 
 ---
 
-## Supported Providers
-
-| Provider | Models | Documentation |
-|----------|--------|---------------|
-| **Anthropic** | Claude Opus 4, Sonnet 4.5, Haiku 3.5 | [Docs](https://docs.anthropic.com/) |
-| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4 Turbo | [Docs](https://platform.openai.com/docs) |
-| **Google Gemini** | Gemini 1.5 Pro, Gemini 1.5 Flash | [Docs](https://ai.google.dev/docs) |
-| **Portkey** | All providers via unified gateway | [Docs](https://docs.portkey.ai/) |
-
----
-
-## Development
-
+## 🛠️ Development
 ```bash
 # Clone repository
 git clone https://github.com/dagengine/dagengine.git
@@ -373,47 +499,121 @@ npm run type-check
 
 # Build
 npm run build
+
+# Run all checks
+npm run validate
 ```
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Here's how to get started:
 
-**Development Workflow:**
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/name`
-3. Make changes and add tests
-4. Run validation: `npm run validate`
-5. Commit: `git commit -m "feat: description"`
-6. Push and open a Pull Request
+### Quick Start
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork**: `git clone https://github.com/YOUR_USERNAME/dagengine.git`
+3. **Create a branch**: `git checkout -b feature/your-feature-name`
+4. **Make your changes** and add tests
+5. **Run validation**: `npm run validate`
+6. **Commit**: `git commit -m "feat: add your feature"`
+7. **Push**: `git push origin feature/your-feature-name`
+8. **Open a Pull Request** on GitHub
+
+### Development Guidelines
+
+- **Code Style**: We use Prettier and ESLint (run `npm run format && npm run lint:fix`)
+- **Tests**: Add tests for new features (run `npm test`)
+- **Types**: Maintain full TypeScript coverage (run `npm run type-check`)
+- **Commits**: Use [Conventional Commits](https://www.conventionalcommits.org/) format
+
+### Need Help?
+
+- 💬 [Start a discussion](https://github.com/dagengine/dagengine/discussions)
+- 🐛 [Report a bug](https://github.com/dagengine/dagengine/issues/new)
+- 💡 [Request a feature](https://github.com/dagengine/dagengine/issues/new)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
-## Security
+## 💬 Community & Support
 
-See [SECURITY.md](SECURITY.md) for our security policy and how to report vulnerabilities.
+### 🙋 Need Help?
+
+1. **📖 Check the docs** - [Documentation](https://www.dagengine.ai/guide/quick-start.html)
+2. **🔍 Search existing Q&A** - [GitHub Discussions](https://github.com/dagengine/dagengine/discussions/categories/q-a)
+3. **💬 Ask a question** - [Start a discussion](https://github.com/dagengine/dagengine/discussions/new?category=q-a)
+4. **🐛 Found a bug?** - [Open an issue](https://github.com/dagengine/dagengine/issues/new)
+
+### 🚀 Stay Updated
+
+- 📦 [npm Package](https://www.npmjs.com/package/@dagengine/core) - Install and updates
+- ⭐ [GitHub](https://github.com/dagengine/dagengine) - Star for updates
+- 💬 [Discussions](https://github.com/dagengine/dagengine/discussions) - Feature requests, Q&A
+
+---
+
+## 🔒 Security
+
+We take security seriously. See [SECURITY.md](SECURITY.md) for our security policy.
+
+### Reporting Vulnerabilities
 
 **Never report security issues through public GitHub issues.**
 
+Use GitHub's [private vulnerability reporting](https://github.com/dagengine/dagengine/security/advisories/new) or email the maintainers directly.
 ---
 
-## License
+## 📜 License
 
-Apache License 2.0 © dagengine contributors
+**Apache License 2.0** © dagengine contributors
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full license text.
 
 ### Patent Protection
 
-This license includes an explicit patent grant, protecting users from patent litigation.
+This license includes an explicit patent grant (Section 3), protecting users from patent litigation. See [LICENSE](./LICENSE#L180) for details.
 
 ---
 
-## Links
+## 🙏 Acknowledgments
 
-- 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/dagengine/dagengine/issues)
-- 💬 [Discussions](https://github.com/dagengine/dagengine/discussions)
-- 📦 [npm Package](https://www.npmjs.com/package/@dagengine/core)
+Built with:
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) - DAG algorithms
+- [p-queue](https://github.com/sindresorhus/p-queue) - Concurrency control
+
+---
+
+## 📊 Project Stats
+
+![GitHub stars](https://img.shields.io/github/stars/dagengine/dagengine?style=social)
+![npm downloads](https://img.shields.io/npm/dm/@dagengine/core?style=flat)
+![GitHub issues](https://img.shields.io/github/issues/dagengine/dagengine)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/dagengine/dagengine)
+![GitHub contributors](https://img.shields.io/github/contributors/dagengine/dagengine)
+
+---
+
+## 🔗 Links
+
+- 🌐 **Homepage**: [dagengine.ai](https://dagengine.ai)
+- 📖 **Documentation**: [https://www.dagengine.ai/guide/quick-start.html](https://www.dagengine.ai/guide/quick-start.html)
+- 📦 **npm Package**: [@dagengine/core](https://www.npmjs.com/package/@dagengine/core)
+- 💬 **Community**: [GitHub Discussions](https://github.com/dagengine/dagengine/discussions)
+- 🐛 **Issue Tracker**: [GitHub Issues](https://github.com/dagengine/dagengine/issues)
+- 🔐 **Security**: [Security Policy](SECURITY.md)
+
+---
+
+<div align="center">
+
+**⭐ Star us on GitHub — it helps the project grow!**
+
+Made with ❤️ by the dagengine community
+
+[⬆ Back to Top](#dagenginecore)
+
+</div>

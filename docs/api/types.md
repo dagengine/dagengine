@@ -808,7 +808,7 @@ interface ProviderMetadata {
 ```typescript
 const metadata: ProviderMetadata = {
   provider: 'anthropic',
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-3-7-sonnet-20250219',
   tokens: {
     inputTokens: 1000,
     outputTokens: 500,
@@ -875,7 +875,7 @@ selectProvider(dimension: string): ProviderSelection {
   return {
     provider: 'anthropic',
     options: {
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-7-sonnet-20250219',
       temperature: 0.3,
       max_tokens: 2000
     },
@@ -943,7 +943,7 @@ const costs: CostSummary = {
     analyze_category: {
       cost: 0.0087,
       tokens: { inputTokens: 621, outputTokens: 459, totalTokens: 1080 },
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-7-sonnet-20250219',
       provider: 'anthropic'
     }
   },
@@ -951,7 +951,7 @@ const costs: CostSummary = {
     anthropic: {
       cost: 0.0282,
       tokens: { inputTokens: 7873, outputTokens: 4416, totalTokens: 12289 },
-      models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022']
+      models: ['claude-3-5-haiku-20241022', 'claude-3-7-sonnet-20250219']
     }
   },
   currency: 'USD'
@@ -1017,7 +1017,7 @@ const pricing: PricingConfig = {
       inputPer1M: 0.80, 
       outputPer1M: 4.00 
     },
-    'claude-3-5-sonnet-20241022': { 
+    'claude-3-7-sonnet-20250219': { 
       inputPer1M: 3.00, 
       outputPer1M: 15.00 
     },
@@ -1409,7 +1409,7 @@ return {
 return {
   modifiedRequest: {
     ...context.request,
-    options: { model: 'claude-3-5-sonnet-20241022' }
+    options: { model: 'claude-3-7-sonnet-20250219' }
   }
 };
 ```

@@ -300,7 +300,7 @@ const engine = new DagEngine({
         inputPer1M: 0.80,   // $0.80 per 1M input tokens
         outputPer1M: 4.00   // $4.00 per 1M output tokens
       },
-      'claude-3-5-sonnet-20241022': {
+      'claude-3-7-sonnet-20250219': {
         inputPer1M: 3.00,
         outputPer1M: 15.00
       },
@@ -585,7 +585,7 @@ When specified here, it takes precedence over top-level `pricing` configuration.
   execution: {
     pricing: {
       models: {
-        'claude-3-5-sonnet-20241022': {
+        'claude-3-7-sonnet-20250219': {
           inputPer1M: 3.00,
                   outputPer1M: 15.00
         }
@@ -621,7 +621,7 @@ const pricing: PricingConfig = {
       inputPer1M: 0.80,
       outputPer1M: 4.00
     },
-    'claude-3-5-sonnet-20241022': {
+    'claude-3-7-sonnet-20250219': {
       inputPer1M: 3.00,
       outputPer1M: 15.00
     },
@@ -850,7 +850,7 @@ const engine = new DagEngine({
         inputPer1M: 0.80,
         outputPer1M: 4.00
       },
-      'claude-3-5-sonnet-20241022': {
+      'claude-3-7-sonnet-20250219': {
         inputPer1M: 3.00,
         outputPer1M: 15.00
       },

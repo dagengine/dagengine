@@ -2,7 +2,7 @@
  * Display utilities for review analysis results
  */
 
-import type { ProcessResult } from "../../src/index.js";
+import type { ProcessResult } from "@dagengine/core";
 import {
 	isCategoryAnalysis,
 	isExecutiveSummary,

@@ -20,7 +20,7 @@ import {
 	type SectionData,
 	type DimensionResult,
 	type ProcessResult,
-} from "@dagengine/core";
+} from "../../../src";
 
 import { printConcept } from './utils.js'
 
@@ -63,7 +63,7 @@ interface SectionResult {
 
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.8, outputPer1M: 4.0 },
-	"claude-3-5-sonnet-20241022": { inputPer1M: 3.0, outputPer1M: 15.0 },
+	"claude-3-7-sonnet-20250219": { inputPer1M: 3.0, outputPer1M: 15.0 },
 };
 
 // ============================================================================
@@ -166,7 +166,7 @@ Return JSON:
 		return {
 			provider: "anthropic",
 			options: {
-				model: "claude-3-5-sonnet-20241022",
+				model: "claude-3-7-sonnet-20250219",
 				temperature: 0.3,
 			},
 		};
