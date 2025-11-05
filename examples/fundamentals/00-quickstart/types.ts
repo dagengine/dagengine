@@ -2,7 +2,7 @@
  * Type definitions for review analysis
  */
 
-import type { DimensionResult } from "../../src/index.js";
+import type { DimensionResult } from "@dagengine/core";
 
 // ============================================================================
 // RESULT TYPES

@@ -12,7 +12,7 @@
     "01-portkey": "tsx advanced/01-portkey/01-portkey.ts"
   },
   "dependencies": {
-    "@dagengine/core": "^1.1.0",
+    "@dagengine/core": "^0.1.0",
     "boxen": "^8.0.1",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

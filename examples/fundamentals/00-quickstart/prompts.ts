@@ -5,7 +5,7 @@
  * and include clear JSON formatting instructions.
  */
 
-import type { SectionData } from "../../src/index.js";
+import type { SectionData } from "@dagengine/core";
 import type {
 	GlobalGroupingDependencies,
 	GlobalSummaryDependencies,

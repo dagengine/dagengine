@@ -3,7 +3,7 @@
  */
 export const MODELS = {
 	FAST: "claude-3-5-haiku-20241022", // Fast & cheap for filtering
-	SMART: "claude-3-5-sonnet-20241022", // Powerful for analysis
+	SMART: "claude-3-7-sonnet-20250219", // Powerful for analysis
 } as const;
 
 /**
