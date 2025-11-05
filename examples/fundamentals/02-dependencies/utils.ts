@@ -13,12 +13,12 @@ export function printExecutionPlan(): void {
 
 	console.log("Execution timeline:");
 	console.log("  ─┬─ sentiment (section 1) ────┐");
-	console.log("   ├─ topics (section 1) ────────┤");
-	console.log("   ├─ sentiment (section 2) ──────┤  Parallel phase");
-	console.log("   └─ topics (section 2) ─────────┤");
-	console.log("                                  │");
-	console.log("   ┌─ summary (section 1) ────────┤  Sequential phase");
-	console.log("   └─ summary (section 2) ─────────┘\n");
+	console.log("   ├─ topics (section 1) ───────┤");
+	console.log("   ├─ sentiment (section 2) ────┤  Parallel phase");
+	console.log("   └─ topics (section 2) ───────┤");
+	console.log("                                │");
+	console.log("   ┌─ summary (section 1) ──────┤  Sequential phase");
+	console.log("   └─ summary (section 2) ──────┘\n");
 
 	console.log("Benefit: Independent tasks run in parallel\n");
 	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");

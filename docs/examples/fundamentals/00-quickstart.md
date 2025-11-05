@@ -263,7 +263,7 @@ selectProvider(dimension: string): ProviderSelection {
 	return {
 		provider: "anthropic",
 		options: {
-			model: "claude-3-5-sonnet-20241022",  // $3.00/$15.00 per 1M tokens
+			model: "claude-3-7-sonnet-20250219",  // $3.00/$15.00 per 1M tokens
 			temperature: 0.3
 		}
 	};
@@ -276,7 +276,7 @@ selectProvider(dimension: string): ProviderSelection {
 ```typescript
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+	"claude-3-7-sonnet-20250219": { inputPer1M: 3.00, outputPer1M: 15.00 }
 };
 
 const engine = new DagEngine({
@@ -540,7 +540,7 @@ const engine = new DagEngine({
 		pricing: {
 			models: {
 				'claude-3-5-haiku-20241022': { inputPer1M: 0.80, outputPer1M: 4.00 },
-				'claude-3-5-sonnet-20241022': { inputPer1M: 3.00, outputPer1M: 15.00 }
+				'claude-3-7-sonnet-20250219': { inputPer1M: 3.00, outputPer1M: 15.00 }
 			}
 		}
 	}

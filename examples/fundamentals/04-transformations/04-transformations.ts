@@ -70,7 +70,7 @@ interface SectionResult {
 
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+	"claude-3-7-sonnet-20250219": { inputPer1M: 3.00, outputPer1M: 15.00 }
 };
 
 // ============================================================================
@@ -114,7 +114,6 @@ class ReviewGroupAnalyzer extends Plugin {
 	 * Use case: Transform 10 reviews → 3 category groups
 	 */
 	transformSections(ctx: TransformSectionsContext): SectionData[] {
-		console.log('CTX', JSON.stringify(ctx, null, 4));
 		if (ctx.dimension !== "group_by_category") {
 			return ctx.currentSections;
 		}
@@ -228,7 +227,7 @@ Return JSON:
 		return {
 			provider: "anthropic",
 			options: {
-				model: "claude-3-5-sonnet-20241022",
+				model: "claude-3-7-sonnet-20250219",
 				temperature: 0.3,
 			},
 		};

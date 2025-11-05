@@ -50,7 +50,7 @@ interface DeepAnalysisResult {
 
 const PRICING = {
 	"claude-3-5-haiku-20241022": { inputPer1M: 0.80, outputPer1M: 4.00 },
-	"claude-3-5-sonnet-20241022": { inputPer1M: 3.00, outputPer1M: 15.00 }
+	"claude-3-7-sonnet-20250219": { inputPer1M: 3.00, outputPer1M: 15.00 }
 };
 
 const QUALITY_THRESHOLD = 0.6;
@@ -145,7 +145,7 @@ Return JSON:
 		return {
 			provider: "anthropic",
 			options: {
-				model: "claude-3-5-sonnet-20241022",
+				model: "claude-3-7-sonnet-20250219",
 				temperature: 0.3
 			}
 		};

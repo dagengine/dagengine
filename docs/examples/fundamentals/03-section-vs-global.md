@@ -344,7 +344,7 @@ selectProvider(dimension: string) {
     // Global: Powerful model (one call, complex synthesis)
     return {
       provider: 'anthropic',
-      options: { model: 'claude-3-5-sonnet-20241022' }
+      options: { model: 'claude-3-7-sonnet-20250219' }
     };
   }
 }
