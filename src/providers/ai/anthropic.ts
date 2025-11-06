@@ -124,7 +124,7 @@ export class AnthropicProvider extends BaseProvider {
 
 		if (!response.ok) {
 			const error = await response.text();
-			console.log('Anthropic API error', error)
+			console.log('Anthropic API error', error);
 
 			throw new Error(`Anthropic API error (${response.status}): ${error}`);
 		}
