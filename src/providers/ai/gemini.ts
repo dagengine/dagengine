@@ -151,7 +151,7 @@ export class GeminiProvider extends BaseProvider {
 			);
 		}
 
-		const model = (request.options?.model as string) || "gemini-1.5-pro";
+		const model = (request.options?.model as string) || "gemini-2.5-pro";
 		const temperature = (request.options?.temperature as number) ?? 0.1;
 		const max_tokens = (request.options?.max_tokens as number) || 4096;
 		const topP = request.options?.topP as number | undefined;

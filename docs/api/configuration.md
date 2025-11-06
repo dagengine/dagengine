@@ -645,7 +645,7 @@ const pricing: PricingConfig = {
     },
 
     // Google Gemini Models
-    'gemini-1.5-pro': {
+    'gemini-2.5-pro': {
       inputPer1M: 1.25,
       outputPer1M: 5.00
     },

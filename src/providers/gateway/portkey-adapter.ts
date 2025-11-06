@@ -107,7 +107,7 @@ export class PortkeyAdapter {
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
-			model: this.getModelOption(request.options?.model, "gemini-1.5-pro"),
+			model: this.getModelOption(request.options?.model, "gemini-2.5-pro"),
 			messages,
 			max_tokens: this.getMaxTokens(request.options?.max_tokens, 4096),
 			temperature: this.getTemperature(request.options?.temperature),

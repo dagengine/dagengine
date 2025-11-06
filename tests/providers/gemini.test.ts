@@ -264,7 +264,7 @@ describe("GeminiProvider", () => {
 		expect(capturedBody.generationConfig?.topK).toBe(40);
 	});
 
-	test("should use default model gemini-1.5-pro", async () => {
+	test("should use default model gemini-2.5-pro", async () => {
 		let capturedUrl = "";
 
 		const mockResponse = {
@@ -290,7 +290,7 @@ describe("GeminiProvider", () => {
 			options: {},
 		});
 
-		expect(capturedUrl).toContain("gemini-1.5-pro");
+		expect(capturedUrl).toContain("gemini-2.5-pro");
 	});
 
 	test("should handle empty candidates", async () => {

@@ -41,53 +41,58 @@ features:
 
 ## Build AI Workflows in Minutes
 ````typescript
-import { DagEngine, Plugin } from '@dagengine/dag-engine';
+import { DagEngine, Plugin, type PromptContext, type ProviderSelection } from '@dagengine/core';
 
 class ReviewAnalyzer extends Plugin {
-  constructor() {
-    super('review-analyzer', 'Review Analyzer', 'Analyze feedback');
-    this.dimensions = ['sentiment', 'topics', 'summary'];
-  }
+	constructor() {
+		super('analyzer', 'Review Analyzer', 'Analyzes reviews');
+		this.dimensions = ['sentiment', 'topics', 'summary'];
+	}
 
-  defineDependencies() {
-    return { summary: ['sentiment', 'topics'] };
-  }
+	defineDependencies(): Record<string, string[]> {
+		return { summary: ['sentiment', 'topics'] };
+	}
 
-  createPrompt(ctx) {
-    if (ctx.dimension === 'sentiment') {
-      return `Analyze sentiment: "${ctx.sections[0].content}"
-      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
-    }
-    
-    if (ctx.dimension === 'topics') {
-      return `Extract topics: "${ctx.sections[0].content}"
-      Return JSON: {"topics": ["topic1", "topic2"]}`;
-    }
-    
-    if (ctx.dimension === 'summary') {
-      const { sentiment } = ctx.dependencies.sentiment.data;
-      const { topics } = ctx.dependencies.topics.data;
-      return `Create ${sentiment} summary covering: ${topics.join(', ')}`;
-    }
-  }
+	createPrompt(context: PromptContext): string {
+		const content = context.sections[0]?.content || '';
 
-  selectProvider() {
-    return {
-      provider: 'anthropic',
-      options: { model: 'claude-3-5-haiku-20241022' }
-    };
-  }
+		if (context.dimension === 'sentiment') {
+			return `Analyze sentiment: "${content}"
+Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+		}
+
+		if (context.dimension === 'topics') {
+			return `Extract topics: "${content}"
+Return JSON: {"topics": ["topic1", "topic2"]}`;
+		}
+
+		if (context.dimension === 'summary') {
+			const sentiment = context.dependencies.sentiment?.data as { sentiment: string };
+			const topics = context.dependencies.topics?.data as { topics: string[] };
+			return `Create ${sentiment.sentiment} summary covering: ${topics.topics.join(', ')}`;
+		}
+
+		throw new Error(`Unknown dimension: ${ctx.dimension}`);
+	}
+
+	selectProvider(): ProviderSelection {
+		return {
+			provider: 'anthropic',
+			options: { model: 'claude-3-5-haiku-20241022' }
+		};
+	}
 }
 
 const engine = new DagEngine({
-  plugin: new ReviewAnalyzer(),
-  providers: { anthropic: { apiKey: process.env.ANTHROPIC_API_KEY } }
+	plugin: new ReviewAnalyzer(),
+	providers: { anthropic: { apiKey: process.env.ANTHROPIC_API_KEY } }
 });
 
-const result = await engine.process([
-  { content: 'Amazing product! Highly recommended.', metadata: {} },
-  { content: 'Disappointed with quality.', metadata: {} }
-]);
+engine.process([
+	{ content: 'Amazing product! Highly recommended.', metadata: {} }
+]).then((result) => {
+	console.log(JSON.stringify(result.sections[0]?.results, null, 2));
+});
 ````
 
 <div class="tip custom-block" style="padding-top: 8px">
@@ -104,8 +109,10 @@ const result = await engine.process([
 
 Define task dependencies once. The engine automatically calculates optimal execution order and runs independent tasks in parallel.
 ````typescript
-defineDependencies() {
+defineDependencies(): Record<string, string[]> {
   return {
+    sentiment: [],           // No dependencies
+    topics: [],              // No dependencies  
     summary: ['sentiment', 'topics']  // Waits for both
   };
 }
@@ -115,11 +122,25 @@ defineDependencies() {
 
 Skip expensive analysis on low-value content. Route different tasks to different models based on complexity.
 ````typescript
-shouldSkipSectionDimension(ctx) {
+shouldSkipSectionDimension(ctx: SkipContext): boolean {
   if (ctx.dimension === 'deep_analysis') {
-    const quality = ctx.dependencies.quality_check.data;
-    return quality.score < 0.7;
+    const quality = ctx.dependencies.quality_check?.data as { score: number };
+    return quality.score < 0.7;  // Skip low-quality items
   }
+  return false;
+}
+
+selectProvider(dimension: string): ProviderSelection {
+  if (dimension === 'quality_check') {
+    return {
+      provider: 'anthropic',
+      options: { model: 'claude-3-5-haiku-20241022' }  // Cheap model
+    };
+  }
+  return {
+    provider: 'anthropic',
+    options: { model: 'claude-3-7-sonnet-20250219' }  // Expensive model
+  };
 }
 ````
 
@@ -129,11 +150,13 @@ shouldSkipSectionDimension(ctx) {
 
 Reshape sections between processing stages. Group 100 reviews into 5 categories, then analyze categories.
 ````typescript
-transformSections(ctx) {
-  if (ctx.dimension === 'group') {
-    return ctx.result.data.categories.map(cat => ({
-      content: cat.items.join('\n'),
-      metadata: { category: cat.name }
+transformSections(ctx: TransformContext): Section[] | undefined {
+  if (ctx.dimension === 'analyze_categories') {
+    const categories = ctx.result.data as { categories: Array<{ name: string; items: string[] }> };
+    
+    return categories.categories.map(cat => ({
+      content: cat.items.join('\n\n'),
+      metadata: { category: cat.name, count: cat.items.length }
     }));
   }
 }
@@ -143,14 +166,15 @@ transformSections(ctx) {
 
 ### Error Recovery
 
-Automatic retry with exponential backoff. Provider fallback when failures occur. Graceful degradation with fallback results.
+Automatic retry with exponential backoff. Provider fallback when failures occur. Graceful degradation with partial results.
 ````typescript
-selectProvider(dimension) {
+selectProvider(dimension: string): ProviderSelection {
   return {
     provider: 'anthropic',
     options: { model: 'claude-3-7-sonnet-20250219' },
     fallbacks: [
-      { provider: 'openai', options: { model: 'gpt-4o' } }
+      { provider: 'openai', options: { model: 'gpt-4o' } },
+      { provider: 'gemini', options: { model: 'gemini-2.5-pro' } }
     ]
   };
 }
