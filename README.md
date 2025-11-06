@@ -324,7 +324,7 @@ selectProvider() {
     options: { model: 'claude-sonnet-4-5-20250929' },
     fallbacks: [
       { provider: 'openai', options: { model: 'gpt-4o' } },
-      { provider: 'gemini', options: { model: 'gemini-1.5-pro' } }
+      { provider: 'gemini', options: { model: 'gemini-2.5-pro' } }
     ]
   };
 }

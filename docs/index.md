@@ -174,7 +174,7 @@ selectProvider(dimension: string): ProviderSelection {
     options: { model: 'claude-3-7-sonnet-20250219' },
     fallbacks: [
       { provider: 'openai', options: { model: 'gpt-4o' } },
-      { provider: 'gemini', options: { model: 'gemini-1.5-pro' } }
+      { provider: 'gemini', options: { model: 'gemini-2.5-pro' } }
     ]
   };
 }
@@ -232,7 +232,7 @@ Built-in Portkey integration for advanced retry policies, load balancing, and se
 
 - [Quick Start](/guide/quick-start)
 - [Core Concepts](/guide/core-concepts)
-- [Hello World](/docs/examples/fundamentals/01-hello-world)
+- [Hello World](/examples/fundamentals/01-hello-world)
 
 </div>
 
