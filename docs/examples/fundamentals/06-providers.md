@@ -377,7 +377,7 @@ selectProvider(dimension: string): ProviderSelection {
 	if (dimension === "image_analysis") {
 		return {
 			provider: "gemini",
-			options: { model: "gemini-1.5-pro" }
+			options: { model: "gemini-2.5-pro" }
 		};
 	}
 

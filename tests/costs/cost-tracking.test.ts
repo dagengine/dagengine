@@ -11,7 +11,7 @@ const TEST_PRICING: PricingConfig = {
 		"claude-opus-4": { inputPer1M: 15.0, outputPer1M: 75.0 },
 		"gpt-4o": { inputPer1M: 2.5, outputPer1M: 10.0 },
 		"gpt-4o-mini": { inputPer1M: 0.15, outputPer1M: 0.6 },
-		"gemini-1.5-pro": { inputPer1M: 1.25, outputPer1M: 5.0 },
+		"gemini-2.5-pro": { inputPer1M: 1.25, outputPer1M: 5.0 },
 		"gemini-2.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
 	},
 	lastUpdated: "2025-01-01",

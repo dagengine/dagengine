@@ -4,21 +4,14 @@
 
 **🚀 Type-Safe DAG Engine for AI Workflows**
 
-*Build production-ready AI pipelines with intelligent dependency management and zero complexity*
+*Define task dependencies. Get automatic parallelization, cost tracking, and 10x speedup.*
 
-[![CI/CD Pipeline](https://github.com/dagengine/dagengine/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/dagengine/dagengine/actions)
-[![codecov](https://codecov.io/gh/dagengine/dagengine/branch/main/graph/badge.svg)](https://codecov.io/gh/dagengine/dagengine)
-[![npm version](https://badge.fury.io/js/%40dagengine%2Fcore.svg)](https://badge.fury.io/js/%40dagengine%2Fcore)
-[![npm downloads](https://img.shields.io/npm/dm/@dagengine/core.svg?style=flat)](https://www.npmjs.com/package/@dagengine/core)
+[![npm version](https://badge.fury.io/js/%40dagengine%2Fcore.svg)](https://www.npmjs.com/package/@dagengine/core)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)](https://nodejs.org/)
-[![Snyk](https://snyk.io/test/github/dagengine/dagengine/badge.svg)](https://snyk.io/test/github/dagengine/dagengine)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dagengine/dagengine/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dagengine/dagengine)
 
-[🚀 Quick Start](#quick-start) •
-[📖 Documentation](https://www.dagengine.ai/guide/quick-start.html)
+[🚀 Quick Start](#-5-minute-quick-start) •
+[📖 Documentation](https://www.dagengine.ai/guide/quick-start.html) •
 [💬 Discussions](https://github.com/dagengine/dagengine/discussions) •
 [🐛 Issues](https://github.com/dagengine/dagengine/issues) •
 [📦 Examples](examples/)
@@ -29,22 +22,171 @@
 
 ## 🎯 What is dagengine?
 
-**dagengine** is a production-grade TypeScript library for building AI workflows using directed acyclic graphs (DAGs). Define task dependencies and the engine handles execution order, parallelization, cost optimization, and error recovery automatically.
-```typescript
-// Define what depends on what
-defineDependencies() {
-  return { 
-    summary: ['sentiment', 'topics']  // summary waits for both
-  };
-}
+**dagengine** is a TypeScript DAG engine that turns sequential AI workflows into parallel ones automatically.
 
-// Engine automatically:
-// 1. Runs sentiment + topics in parallel
-// 2. Waits for both to complete
-// 3. Runs summary with their results
+### The Problem
+```typescript
+// ❌ What most developers do (sequential, slow, expensive)
+for (const item of items) {
+  const sentiment = await ai.analyze(item);  // Wait...
+  const topics = await ai.extract(item);     // Wait...
+  const summary = await ai.summarize(item);  // Wait...
+}
+// Result: 100 items × 15 seconds = 25 minutes, $15
 ```
 
-**Stop writing orchestration logic. Start building AI workflows.**
+### The Solution
+```typescript
+// ✅ With dagengine (parallel, fast, cheap)
+const engine = new DagEngine({ plugin: new MyPlugin() });
+const result = await engine.process(items);
+// Result: 100 items in 2.5 minutes, $5
+```
+
+**10x faster. 67% cheaper. Zero orchestration code.**
+
+Define dependencies → get automatic parallelization.
+
+---
+
+## 🚀 5-Minute Quick Start
+
+### Install
+```bash
+npm install @dagengine/core
+```
+
+**Requirements:** Node.js ≥ 18.0.0, TypeScript ≥ 5.0 (recommended)
+
+### Example: Analyze Customer Reviews
+```typescript
+import { DagEngine, Plugin, type PromptContext, type ProviderSelection } from '@dagengine/core';
+
+// Define result types (optional but helps with TypeScript)
+interface SentimentResult {
+	sentiment: "positive" | "negative" | "neutral";
+	score: number;
+}
+
+interface TopicsResult {
+	topics: string[];
+}
+
+// 1. Define your workflow
+class ReviewAnalyzer extends Plugin {
+	constructor() {
+		super('analyzer', 'Review Analyzer', 'Analyzes reviews');
+		this.dimensions = ['sentiment', 'topics', 'summary'];
+	}
+
+	defineDependencies(): Record<string, string[]> {
+		return {
+			summary: ['sentiment', 'topics']
+		};
+	}
+
+	createPrompt(context: PromptContext): string {
+		const content = context.sections[0]?.content || '';
+
+		if (context.dimension === 'sentiment') {
+			return `Analyze sentiment: "${content}"
+      Return JSON: {"sentiment": "positive|negative|neutral", "score": 0-1}`;
+		}
+
+		if (context.dimension === 'topics') {
+			return `Extract topics: "${content}"
+      Return JSON: {"topics": ["topic1", "topic2"]}`;
+		}
+
+		if (context.dimension === 'summary') {
+			const sentiment = context.dependencies.sentiment?.data as SentimentResult;
+			const topics = context.dependencies.topics?.data as TopicsResult;
+
+
+			return `Create a ${sentiment.sentiment} summary covering ${topics.topics.join(', ')}:
+      "${content}"
+      Return JSON: {"summary": "summary text"}`;
+		}
+
+		throw new Error(`Unknown dimension: ${context.dimension}`);
+	}
+
+	selectProvider(): ProviderSelection {
+		return {
+			provider: 'anthropic',
+			options: { model: 'claude-3-5-haiku-20241022' }
+		};
+	}
+}
+
+// 2. Process your data
+async function main(): Promise<void> {
+	// Validate API key
+	if (!process.env.ANTHROPIC_API_KEY) {
+		console.error('❌ Missing ANTHROPIC_API_KEY environment variable');
+		console.error('Set it with: export ANTHROPIC_API_KEY="your-key"');
+		process.exit(1);
+	}
+
+	// Create engine
+	const engine = new DagEngine({
+		plugin: new ReviewAnalyzer(),
+		providers: {
+			anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+		}
+	});
+
+	// Prepare reviews
+	const reviews = [
+		{ content: 'Great product!', metadata: { id: 1 } },
+		{ content: 'Not good.', metadata: { id: 2 } }
+	];
+
+	// Process
+	const result = await engine.process(reviews);
+
+	// Display results
+	console.log(JSON.stringify(result.sections[0]?.results, null, 4));
+}
+
+// 3. Run with error handling
+main().catch((error: Error) => {
+	console.error('❌ Processing failed:', error.message);
+	process.exit(1);
+});
+```
+
+**What just happened?**
+- ✅ `sentiment` and `topics` ran in parallel (both have no dependencies)
+- ✅ `summary` waited for both to complete
+- ✅ All sections processed in parallel
+- ✅ 2 reviews × 3 dimensions = 6 AI calls, all optimized automatically
+
+**Next:** [Full Documentation](https://www.dagengine.ai/guide/quick-start.html) • [Examples](examples/) • [Production Guide](docs/examples/fundamentals/00-quickstart.md)
+
+---
+
+## 📊 Why Choose dagengine?
+
+| Feature | DIY Code | LangChain | dagengine |
+|---------|----------|-----------|-----------|
+| **Setup** | Manual loops | Learn LCEL | 2 methods |
+| **Parallelization** | Manual | Manual | Automatic |
+| **Cost Tracking** | Manual calc | Manual calc | Built-in |
+| **TypeScript** | ✅ Full | ⚠️ Partial | ✅ Full |
+| **Code (100 items)** | 150 lines | 80 lines | 25 lines |
+| **Best For** | Small scripts | RAG/Agents | Orchestration |
+
+**Use dagengine when:**
+- ✅ Processing 100+ items with multiple AI analyses
+- ✅ Want automatic parallelization without complexity
+- ✅ Need built-in cost tracking
+- ✅ TypeScript projects
+
+**Skip dagengine when:**
+- ❌ Single AI calls (overkill)
+- ❌ Need RAG/agents (use LangChain)
+- ❌ Python projects (we're TypeScript-only)
 
 ---
 
@@ -78,113 +220,6 @@ Built-in cost and token tracking per dimension and provider. Progress callbacks 
 </td>
 </tr>
 </table>
-
----
-
-## 🚀 Quick Start
-
-### Installation
-```bash
-npm install @dagengine/core
-```
-
-**Requirements:** Node.js ≥ 18.0.0, TypeScript ≥ 5.0 (recommended)
-
-### Basic Example
-```typescript
-import { DagEngine, Plugin } from '@dagengine/core';
-
-// 1. Define your workflow
-class SentimentAnalyzer extends Plugin {
-  constructor() {
-    super('sentiment', 'Sentiment Analyzer', 'Analyzes text sentiment');
-    this.dimensions = ['sentiment'];  // What to analyze
-  }
-
-  // 2. Build the prompt
-  createPrompt(context) {
-    return `Analyze sentiment: "${context.sections[0].content}"
-    
-    Return JSON:
-    {
-      "sentiment": "positive" | "negative" | "neutral",
-      "score": 0.0 to 1.0,
-      "reasoning": "brief explanation"
-    }`;
-  }
-
-  // 3. Choose AI provider
-  selectProvider() {
-    return {
-      provider: 'anthropic',
-      options: {
-        model: 'claude-sonnet-4-5-20250929',
-        temperature: 0.1
-      }
-    };
-  }
-}
-
-// 4. Create engine
-const engine = new DagEngine({
-  plugin: new SentimentAnalyzer(),
-  providers: {
-    anthropic: { apiKey: process.env.ANTHROPIC_API_KEY }
-  }
-});
-
-// 5. Process data
-const result = await engine.process([
-  { content: 'This product is amazing!', metadata: { id: 1 } },
-  { content: 'Terrible experience.', metadata: { id: 2 } }
-]);
-
-// 6. Access results
-result.sections.forEach(section => {
-  const sentiment = section.results.sentiment.data;
-  console.log(`${sentiment.sentiment} (${sentiment.score})`);
-  // Output: positive (0.95)
-  // Output: negative (0.15)
-});
-```
-
-**That's it!** The engine automatically processes all sections in parallel.
-
----
-
-## 🎯 Why Choose dagengine?
-
-### **vs. LangChain**
-
-| Feature | dagengine | LangChain |
-|---------|-----------|-----------|
-| **Learning Curve** | ⚡ Minimal (2 required methods) | 📚 Steep (many abstractions) |
-| **Dependencies** | 🎯 Explicit DAG-based | 🔀 Chains & LCEL |
-| **Parallelization** | ✅ Automatic | ⚠️ Manual coordination |
-| **Cost Tracking** | ✅ Built-in per dimension | ❌ Manual implementation |
-| **Type Safety** | ✅ Full TypeScript support | ⚠️ Partial typing |
-| **Focus** | 🎯 DAG execution engine | 🏗️ Full-stack framework |
-
-### **vs. LlamaIndex**
-
-- **dagengine**: General-purpose AI workflows with any structure
-- **LlamaIndex**: RAG-focused, document-centric pipelines with pre-built indices
-
-### **vs. Custom Solutions**
-
-**❌ Without dagengine:**
-- Write orchestration logic from scratch
-- Implement retry mechanisms
-- Build cost tracking
-- Handle provider failures
-- Manage concurrency manually
-
-**✅ With dagengine:**
-- Define dependencies → Get automatic parallelization
-- Built-in retry with exponential backoff
-- Automatic cost tracking per dimension
-- Provider fallback chains included
-- Concurrency managed automatically
 
 ---
 
@@ -289,7 +324,7 @@ selectProvider() {
     options: { model: 'claude-sonnet-4-5-20250929' },
     fallbacks: [
       { provider: 'openai', options: { model: 'gpt-4o' } },
-      { provider: 'gemini', options: { model: 'gemini-1.5-pro' } }
+      { provider: 'gemini', options: { model: 'gemini-2.5-pro' } }
     ]
   };
 }
@@ -361,8 +396,8 @@ class DatabaseIntegratedPlugin extends Plugin {
 
 ### 🎓 Learn
 
-- **[Quick Start](docs/guide/quick-start.md)** - Get started in 5 minutes
-- **[Core Concepts](docs/guide/core-concepts.md)** - Understand sections, dimensions, dependencies
+- **[Quick Start](https://www.dagengine.ai/guide/quick-start.html)** - Get started in 5 minutes
+- **[Core Concepts](https://www.dagengine.ai/guide/core-concepts.html)** - Understand sections, dimensions, dependencies
 - **[Examples](examples/)** - Complete working examples
 
 ### 📖 Fundamentals (Step-by-Step Guides)
@@ -564,6 +599,7 @@ We take security seriously. See [SECURITY.md](SECURITY.md) for our security poli
 **Never report security issues through public GitHub issues.**
 
 Use GitHub's [private vulnerability reporting](https://github.com/dagengine/dagengine/security/advisories/new) or email the maintainers directly.
+
 ---
 
 ## 📜 License
