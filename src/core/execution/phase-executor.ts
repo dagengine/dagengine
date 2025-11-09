@@ -77,7 +77,10 @@ export class PhaseExecutor {
 
 		this.graphManager = new DependencyGraphManager(plugin);
 		this.dependencyResolver = new DependencyResolver(plugin);
-		this.transformationManager = new TransformationManager(plugin);
+		this.transformationManager = new TransformationManager(
+			plugin,
+			this.dependencyResolver,
+		);
 
 		if (this.config.pricing) {
 			this.costCalculator = new CostCalculator(this.config.pricing);
@@ -268,6 +271,7 @@ export class PhaseExecutor {
 				state,
 				this.hookExecutor!,
 				options,
+				dependencyGraph,
 			);
 
 			// If transformation changed sections, update state and progress
