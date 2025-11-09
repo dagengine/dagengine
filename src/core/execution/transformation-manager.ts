@@ -15,6 +15,7 @@ import type {
 } from "../../types.js";
 import type { HookExecutor } from "../lifecycle/hook-executor.js";
 import type { ProcessState } from "../shared/types.js";
+import type { DependencyResolver } from "./dependency-resolver.js";
 
 /**
  * Manages transformation of sections after global dimension execution
@@ -24,7 +25,10 @@ import type { ProcessState } from "../shared/types.js";
  * - New hook-based transformSections approach
  */
 export class TransformationManager {
-	constructor(private readonly plugin: Plugin) {}
+	constructor(
+		private readonly plugin: Plugin,
+		private readonly dependencyResolver: DependencyResolver,
+	) {}
 
 	/**
 	 * Applies transformation for a global dimension result
@@ -45,6 +49,7 @@ export class TransformationManager {
 		state: ProcessState,
 		hookExecutor: HookExecutor,
 		options: ProcessOptions,
+		dependencyGraph: Record<string, string[]>,
 	): Promise<SectionData[]> {
 		if (!result) {
 			return state.sections;
@@ -69,6 +74,7 @@ export class TransformationManager {
 			result,
 			state,
 			hookExecutor,
+			dependencyGraph,
 		);
 
 		if (hookTransformed) {
@@ -127,14 +133,24 @@ export class TransformationManager {
 		result: DimensionResult,
 		state: ProcessState,
 		hookExecutor: HookExecutor,
+		dependencyGraph: Record<string, string[]>,
 	): Promise<SectionData[] | null> {
+		const dependencies =
+			await this.dependencyResolver.resolveGlobalDependencies(
+				dimension,
+				state.globalResults,
+				state.sectionResultsMap,
+				state.sections.length,
+				dependencyGraph,
+			);
+
 		const transformed = await hookExecutor.transformSections({
 			processId: state.id,
 			timestamp: Date.now(),
 			dimension,
 			isGlobal: true,
 			sections: state.sections,
-			dependencies: {},
+			dependencies,
 			globalResults: state.globalResults,
 			request: { input: "", options: {} },
 			provider: result.metadata?.provider ?? "unknown",

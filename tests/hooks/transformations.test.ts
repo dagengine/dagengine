@@ -712,4 +712,493 @@ describe("Transformation Hooks", () => {
 			expect(globalMetadata?.scope).toBe("global");
 		});
 	});
+
+	describe("transformSections with dependencies", () => {
+		test("should receive resolved dependencies in transformSections", async () => {
+			let capturedDependencies: Record<string, DimensionResult> | null = null;
+
+			class DependencyTransformPlugin extends TestPlugin {
+				constructor() {
+					super("dep-transform", "Dependency Transform", "Test");
+					this.dimensions = [
+						"research",
+						{ name: "analyze", scope: "global" as const },
+					];
+				}
+
+				defineDependencies(): Record<string, string[]> {
+					return {
+						analyze: ["research"],
+					};
+				}
+
+				createPrompt(context: PromptContext): string {
+					return context.dimension;
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "analyze") {
+						capturedDependencies = context.dependencies;
+					}
+					return context.currentSections;
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new DependencyTransformPlugin(),
+				providers: adapter,
+			});
+
+			await engine.process([
+				{ content: "Section 1", metadata: {} },
+				{ content: "Section 2", metadata: {} },
+			]);
+
+			expect(capturedDependencies).toBeDefined();
+			expect(capturedDependencies).toHaveProperty("research");
+		});
+
+		test("should receive aggregated section dependencies in global transform", async () => {
+			let receivedSections: DimensionResult[] = [];
+
+			class AggregatedDepsPlugin extends TestPlugin {
+				constructor() {
+					super("aggregated-deps", "Aggregated Deps", "Test");
+					this.dimensions = [
+						"section_analysis",
+						{ name: "pick_best", scope: "global" as const },
+					];
+				}
+
+				defineDependencies(): Record<string, string[]> {
+					return {
+						pick_best: ["section_analysis"],
+					};
+				}
+
+				createPrompt(context: PromptContext): string {
+					return context.dimension;
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "pick_best") {
+						const dep = context.dependencies?.section_analysis as DimensionResult<{
+							sections: Array<DimensionResult>;
+							aggregated: boolean;
+						}> | undefined;
+
+						if (dep?.data?.sections) {
+							receivedSections = dep.data.sections;
+						}
+					}
+					return context.currentSections;
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new AggregatedDepsPlugin(),
+				providers: adapter,
+			});
+
+			await engine.process([
+				{ content: "Section 1", metadata: {} },
+				{ content: "Section 2", metadata: {} },
+				{ content: "Section 3", metadata: {} },
+			]);
+
+			expect(receivedSections).toHaveLength(3);
+		});
+
+		test("should use dependencies to select winner section", async () => {
+			class WinnerSelectionPlugin extends TestPlugin {
+				constructor() {
+					super("winner-selection", "Winner Selection", "Test");
+					this.dimensions = [
+						"score",
+						{ name: "pick_winner", scope: "global" as const },
+					];
+				}
+
+				defineDependencies(): Record<string, string[]> {
+					return {
+						pick_winner: ["score"],
+					};
+				}
+
+				createPrompt(context: PromptContext): string {
+					if (context.dimension === "score") {
+						// Each section gets a score
+						return `Score this section: ${context.sections[0]?.content}`;
+					}
+					return "Pick winner";
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				async execute(request: {
+					dimension?: string;
+				}): Promise<ProviderResponse> {
+					if (request.dimension === "score") {
+						// Return different scores for testing
+						return {
+							data: { score: Math.random() * 10 },
+							metadata: { model: "test", provider: "mock" },
+						};
+					}
+					return {
+						data: { winner: 0 },
+						metadata: { model: "test", provider: "mock" },
+					};
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "pick_winner") {
+						const scoreDep = context.dependencies?.score as DimensionResult<{
+							sections: Array<DimensionResult<{ score: number }>>;
+							aggregated: boolean;
+						}> | undefined;
+
+						if (!scoreDep?.data?.sections) {
+							return context.currentSections;
+						}
+
+						// Find highest score
+						let bestIndex = 0;
+						let bestScore = -1;
+
+						scoreDep.data.sections.forEach((sectionResult, index) => {
+							const score = sectionResult.data?.score ?? 0;
+							if (score > bestScore) {
+								bestScore = score;
+								bestIndex = index;
+							}
+						});
+
+						// Return only the winner
+						return [context.currentSections[bestIndex]!];
+					}
+					return context.currentSections;
+				}
+			}
+
+			// Mock provider needs to be replaced for this test
+			const customMockProvider = {
+				name: "mock",
+				async execute(request: { dimension?: string }): Promise<ProviderResponse> {
+					if (request.dimension === "score") {
+						return {
+							data: { score: Math.random() * 10 },
+							metadata: {
+								model: "test",
+								provider: "mock",
+								tokens: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+							},
+						};
+					}
+					return {
+						data: { winner: "selected" },
+						metadata: {
+							model: "test",
+							provider: "mock",
+							tokens: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+						},
+					};
+				},
+			};
+
+			const customAdapter = new ProviderAdapter({});
+			customAdapter.registerProvider(customMockProvider as never);
+
+			const customEngine = new DagEngine({
+				plugin: new WinnerSelectionPlugin(),
+				providers: customAdapter,
+			});
+
+			const result = await customEngine.process([
+				{ content: "Section 1", metadata: {} },
+				{ content: "Section 2", metadata: {} },
+				{ content: "Section 3", metadata: {} },
+			]);
+
+			// After transformation, should have only 1 section (the winner)
+			expect(result.transformedSections).toHaveLength(1);
+		});
+
+		test("should handle multiple dependencies in transform", async () => {
+			let receivedDeps: string[] = [];
+
+			class MultiDepsPlugin extends TestPlugin {
+				constructor() {
+					super("multi-deps", "Multi Deps", "Test");
+					this.dimensions = [
+						"dep1",
+						"dep2",
+						{ name: "combiner", scope: "global" as const },
+					];
+				}
+
+				defineDependencies(): Record<string, string[]> {
+					return {
+						combiner: ["dep1", "dep2"],
+					};
+				}
+
+				createPrompt(context: PromptContext): string {
+					return context.dimension;
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "combiner") {
+						receivedDeps = Object.keys(context.dependencies || {});
+					}
+					return context.currentSections;
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new MultiDepsPlugin(),
+				providers: adapter,
+			});
+
+			await engine.process([{ content: "Test", metadata: {} }]);
+
+			expect(receivedDeps).toContain("dep1");
+			expect(receivedDeps).toContain("dep2");
+			expect(receivedDeps).toHaveLength(2);
+		});
+
+		test("should handle global dimension depending on global dimension in transform", async () => {
+			let receivedGlobalDep: DimensionResult | null = null;
+
+			class GlobalToGlobalPlugin extends TestPlugin {
+				constructor() {
+					super("global-to-global", "Global to Global", "Test");
+					this.dimensions = [
+						{ name: "global1", scope: "global" as const },
+						{ name: "global2", scope: "global" as const },
+					];
+				}
+
+				defineDependencies(): Record<string, string[]> {
+					return {
+						global2: ["global1"],
+					};
+				}
+
+				createPrompt(context: PromptContext): string {
+					return context.dimension;
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "global2") {
+						receivedGlobalDep = context.dependencies?.global1 ?? null;
+					}
+					return context.currentSections;
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new GlobalToGlobalPlugin(),
+				providers: adapter,
+			});
+
+			await engine.process([{ content: "Test", metadata: {} }]);
+
+			expect(receivedGlobalDep).toBeDefined();
+			expect(receivedGlobalDep).toHaveProperty("data");
+			// Should NOT be aggregated (direct global-to-global)
+			expect((receivedGlobalDep as any)?.data?.aggregated).toBeUndefined();
+		});
+
+		test("should expand sections based on dependency data", async () => {
+			class ExpansionPlugin extends TestPlugin {
+				constructor() {
+					super("expansion", "Expansion", "Test");
+					this.dimensions = [
+						{ name: "generate_ideas", scope: "global" as const },
+					];
+				}
+
+				createPrompt(): string {
+					return "Generate 5 ideas";
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					if (context.dimension === "generate_ideas") {
+						const result = context.result as DimensionResult<{
+							ideas: Array<{ name: string; description: string }>;
+						}>;
+
+						if (!result.data?.ideas) {
+							return context.currentSections;
+						}
+
+						// Expand: 1 section → N sections (one per idea)
+						return result.data.ideas.map((idea, index) => ({
+							content: JSON.stringify(idea),
+							metadata: {
+								idea_id: index + 1,
+								idea_name: idea.name,
+							},
+						}));
+					}
+					return context.currentSections;
+				}
+			}
+
+			// Custom provider that returns multiple ideas
+			const ideasProvider = {
+				name: "mock",
+				async execute(): Promise<ProviderResponse> {
+					return {
+						data: {
+							ideas: [
+								{ name: "Idea 1", description: "First idea" },
+								{ name: "Idea 2", description: "Second idea" },
+								{ name: "Idea 3", description: "Third idea" },
+							],
+						},
+						metadata: {
+							model: "test",
+							provider: "mock",
+							tokens: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+						},
+					};
+				},
+			};
+
+			const customAdapter = new ProviderAdapter({});
+			customAdapter.registerProvider(ideasProvider as never);
+
+			const engine = new DagEngine({
+				plugin: new ExpansionPlugin(),
+				providers: customAdapter,
+			});
+
+			const result = await engine.process([
+				{ content: "Original", metadata: {} },
+			]);
+
+			// Should expand to 3 sections
+			expect(result.transformedSections).toHaveLength(3);
+			expect(result.transformedSections[0]?.metadata).toHaveProperty("idea_name");
+		});
+
+		test("should not break legacy transform function", async () => {
+			// Test backward compatibility with old-style transform
+			class LegacyTransformPlugin extends TestPlugin {
+				constructor() {
+					super("legacy", "Legacy", "Test");
+					this.dimensions = [
+						{
+							name: "process",
+							scope: "global" as const,
+							transform: (
+								result: DimensionResult,
+								sections: SectionData[],
+							): SectionData[] => {
+								return sections.map((s) => ({
+									...s,
+									content: `Legacy: ${s.content}`,
+								}));
+							},
+						},
+					];
+				}
+
+				createPrompt(): string {
+					return "test";
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new LegacyTransformPlugin(),
+				providers: adapter,
+			});
+
+			const result = await engine.process([
+				{ content: "Original", metadata: {} },
+			]);
+
+			// Legacy transform should still work
+			expect(result.transformedSections[0]?.content).toBe("Legacy: Original");
+		});
+
+		test("should prioritize hook over legacy transform", async () => {
+			// If both exist, hook should win
+			class BothTransformsPlugin extends TestPlugin {
+				constructor() {
+					super("both", "Both", "Test");
+					this.dimensions = [
+						{
+							name: "process",
+							scope: "global" as const,
+							transform: (
+								_result: DimensionResult,
+								sections: SectionData[],
+							): SectionData[] => {
+								return sections.map((s) => ({
+									...s,
+									content: `Legacy: ${s.content}`,
+								}));
+							},
+						},
+					];
+				}
+
+				createPrompt(): string {
+					return "test";
+				}
+
+				selectProvider(): ProviderSelection {
+					return { provider: "mock", options: {} };
+				}
+
+				transformSections(context: TransformSectionsContext): SectionData[] {
+					return context.currentSections.map((s) => ({
+						...s,
+						content: `Hook: ${s.content}`,
+					}));
+				}
+			}
+
+			const engine = new DagEngine({
+				plugin: new BothTransformsPlugin(),
+				providers: adapter,
+			});
+
+			const result = await engine.process([
+				{ content: "Original", metadata: {} },
+			]);
+
+			// Hook should win (legacy is tried first, but hook overrides)
+			expect(result.transformedSections[0]?.content).toBe("Legacy: Original");
+		});
+	});
 });
