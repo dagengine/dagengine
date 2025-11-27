@@ -309,14 +309,16 @@ export class PhaseExecutor {
 		dependencyGraph: Record<string, string[]>,
 		options: ProcessOptions,
 	): Promise<void> {
-		for (const dimension of dimensions) {
-			await this.dimensionExecutor!.processSectionDimension(
-				dimension,
-				state,
-				dependencyGraph,
-				options,
-			);
-		}
+		await Promise.all(
+			dimensions.map((dimension) =>
+				this.dimensionExecutor!.processSectionDimension(
+					dimension,
+					state,
+					dependencyGraph,
+					options,
+				),
+			),
+		);
 	}
 
 	// ============================================================================
