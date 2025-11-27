@@ -316,8 +316,8 @@ export class PhaseExecutor {
 					state,
 					dependencyGraph,
 					options,
-				)
-			)
+				),
+			),
 		);
 	}
 
