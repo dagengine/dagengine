@@ -438,9 +438,7 @@ export class HookExecutor {
 
 	private getContextString(
 		context:
-			| DimensionContext
-			| SectionDimensionContext
-			| DimensionResultContext,
+			DimensionContext | SectionDimensionContext | DimensionResultContext,
 	): string {
 		if ("sectionIndex" in context) {
 			return `for ${context.dimension} (section ${context.sectionIndex})`;

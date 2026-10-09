@@ -51,12 +51,10 @@ export class PortkeyAdapter {
 	 */
 	static anthropicToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map(
-					(text): OpenAIMessage => ({
-						role: "user" as const,
-						content: text,
-					}),
-				)
+			? request.input.map((text): OpenAIMessage => ({
+					role: "user" as const,
+					content: text,
+				}))
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
@@ -76,12 +74,10 @@ export class PortkeyAdapter {
 	 */
 	static openaiToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map(
-					(text): OpenAIMessage => ({
-						role: "user" as const,
-						content: text,
-					}),
-				)
+			? request.input.map((text): OpenAIMessage => ({
+					role: "user" as const,
+					content: text,
+				}))
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
@@ -98,12 +94,10 @@ export class PortkeyAdapter {
 	 */
 	static geminiToOpenAI(request: ProviderRequest): OpenAIRequest {
 		const messages = Array.isArray(request.input)
-			? request.input.map(
-					(text): OpenAIMessage => ({
-						role: "user" as const,
-						content: text,
-					}),
-				)
+			? request.input.map((text): OpenAIMessage => ({
+					role: "user" as const,
+					content: text,
+				}))
 			: [{ role: "user" as const, content: request.input }];
 
 		return {
@@ -245,8 +239,7 @@ export class PortkeyAdapter {
 
 		// Must have at least one choice with message
 		const firstChoice = response.choices[0] as
-			| Record<string, unknown>
-			| undefined;
+			Record<string, unknown> | undefined;
 		if (!firstChoice || typeof firstChoice !== "object") {
 			return false;
 		}

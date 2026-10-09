@@ -93,9 +93,7 @@ export interface SectionResultPair {
  * Result from skip check hooks
  */
 export type SkipCheckResult =
-	| boolean
-	| { skip: true; result: DimensionResult }
-	| { skip: false };
+	boolean | { skip: true; result: DimensionResult } | { skip: false };
 
 // ============================================================================
 // PROVIDER ATTEMPT TRACKING
