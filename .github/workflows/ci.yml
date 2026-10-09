@@ -306,7 +306,7 @@ jobs:
       - name: Validate dependency licenses
         run: |
           npx license-checker --summary --production \
-            --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;WTFPL" \
+            --onlyAllow="MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;WTFPL;BlueOak-1.0.0" \
             --excludePackages "some-exception@1.0.0"
 
       - name: Check for outdated dependencies
@@ -406,7 +406,7 @@ jobs:
           persist-credentials: false
 
       - name: Run OSSF Scorecard
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
